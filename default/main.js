@@ -1,9 +1,11 @@
-const roleRenew = require('role.renew');
+const taskRenew = require('task.renew');
 const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
+const roleUpgraderLink = require('role.upgrader.link');
 const roleBuilder = require('role.builder');
 const spawning_ = require('spawning');
 const towers = require('towers');
+const links = require('links');
 
 module.exports.loop = function () {
 
@@ -16,25 +18,26 @@ module.exports.loop = function () {
 
     spawning_.handle_spawning();
     towers();
+    links();
 
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
         const role = creep.memory.role;
 
-        if (creep.ticksToLive < 100){
-            creep.memory.renewing = true;
-        }
+        // if (creep.ticksToLive < 100){
+        //     creep.memory.task = 'renewing';
+        // }
 
-        if (creep.memory.renewing) {
-            roleRenew.run(creep);
+        if (creep.memory.task === 'renewing') {
+            taskRenew.run(creep);
         } else {
             if (role === 'harvester') {
                 roleHarvester.run(creep);
-            }
-            if (role === 'upgrader') {
+            } else if (role === 'upgrader') {
                 roleUpgrader.run(creep);
-            }
-            if (role === 'builder') {
+            } else if (role === 'upgrader_link') {
+                roleUpgraderLink.run(creep);
+            } else if (role === 'builder') {
                 roleBuilder.run(creep);
             }
         }
