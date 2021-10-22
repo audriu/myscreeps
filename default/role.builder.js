@@ -1,18 +1,13 @@
+const tasks = require('tasks');
+
 module.exports = {
     run: function (creep) {
         if (creep.memory.harvesting) {
-            creep.say('🚧⛏️');
-            if (creep.store.getFreeCapacity() > 0) {
-                const sources = creep.room.find(FIND_SOURCES);
-                if (creep.harvest(sources[1]) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(sources[1], {visualizePathStyle: {stroke: '#ffaa00'}});
-                }
-            } else {
-                creep.memory.harvesting = false;
-            }
+            const source = creep.room.find(FIND_SOURCES)[1];
+            tasks.harvest(creep, source);
         } else {
             const repair_targets = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.hits < (object.hitsMax * 0.8)
+                filter: object => object.hits < (object.hitsMax * 0.5)
             });
 
             repair_targets.sort((a, b) => a.hits - b.hits);
@@ -28,22 +23,19 @@ module.exports = {
                 if (targets.length) {
                     creep.say('🚧🔨');
                     if (creep.build(targets[0]) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ff0000'}});
+                        creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' } });
                     }
                 } else {
                     creep.say('🚧🔼');
                     const link2 = Game.getObjectById('6159c5531306ec299858b96e');
                     if (creep.transfer(link2, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(link2, {visualizePathStyle: {stroke: '#ffffff'}});
+                        creep.moveTo(link2, { visualizePathStyle: { stroke: '#ffffff' } });
                     }
                     //if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                     //    creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#00ff00'}});
                     //}
                 }
             }
-
-            if (creep.store[RESOURCE_ENERGY] === 0)
-                creep.memory.harvesting = true;
         }
     }
 };

@@ -1,4 +1,3 @@
-const taskRenew = require('task.renew');
 const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
 const roleUpgraderLink = require('role.upgrader.link');
@@ -40,6 +39,10 @@ module.exports.loop = function () {
             } else if (role === 'builder') {
                 roleBuilder.run(creep);
             }
+        }
+
+        if (creep.store[RESOURCE_ENERGY] === 0) {
+            creep.memory.harvesting = true;
         }
     }
 }

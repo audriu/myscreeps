@@ -1,15 +1,10 @@
+const tasks = require('tasks');
+
 module.exports = {
     run: function (creep) {
         if (creep.memory.harvesting) {
-            creep.say('◊⛏');
-            if (creep.store.getFreeCapacity() > 0) {
-                const sources = creep.room.find(FIND_SOURCES);
-                if (creep.harvest(sources[0]) === ERR_NOT_IN_RANGE || creep.harvest(sources[0]) === -6) {
-                    creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffffff'}});
-                }
-            } else {
-                creep.memory.harvesting = false;
-            }
+            const source = creep.room.find(FIND_SOURCES)[0];
+            tasks.harvest(creep, source);
         } else {
             creep.say('◊↓');
             let targets = creep.room.find(FIND_STRUCTURES, {
@@ -23,13 +18,13 @@ module.exports = {
             targets = _.sortBy(targets, s => creep.pos.getRangeTo(s))
             if (targets.length > 0) {
                 if (creep.transfer(targets[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                    creep.moveTo(targets[0], {visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });
                 }
 
-            // } else if (Game.spawns['Spawn1'].energy < Game.spawns['Spawn1'].energyCapacity) {
-            //     if (creep.transfer(Game.spawns['Spawn1'], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-            //         creep.moveTo(Game.spawns['Spawn1'], {visualizePathStyle: {stroke: '#ffffff'}});
-            //     }
+                // } else if (Game.spawns['Spawn1'].energy < Game.spawns['Spawn1'].energyCapacity) {
+                //     if (creep.transfer(Game.spawns['Spawn1'], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                //         creep.moveTo(Game.spawns['Spawn1'], {visualizePathStyle: {stroke: '#ffffff'}});
+                //     }
             } else {
                 creep.say('◊c');
                 let containers = creep.room.find(FIND_STRUCTURES, {
@@ -41,22 +36,19 @@ module.exports = {
                 containers = _.sortBy(containers, s => creep.pos.getRangeTo(s))
                 if (containers.length > 0) {
                     if (creep.transfer(containers[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(containers[0], {visualizePathStyle: {stroke: '#ffffff'}});
+                        creep.moveTo(containers[0], { visualizePathStyle: { stroke: '#ffffff' } });
                     }
 
                 } else {
                     const link1 = Game.getObjectById('6159cdb6fac8206e34d44f4e');
                     if (creep.transfer(link1, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(link1, {visualizePathStyle: {stroke: '#ffffff'}});
+                        creep.moveTo(link1, { visualizePathStyle: { stroke: '#ffffff' } });
                     } else {
                         creep.say('◊!');
                         creep.memory.harvesting = true;
                     }
                 }
             }
-
-            if (creep.store[RESOURCE_ENERGY] === 0)
-                creep.memory.harvesting = true;
         }
     }
 };
