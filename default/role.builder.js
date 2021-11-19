@@ -27,9 +27,9 @@ module.exports = {
                     }
                 } else {
                     creep.say('🚧🔼');
-                    const link2 = Game.getObjectById('6159c5531306ec299858b96e');
-                    if (creep.transfer(link2, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(link2, { visualizePathStyle: { stroke: '#ffffff' } });
+                    const output = Game.getObjectById('6194f164d6107d276604ad76');
+                    if (output && creep.transfer(output, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                        creep.moveTo(output, { visualizePathStyle: { stroke: '#ffffff' } });
                     }
                     //if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                     //    creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#00ff00'}});

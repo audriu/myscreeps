@@ -1,4 +1,8 @@
 module.exports = {
+    old: function (creep){
+        const tower2 = Game.getObjectById('616895f8d1a7a33723d8603c');
+        creep.moveTo(tower2, { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1} });
+    },
     harvest: function (creep, source) {
         creep.say('⛏');
 
@@ -13,7 +17,7 @@ module.exports = {
             creep.memory.harvesting = false;
         }
     },
-    run: function (creep) {
+    renew: function (creep) {
         creep.say('^');
         const renewingStatus = Game.spawns['Spawn1'].renewCreep(creep);
 
@@ -35,6 +39,5 @@ module.exports = {
             default:
                 console.log("renew status: ", renewingStatus);
         }
-
     }
 };
