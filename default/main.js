@@ -17,12 +17,9 @@ module.exports.loop = function () {
         }
     }
 
-    //testlll
     const rooms = ['W34S42', 'W33S42'];
-    for (room in rooms) {
-        spawning_.handle_spawning(room);
-        towers(room);
-    }
+    rooms.forEach(spawning_.handle_spawning);
+    rooms.forEach(towers);
 
     links();
 

@@ -12,15 +12,43 @@ const body_plan_worker = [
 
 const body_cost = 800;
 const number_harvesters = 3;
-const number_builders = 5;
+const number_builders = 3;
 const number_upgraders = 1;
 const number_upgraders_link = 0;
 const number_colonists = 0;
 
+const room_configs = {
+    'W34S42': {
+        default_spawn: 'Spawn1',
+        body_cost: 800,
+        contingent: {
+            'harvester': 3,
+            'builder': 5,
+            'upgrader': 1,
+            'upgraders_link': 0,
+            'colonist': 0
+        }
+    },
+    'W33S42': {
+        default_spawn: 'Spawn1',
+        body_cost: 800,
+        contingent: {
+            'harvester': 3,
+            'builder': 5,
+            'upgrader': 1,
+            'upgraders_link': 0,
+            'colonist': 0
+        }
+    }
+}
+
 module.exports = {
     handle_spawning: function (room) {
-        const theSpawn = Game.spawns['Spawn1'];
+        console.log('handle_spawning' + room);
+        const config = room_configs[room];
+        const theSpawn = Game.spawns[config.default_spawn];
         const energy_available = theSpawn.room.energyAvailable;
+
         const builders = _.filter(Game.creeps, (creep) => creep.memory.role === 'builder');
         const upgraders = _.filter(Game.creeps, (creep) => creep.memory.role === 'upgrader');
         const link_upgraders = _.filter(Game.creeps, (creep) => creep.memory.role === 'upgrader_link');
