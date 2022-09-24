@@ -5,11 +5,12 @@ module.exports = {
         creep.moveTo(creep.pos.findClosestByRange(exit));
     },
     old: function (creep) {
-        const tower2 = Game.getObjectById('628f893839dd93c718005417');
+        const deathRoom = creep.room.findExitTo('W32S42');
         creep.say('💀');
-        creep.moveTo(tower2, { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1 } });
+        creep.moveTo(creep.pos.findClosestByRange(deathRoom), { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1 } });
     },
-    harvest: function (creep, source) {
+    harvest: function (creep, source_number) {
+        let source = creep.room.find(FIND_SOURCES)[source_number];
         if (!source) {
             source = creep.room.find(FIND_SOURCES)[0];
         }
