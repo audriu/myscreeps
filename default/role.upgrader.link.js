@@ -1,8 +1,8 @@
 module.exports = {
     run: function (creep) {
-        const link0 = Game.getObjectById('6159d9c9047f4407ad073350');
+        const link0 = Game.getObjectById('6252a81257a3be2c2cb4e65b');
         if (creep.memory.harvesting) {
-            //creep.say('ul⛏️');
+            creep.say('🖇⛏️');
             if (creep.store.getFreeCapacity() > 0) {
                 const withdrawRes = creep.withdraw(link0, RESOURCE_ENERGY);
                 if (withdrawRes === ERR_NOT_IN_RANGE) {
@@ -14,7 +14,7 @@ module.exports = {
                 creep.memory.harvesting = false;
             }
         } else {
-            //creep.say('ul🔼');
+            creep.say('🖇🔼');
             if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#3333ff' } });
             }

@@ -1,6 +1,6 @@
-Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Builder1', {memory: {role: 'builder'}});
-Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Harverster1', {memory: {role: 'harvester'}});
-Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Upgrader1', {memory: {role: 'upgrader'}});
+Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } });
+Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Harverster1', { memory: { role: 'harvester' } });
+Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Upgrader1', { memory: { role: 'upgrader' } });
 
 Game.spawns['Spawn1'].room.createConstructionSite(23, 22, STRUCTURE_TOWER);
 Game.spawns['Spawn1'].room.controller.activateSafeMode();

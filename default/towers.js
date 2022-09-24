@@ -1,4 +1,4 @@
-const spawnPos = Game.spawns['Spawn2'].pos;
+const spawnPos = Game.getObjectById('624341d6991a82c879180daf').pos
 
 function isThereEnemies() {
     return spawnPos.findClosestByRange(FIND_HOSTILE_CREEPS);
@@ -35,27 +35,23 @@ function heal(tower) {
 
 function repair(tower) {
     const closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-        filter: (structure) => structure.hits < structure.hitsMax
+        filter: (structure) => structure.hits < structure.hitsMax && structure.structureType != STRUCTURE_WALL
     });
     tower.repair(closestDamagedStructure);
 }
 
 module.exports = function () {
-    const tower0 = Game.getObjectById('614d7768103ba61e1f7610e1');
-    const tower1 = Game.getObjectById('6150a477e59fcfe262ea2247');
-    const tower2 = Game.getObjectById('616895f8d1a7a33723d8603c');
-    const tower3 = Game.getObjectById('6194f9091dd71fbc20d5ddfe');
-    const tower4 = Game.getObjectById('6194ffcc3bcc8bce6f612d40');
-    const tower5 = Game.getObjectById('6195062b378d8d1fdefd83d2');
-    const attackers = [tower0, tower1, tower2, tower3, tower4, tower5];
-    const healers = [tower0];
-    const repairers = [tower0];
 
-    if (isThereEnemies(tower1)) {
+    var towers = Game.rooms.W34S42.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
+    const attackers = towers;
+    const healers = [towers[0]];
+    const repairers = [towers[1]];
+
+    if (isThereEnemies()) {
         attackers.forEach(attack);
-    } else if (isThereWounded(tower1)) {
+    } else if (isThereWounded()) {
         healers.forEach(heal);
-    } else if (isThereDamages(tower1)) {
+    } else if (isThereDamages()) {
         repairers.forEach(repair);
     }
 }

@@ -1,9 +1,19 @@
 module.exports = {
-    old: function (creep){
-        const tower2 = Game.getObjectById('616895f8d1a7a33723d8603c');
-        creep.moveTo(tower2, { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1} });
+    goToYourRoom: function (creep) {
+        creep.say('moving out');
+        const exit = creep.room.findExitTo(creep.memory.targetRoom);
+        creep.moveTo(creep.pos.findClosestByRange(exit));
+    },
+    old: function (creep) {
+        const tower2 = Game.getObjectById('628f893839dd93c718005417');
+        creep.say('💀');
+        creep.moveTo(tower2, { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1 } });
     },
     harvest: function (creep, source) {
+        if (!source) {
+            source = creep.room.find(FIND_SOURCES)[0];
+        }
+
         creep.say('⛏');
 
         const harvestRes = creep.harvest(source);
@@ -18,7 +28,7 @@ module.exports = {
         }
     },
     renew: function (creep) {
-        creep.say('^');
+        creep.say('renewing');
         const renewingStatus = Game.spawns['Spawn1'].renewCreep(creep);
 
         switch (renewingStatus) {
@@ -39,5 +49,5 @@ module.exports = {
             default:
                 console.log("renew status: ", renewingStatus);
         }
-    }
+    },
 };

@@ -1,7 +1,7 @@
 module.exports = function () {
-    const link0 = Game.getObjectById('6159d9c9047f4407ad073350');
-    const link1 = Game.getObjectById('6159cdb6fac8206e34d44f4e');
-    const link2 = Game.getObjectById('6184f8898e77702d9ef72dc2');
+    const link0 = Game.getObjectById('6252a81257a3be2c2cb4e65b');
+    const link1 = Game.getObjectById('62529f7ba8265e7dbcf55a13');
+    const link2 = Game.getObjectById('6252b52bb5872f357e731d29');
 
     if (link1) {
         link1.transferEnergy(link0);

@@ -6,12 +6,12 @@ module.exports = {
             const source = creep.room.find(FIND_SOURCES)[0];
             tasks.harvest(creep, source);
         } else {
-            creep.say('◊↓');
+            creep.say('🌽↓');
             let targets = creep.room.find(FIND_STRUCTURES, {
                 filter: (structure) => {
                     return (
                         (structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
-                        //(structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
+                        (structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
                         (structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) >= 300));
                 }
             });
@@ -26,7 +26,7 @@ module.exports = {
                 //         creep.moveTo(Game.spawns['Spawn1'], {visualizePathStyle: {stroke: '#ffffff'}});
                 //     }
             } else {
-                creep.say('◊c');
+                creep.say('🌽c');
                 let containers = creep.room.find(FIND_STRUCTURES, {
                     filter: (structure) => {
                         return (
@@ -40,11 +40,11 @@ module.exports = {
                     }
 
                 } else {
-                    const link1 = Game.getObjectById('6159cdb6fac8206e34d44f4e');
+                    const link1 = Game.getObjectById('6252b52bb5872f357e731d29');
                     if (creep.transfer(link1, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                         creep.moveTo(link1, { visualizePathStyle: { stroke: '#ffffff' } });
                     } else {
-                        creep.say('◊!');
+                        creep.say('🌽!');
                         creep.memory.harvesting = true;
                     }
                 }

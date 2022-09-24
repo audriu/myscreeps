@@ -2,6 +2,7 @@ const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
 const roleUpgraderLink = require('role.upgrader.link');
 const roleBuilder = require('role.builder');
+const roleColonist = require('role.colonist');
 const spawning_ = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
@@ -16,16 +17,23 @@ module.exports.loop = function () {
         }
     }
 
-    spawning_.handle_spawning();
-    towers();
+    //testlll
+    const rooms = ['W34S42', 'W33S42'];
+    for (room in rooms) {
+        spawning_.handle_spawning(room);
+        towers(room);
+    }
+
     links();
 
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
         const role = creep.memory.role;
 
-        if (creep.memory.task === 'renewing') {
-            //tasks.renew(creep);
+        if (creep.memory.targetRoom && creep.room.name != creep.memory.targetRoom) {
+            tasks.goToYourRoom(creep);
+        } else if (creep.memory.task === 'renewing') {
+            tasks.renew(creep);
         } else {
             if (role === 'harvester') {
                 roleHarvester.run(creep);
@@ -35,6 +43,8 @@ module.exports.loop = function () {
                 roleUpgraderLink.run(creep);
             } else if (role === 'builder') {
                 roleBuilder.run(creep);
+            } else if (role === 'colonist') {
+                roleColonist.run(creep);
             } else if (role === 'old') {
                 tasks.old(creep);
             }
