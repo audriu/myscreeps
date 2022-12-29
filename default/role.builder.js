@@ -7,8 +7,8 @@ module.exports = {
             tasks.harvest(creep, source);
         } else {
             const repair_targets = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.hits < (object.hitsMax * 0.5)
-            });
+                filter: (structure) => structure.hits < (structure.hitsMax * 0.5) && structure.structureType != STRUCTURE_WALL
+            })
 
             repair_targets.sort((a, b) => a.hits - b.hits);
 
@@ -27,11 +27,12 @@ module.exports = {
                         creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' } });
                     }
                 } else {
-                    const link0 = Game.getObjectById('62529f7ba8265e7dbcf55a13');
-                    if (link0 && creep.transfer(link0, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.say('🚧🔼L"');
-                        creep.moveTo(link0, { visualizePathStyle: { stroke: '#ffffff' } });
-                    }
+                    creep.say('🚧🔼L"');
+                    //const link0 = Game.getObjectById('62529f7ba8265e7dbcf55a13');
+                    //if (link0 && creep.transfer(link0, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    //    creep.say('🚧🔼L"');
+                    //    creep.moveTo(link0, { visualizePathStyle: { stroke: '#ffffff' } });
+                    //}
                     // if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
                     //     creep.say('🚧🔼');
                     //     creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#00ff00'}});
