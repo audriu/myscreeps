@@ -39,14 +39,6 @@ module.exports = {
                         creep.moveTo(containers[0], { visualizePathStyle: { stroke: '#ffffff' } });
                     }
 
-                } else {
-                    const link1 = Game.getObjectById('6252b52bb5872f357e731d29');
-                    if (creep.transfer(link1, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
-                        creep.moveTo(link1, { visualizePathStyle: { stroke: '#ffffff' } });
-                    } else {
-                        creep.say('🌽!');
-                        creep.memory.harvesting = true;
-                    }
                 }
             }
         }

@@ -6,8 +6,7 @@ const room_configs = {
         contingent: {
             'harvester': 3,
             'builder': 1,
-            'upgrader': 1,
-            'upgraders_link': 0
+            'upgrader': 1
         }
     },
     'W33S42': {
@@ -17,63 +16,57 @@ const room_configs = {
         contingent: {
             'harvester': 2,
             'builder': 1,
-            'upgrader': 1,
-            'upgraders_link': 0
+            'upgrader': 1
         }
     },
     'W32S42': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn5',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
             'harvester': 1,
             'builder': 1,
-            'upgrader': 3,
-            'upgraders_link': 0
+            'upgrader': 3
         }
     },
     'W33S41': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn7',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
             'harvester': 1,
             'builder': 1,
-            'upgrader': 1,
-            'upgraders_link': 0
+            'upgrader': 1
         }
     },
     'W33S43': {
-        default_spawn: 'Spawn3',
+        default_spawn: 'Spawn9',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
             'harvester': 1,
             'builder': 1,
-            'upgrader': 1,
-            'upgraders_link': 0
+            'upgrader': 1
         }
     },
     'W32S43': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn8',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
             'harvester': 1,
             'builder': 1,
-            'upgrader': 1,
-            'upgraders_link': 0
+            'upgrader': 1
         }
     },
     'W32S41': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn6',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
             'harvester': 1,
             'builder': 1,
-            'upgrader': 3,
-            'upgraders_link': 0
+            'upgrader': 3
         }
     }
 }

@@ -1,13 +1,11 @@
 const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
-const roleUpgraderLink = require('role.upgrader.link');
 const roleBuilder = require('role.builder');
 const roleColonist = require('role.colonist');
 const roleFighter = require('role.fighter');
 const spawning_ = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
-const links = require('links');
 
 hi = function () {
     console.log("hi!!!")
@@ -30,7 +28,7 @@ module.exports.loop = function () {
 
     switch (diena) {
         case 1:
-            console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
+            //console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
             break;
         case 2:
 
@@ -42,8 +40,6 @@ module.exports.loop = function () {
     const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
     rooms.forEach(spawning_.handle_spawning);
     rooms.forEach(towers);
-
-    links();
 
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
@@ -57,8 +53,6 @@ module.exports.loop = function () {
             roleHarvester.run(creep);
         } else if (role === 'upgrader') {
             roleUpgrader.run(creep);
-        } else if (role === 'upgrader_link') {
-            roleUpgraderLink.run(creep);
         } else if (role === 'builder') {
             roleBuilder.run(creep);
         } else if (role === 'colonist' && role !== 'fighter') {
