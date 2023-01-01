@@ -1,8 +1,11 @@
+const defaultPriorities = ['HARVEST', 'BUILD', 'UNLOAD', 'MAINTAIN']
+
 const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 3,
             'builder': 1,
@@ -13,6 +16,7 @@ const room_configs = {
         default_spawn: 'Spawn4',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 2,
             'builder': 1,
@@ -23,6 +27,7 @@ const room_configs = {
         default_spawn: 'Spawn5',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -33,6 +38,7 @@ const room_configs = {
         default_spawn: 'Spawn7',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -43,6 +49,7 @@ const room_configs = {
         default_spawn: 'Spawn9',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -53,6 +60,7 @@ const room_configs = {
         default_spawn: 'Spawn8',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -63,6 +71,7 @@ const room_configs = {
         default_spawn: 'Spawn6',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,

@@ -1,5 +1,3 @@
-const spawnPos = Game.getObjectById('624341d6991a82c879180daf').pos
-
 function attack(tower) {
     const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (closestHostile)

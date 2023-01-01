@@ -58,8 +58,7 @@ module.exports = {
                 if (creep.transfer(containers[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                     creep.moveTo(containers[0], { visualizePathStyle: { stroke: '#ffffff' } });
                 }
-
-            }
+            } else return false //means nothing to do
         }
     },
     build: function (creep) {
@@ -70,7 +69,7 @@ module.exports = {
             if (creep.build(targets[0]) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' }});
             }
-        }
+        } else return false //means nothing to do
 
     }
 };

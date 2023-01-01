@@ -5,7 +5,9 @@ module.exports = {
         if (creep.memory.harvesting) {
             tasks.harvest(creep, 0)
         } else {
-            tasks.unload(creep)
+            if (!tasks.unload(creep)){
+                tasks.build(creep)
+            }
         }
     }
 }
