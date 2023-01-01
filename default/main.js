@@ -9,6 +9,15 @@ const tasks = require('tasks');
 const towers = require('towers');
 const links = require('links');
 
+hi = function () {
+    console.log("hi!!!")
+}
+
+module.exports = {
+    hi: hi
+}
+
+
 module.exports.loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
     Memory.diena = (diena > 6) ? 1 : diena + 1
@@ -52,7 +61,7 @@ module.exports.loop = function () {
             roleUpgraderLink.run(creep);
         } else if (role === 'builder') {
             roleBuilder.run(creep);
-        } else if (role === 'colonist') {
+        } else if (role === 'colonist' && role !== 'fighter') {
             roleColonist.run(creep);
         } else if (role === 'old') {
             tasks.old(creep);

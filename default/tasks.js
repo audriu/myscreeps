@@ -5,9 +5,8 @@ module.exports = {
         creep.moveTo(creep.pos.findClosestByRange(exit));
     },
     old: function (creep) {
-        const deathRoom = creep.room.findExitTo('W32S42');
         creep.say('💀');
-        creep.moveTo(creep.pos.findClosestByRange(deathRoom), { visualizePathStyle: { stroke: '#000000', strokeWidth: 1, opacity: 0.1 } });
+        creep.suicide();
     },
     harvest: function (creep, source_number) {
         let source = creep.room.find(FIND_SOURCES)[source_number];

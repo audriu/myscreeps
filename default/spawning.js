@@ -1,5 +1,3 @@
-const functions = require('functions');
-
 const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',
@@ -89,10 +87,10 @@ module.exports = {
         Object.entries(config.contingent).forEach(([role, count]) => {
             const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === room);
             if (creeps.length < count && !theSpawn.spawning && energy_available >= config.body_cost) {
-                const newName = role + Game.time;
+                const newName = role + "-" + room + "-" + Game.time;
                 const memory = { role: role, targetRoom: room };
                 console.log('Spawning new ' + newName + ' in ' + room);
-                theSpawn.spawnCreep(functions.shuffleArray(config.body_plan), newName, { memory: memory });
+                theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
             }
         });
 
