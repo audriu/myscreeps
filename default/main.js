@@ -15,6 +15,7 @@ module.exports = {
     hi: hi
 }
 
+const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
 
 module.exports.loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
@@ -30,15 +31,12 @@ module.exports.loop = function () {
         case 1:
             //console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
             break;
-        case 2:
-
+        case 6:
+            rooms.forEach(spawning_.handle_spawning);
             break;
         default:
-
     }
 
-    const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
-    rooms.forEach(spawning_.handle_spawning);
     rooms.forEach(towers);
 
     for (const name in Game.creeps) {
@@ -63,11 +61,20 @@ module.exports.loop = function () {
             roleFighter.run(creep);
         }
 
-
         if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
             creep.memory.harvesting = true;
         } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
-            creep.memory.role = 'old';
+            creep.suicide();
         }
     }
 }
+
+//Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } });
+//Game.spawns['Spawn1'].room.createConstructionSite(23, 22, STRUCTURE_TOWER);
+//Game.spawns['Spawn1'].room.controller.activateSafeMode();
+
+// for (const name in Game.rooms) {
+//     console.log('Room "' + name + '" has ' + Game.rooms[name].energyAvailable + ' energy');
+// }
+
+//OBSTACLE_OBJECT_TYPES: ["spawn", "creep", "powerCreep", "source", "mineral", "deposit", "controller", "constructedWall", "extension", "link", "storage", "tower", "observer", "powerSpawn", "powerBank", "lab", "terminal", "nuker", "factory", "invaderCore"]
