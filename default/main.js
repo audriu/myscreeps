@@ -15,6 +15,8 @@ module.exports = {
     hi: hi
 }
 
+//testing this
+
 const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
 
 module.exports.loop = function () {
