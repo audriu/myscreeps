@@ -23,7 +23,11 @@ function repair(tower) {
 }
 
 module.exports = function () {
-    const rooms = Memory.rooms;
+    Memory.rooms.forEach(room => {
+        console.log( "------"+ room);
+        console.log(Game.rooms.W34S42);
+        console.log(Game.rooms[room]);
+    });
 
     var towers1 = Game.rooms.W34S42.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
     var towers2 = Game.rooms.W33S42.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
