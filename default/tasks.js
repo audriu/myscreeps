@@ -99,9 +99,9 @@ work = function (creep) {
     } else {
         if (unload(creep))
             ; //do nothing
-        else if (build(creep))
-            ; //do nothing
-        else upgrade(creep)
+        //else if (build(creep))
+        //    ; //do nothing
+        //else upgrade(creep)
     }
 }
 
