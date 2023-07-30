@@ -115,7 +115,7 @@ turnOnMining = function (creep) {
     if (!creep.memory.harvesting) {
         creep.memory.harvesting = true;
         const numberOfSourcesOnDestinationRoom = Game.rooms[creep.memory.targetRoom].find(FIND_SOURCES).length;
-        creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+        creep.memory.preferedSource = _.random(numberOfSourcesOnDestinationRoom - 1);
     }
 }
 
