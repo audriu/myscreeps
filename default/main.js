@@ -1,8 +1,6 @@
 const roleHarvester = require('role.harvester');
 const roleUpgrader = require('role.upgrader');
 const roleBuilder = require('role.builder');
-const roleColonist = require('role.colonist');
-const roleFighter = require('role.fighter');
 const spawning = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
@@ -42,7 +40,7 @@ module.exports = {
             } else if (role === 'colonist' && role !== 'fighter') {
                 tasks.claim(creep);
             } else if (role === 'fighter') {
-                roleFighter.run(creep);
+                tasks.fight(creep);
             }
 
             if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {

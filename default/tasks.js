@@ -14,6 +14,15 @@ module.exports = {
             creep.signController(creep.room.controller, "")
         }
     },
+    fight: function (creep) {
+        creep.say('☠️', tru);
+        var enemies_b = creep.room.find(FIND_HOSTILE_STRUCTURES);
+        var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
+        enemies = [...enemies, ...enemies_b];
+        if (creep.attack(enemies[0]) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(enemies[0]);
+        }
+    },
     upgrade: function (creep) {
         creep.say('upgrading')
         if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
@@ -77,7 +86,7 @@ module.exports = {
             const targets = _.sortBy(construction_targets, s => creep.pos.getRangeTo(s))
             creep.say('🚧🔨');
             if (creep.build(targets[0]) === ERR_NOT_IN_RANGE) {
-                creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' }});
+                creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' } });
             }
         } else return false //means nothing to do
 
