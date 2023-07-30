@@ -8,26 +8,19 @@ const tasks = require('tasks');
 const towers = require('towers');
 const spawning = require('./spawning');
 
-hi = function () {
-    console.log("hi!!!")
-}
+let rooms
 
-module.exports = {
-    hi: hi
-}
-
-const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
-
-module.exports.loop = function () {
+loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
     Memory.diena = (diena > 6) ? 1 : diena + 1
 
     switch (diena) {
         case 1:
             console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
+            rooms = Object.keys(Game.rooms);
             break;
         case 2:
-            console.log('Antradienis - kolonistu rekonfiguracija');
+            console.log('Antradienis');
             break;
         case 6:
             rooms.forEach(spawning_.handle_spawning);
@@ -66,6 +59,16 @@ module.exports.loop = function () {
             creep.suicide();
         }
     }
+}
+
+hi = function () {
+    console.log("hi!!!")
+}
+
+module.exports = {
+    hi: hi,
+    loop: loop,
+    rooms: rooms
 }
 
 //Game.spawns['Spawn1'].spawnCreep([WORK, CARRY, MOVE], 'Builder1', { memory: { role: 'builder' } });
