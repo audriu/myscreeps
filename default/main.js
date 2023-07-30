@@ -6,7 +6,7 @@ const roleFighter = require('role.fighter');
 const spawning_ = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
-const behaving = require('./creeps/behaving.js');
+const behaving = require('behaving');
 
 module.exports = {
     loop: function () {
