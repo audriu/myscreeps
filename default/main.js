@@ -12,7 +12,6 @@ module.exports = {
     loop: function () {
         const diena = Memory.diena ? Memory.diena : 1
         Memory.diena = (diena > 6) ? 1 : diena + 1
-        console.log('Diena: ' + Memory.diena);
 
         switch (diena) {
             case 1:
@@ -20,6 +19,8 @@ module.exports = {
                 break;
             case 6:
                 Memory.rooms.forEach(spawning_.handle_spawning);
+                break;
+            case 7:
                 spawning_.delete_dead_creeps();
                 break;
             default:
