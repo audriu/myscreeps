@@ -120,7 +120,7 @@ turnOnMining = function (creep) {
         const numberOfSourcesOnDestinationRoom = Game.rooms[creep.targetRoom].find(FIND_SOURCES).length;
         creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
     } catch (error) {
-        console.error(error);
+        console.log(error);
     }
     
 }
