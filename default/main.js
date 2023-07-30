@@ -40,7 +40,7 @@ module.exports = {
                 creep.memory.harvesting = true;
                 //todo assign random source
             } else {
-                creep.suicide();
+                //creep.suicide();
             }
         }
     }
