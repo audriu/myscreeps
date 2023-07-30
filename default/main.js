@@ -26,7 +26,11 @@ module.exports = {
             const creep = Game.creeps[name];
             const role = creep.memory.role;
 
-            if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
+            if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
+                tasks.turnOnMining(creep);
+            } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
+                tasks.suicide(creep);
+            } else if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
                 tasks.goToYourRoom(creep);
             } else if (role === 'ant' || role === 'harvester' || role === 'upgrader' || role === 'builder') {
                 tasks.work(creep);
@@ -34,13 +38,6 @@ module.exports = {
                 tasks.claim(creep);
             } else if (role === 'fighter') {
                 tasks.fight(creep);
-            }
-
-            if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
-                creep.memory.harvesting = true;
-                //todo assign random source
-            } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
-                creep.suicide();
             }
         }
     }

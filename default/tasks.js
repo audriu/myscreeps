@@ -3,6 +3,7 @@ goToYourRoom = function (creep) {
     const exit = creep.room.findExitTo(creep.memory.targetRoom);
     creep.moveTo(creep.pos.findClosestByRange(exit));
 }
+
 claim = function (creep) {
     creep.say('claiming');
     const claimResult = creep.claimController(creep.room.controller)
@@ -13,6 +14,7 @@ claim = function (creep) {
         creep.signController(creep.room.controller, "")
     }
 }
+
 fight = function (creep) {
     creep.say('☠️', true);
     var enemies_b = creep.room.find(FIND_HOSTILE_STRUCTURES);
@@ -22,18 +24,16 @@ fight = function (creep) {
         creep.moveTo(enemies[0]);
     }
 }
+
 upgrade = function (creep) {
     creep.say('upgrading')
     if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
         creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#3333ff' } });
     }
 }
-harvest = function (creep, source_number) {
-    let source = creep.room.find(FIND_SOURCES)[source_number];
-    if (!source) {
-        source = creep.room.find(FIND_SOURCES)[0];
-    }
 
+harvest = function (creep) {
+    const source = creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0];
     creep.say('⛏');
 
     const harvestRes = creep.harvest(source);
@@ -47,6 +47,7 @@ harvest = function (creep, source_number) {
         creep.memory.harvesting = false;
     }
 }
+
 unload = function (creep) {
     creep.say('🌽↓');
     let targets = creep.room.find(FIND_STRUCTURES, {
@@ -79,6 +80,7 @@ unload = function (creep) {
         } else return false //means nothing to do
     }
 }
+
 build = function (creep) {
     const construction_targets = creep.room.find(FIND_CONSTRUCTION_SITES);
     if (construction_targets.length > 0) {
@@ -90,6 +92,7 @@ build = function (creep) {
     } else return false //means nothing to do
 
 }
+
 work = function (creep) {
     if (creep.memory.harvesting) {
         harvest(creep, 1)
@@ -102,6 +105,19 @@ work = function (creep) {
     }
 }
 
+suicide = function (creep) {
+    if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
+        creep.suicide();
+    }
+}
+
+turnOnMining = function (creep) {
+    creep.memory.harvesting = true;
+    const targetRoom = creep.memory.targetRoom;
+    const numberOfSourcesOnDestinationRoom = Game.rooms[creep.targetRoom].find(FIND_SOURCES).length;
+    creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+}
+
 module.exports = {
     goToYourRoom: goToYourRoom,
     claim: claim,
@@ -110,5 +126,7 @@ module.exports = {
     harvest: harvest,
     unload: unload,
     build: build,
-    work: work
+    work: work,
+    suicide: suicide,
+    turnOnMining: turnOnMining
 };
