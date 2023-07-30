@@ -33,8 +33,6 @@ module.exports = {
 
             if (creep.memory.harvesting && (creep.memory.targetRoom && creep.room.name != creep.memory.targetRoom)) {
                 tasks.goToYourRoom(creep);
-            } else if (creep.memory.task === 'renewing') {
-                tasks.renew(creep);
             } else if (role === 'harvester') {
                 roleHarvester.run(creep);
             } else if (role === 'upgrader') {
@@ -43,8 +41,6 @@ module.exports = {
                 roleBuilder.run(creep);
             } else if (role === 'colonist' && role !== 'fighter') {
                 roleColonist.run(creep);
-            } else if (role === 'old') {
-                tasks.old(creep);
             } else if (role === 'fighter') {
                 roleFighter.run(creep);
             }
