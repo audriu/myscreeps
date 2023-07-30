@@ -1,11 +1,8 @@
-const defaultPriorities = ['HARVEST', 'BUILD', 'UNLOAD', 'MAINTAIN']
-
 const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 3,
             'builder': 1,
@@ -16,7 +13,6 @@ const room_configs = {
         default_spawn: 'Spawn4',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 2,
             'builder': 1,
@@ -38,7 +34,6 @@ const room_configs = {
         default_spawn: 'Spawn7',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -49,7 +44,6 @@ const room_configs = {
         default_spawn: 'Spawn9',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -60,7 +54,6 @@ const room_configs = {
         default_spawn: 'Spawn8',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -71,7 +64,6 @@ const room_configs = {
         default_spawn: 'Spawn6',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
@@ -88,28 +80,25 @@ module.exports = {
             }
         }
     },
-    handle_spawning: function (room) {
-        const config = room_configs[room];
-        const theSpawn = Game.spawns[config.default_spawn];
-        const energy_available = theSpawn.room.energyAvailable;
+    handleSpawningForRooms: function () {
+        Memory.rooms.forEach(room => {
+            const config = room_configs[room];
+            const theSpawn = Game.spawns[config.default_spawn];
+            const energy_available = theSpawn.room.energyAvailable;
 
-        Object.entries(config.contingent).forEach(([role, count]) => {
-            const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === room);
-            if (creeps.length < count && !theSpawn.spawning && energy_available >= config.body_cost) {
-                const newName = role + "-" + room + "-" + Game.time;
-                const memory = { role: role, targetRoom: room };
-                console.log('Spawning new ' + newName + ' in ' + room);
-                theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
+            Object.entries(config.contingent).forEach(([role, count]) => {
+                const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === room);
+                if (creeps.length < count && !theSpawn.spawning && energy_available >= config.body_cost) {
+                    const newName = role + "-" + room + "-" + Game.time;
+                    const memory = { role: role, targetRoom: room };
+                    console.log('Spawning new ' + newName + ' in ' + room);
+                    theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
+                }
+            });
+
+            if (theSpawn.spawning) {
+                theSpawn.room.visual.text('🥚' + Game.creeps[theSpawn.spawning.name].memory.role, theSpawn.pos.x, theSpawn.pos.y);
             }
         });
-
-        if (theSpawn.spawning) {
-            const spawningCreep = Game.creeps[theSpawn.spawning.name];
-            theSpawn.room.visual.text(
-                '🛠️' + spawningCreep.memory.role,
-                theSpawn.pos.x,
-                theSpawn.pos.y,
-                { align: 'left', opacity: 0.8 });
-        }
     }
 };

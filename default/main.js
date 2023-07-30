@@ -17,7 +17,7 @@ module.exports = {
                 Memory.rooms = Object.keys(Game.rooms);
                 break;
             case 6:
-                Memory.rooms.forEach(spawning.handle_spawning);
+                spawning.handleSpawningForRooms();
                 break;
             case 7:
                 spawning.delete_dead_creeps();
