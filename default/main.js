@@ -20,7 +20,7 @@ const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S
 
 module.exports.loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
-    Memory.diena = (diena > 6) ? 1 : diena++
+    Memory.diena = (diena > 6) ? 1 : diena + 1
 
     switch (diena) {
         case 1:
