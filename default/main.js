@@ -3,10 +3,9 @@ const roleUpgrader = require('role.upgrader');
 const roleBuilder = require('role.builder');
 const roleColonist = require('role.colonist');
 const roleFighter = require('role.fighter');
-const spawning_ = require('spawning');
+const spawning = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
-const behaving = require('behaving');
 
 module.exports = {
     loop: function () {
@@ -18,10 +17,10 @@ module.exports = {
                 Memory.rooms = Object.keys(Game.rooms);
                 break;
             case 6:
-                Memory.rooms.forEach(spawning_.handle_spawning);
+                Memory.rooms.forEach(spawning.handle_spawning);
                 break;
             case 7:
-                spawning_.delete_dead_creeps();
+                spawning.delete_dead_creeps();
                 break;
             default:
         }
