@@ -1,3 +1,4 @@
+const bodyPlanAnt = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
 const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',

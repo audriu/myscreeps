@@ -33,11 +33,6 @@ upgrade = function (creep) {
 }
 
 harvest = function (creep) {
-    console.log("----0" + JSON.stringify(creep.memory))
-    console.log("----1" + creep.memory.preferedSource)
-    console.log("----2" + JSON.stringify(creep.room.find(FIND_SOURCES)))
-    console.log("----3" + creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0])
-
     const source = creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0];
     creep.say('⛏');
 
@@ -115,10 +110,11 @@ suicide = function (creep) {
 }
 
 turnOnMining = function (creep) {
-    creep.memory.harvesting = true;
-
-    const numberOfSourcesOnDestinationRoom = Game.rooms[creep.memory.targetRoom].find(FIND_SOURCES).length;
-    creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+    if (!creep.memory.harvesting) {
+        creep.memory.harvesting = true;
+        const numberOfSourcesOnDestinationRoom = Game.rooms[creep.memory.targetRoom].find(FIND_SOURCES).length;
+        creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+    }
 }
 
 module.exports = {
