@@ -81,6 +81,14 @@ const room_configs = {
 }
 
 module.exports = {
+    delete_dead_creeps: function () {
+        for (const name in Memory.creeps) {
+            if (!Game.creeps[name]) {
+                delete Memory.creeps[name];
+                console.log('Clearing non-existing creep memory:', name);
+            }
+        }
+    },
     handle_spawning: function (room) {
         const config = room_configs[room];
         const theSpawn = Game.spawns[config.default_spawn];

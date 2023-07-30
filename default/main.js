@@ -6,6 +6,7 @@ const roleFighter = require('role.fighter');
 const spawning_ = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
+const spawning = require('./spawning');
 
 hi = function () {
     console.log("hi!!!")
@@ -15,26 +16,22 @@ module.exports = {
     hi: hi
 }
 
-//testing this
-
 const rooms = ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
 
 module.exports.loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
-    Memory.diena = (diena > 6) ? 1 : diena + 1
-
-    for (const name in Memory.creeps) {
-        if (!Game.creeps[name]) {
-            delete Memory.creeps[name];
-        }
-    }
+    Memory.diena = (diena > 6) ? 1 : diena++
 
     switch (diena) {
         case 1:
-            //console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
+            console.log('Pirmadienis - kambariu rekonfiguracija' + JSON.stringify(Game.rooms));
+            break;
+        case 2:
+            console.log('Antradienis - kolonistu rekonfiguracija');
             break;
         case 6:
             rooms.forEach(spawning_.handle_spawning);
+            spawning_.delete_dead_creeps();
             break;
         default:
     }
