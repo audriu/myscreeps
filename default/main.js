@@ -31,7 +31,7 @@ module.exports = {
             const creep = Game.creeps[name];
             const role = creep.memory.role;
 
-            if (creep.memory.harvesting && (creep.memory.targetRoom && creep.room.name != creep.memory.targetRoom)) {
+            if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
                 tasks.goToYourRoom(creep);
             } else if (role === 'harvester') {
                 roleHarvester.run(creep);
@@ -40,7 +40,7 @@ module.exports = {
             } else if (role === 'builder') {
                 roleBuilder.run(creep);
             } else if (role === 'colonist' && role !== 'fighter') {
-                roleColonist.run(creep);
+                tasks.claim(creep);
             } else if (role === 'fighter') {
                 roleFighter.run(creep);
             }
@@ -53,3 +53,6 @@ module.exports = {
         }
     }
 }
+
+//Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W32S42'}});
+// bodyPlan: [CLAIM, MOVE], bodyPrice: 650

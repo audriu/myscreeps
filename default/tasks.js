@@ -4,6 +4,16 @@ module.exports = {
         const exit = creep.room.findExitTo(creep.memory.targetRoom);
         creep.moveTo(creep.pos.findClosestByRange(exit));
     },
+    claim: function (creep) {
+        creep.say('claiming');
+        const claimResult = creep.claimController(creep.room.controller)
+        if (claimResult == ERR_NOT_IN_RANGE) {
+            creep.moveTo(creep.room.controller);
+        } else {
+            console.log("claiming room returned: " + claimResult)
+            creep.signController(creep.room.controller, "")
+        }
+    },
     upgrade: function (creep) {
         creep.say('upgrading')
         if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
