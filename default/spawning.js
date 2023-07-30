@@ -39,13 +39,11 @@ const room_configs = {
         }
     },
     'W33S43': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn9',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
-            'harvester': 1,
-            'builder': 1,
-            'upgrader': 1
+            'ant': 3
         }
     },
     'W32S43': {
