@@ -8,7 +8,7 @@ const tasks = require('tasks');
 const towers = require('towers');
 const spawning = require('./spawning');
 
-let rooms
+let rooms = [];
 
 loop = function () {
     const diena = Memory.diena ? Memory.diena : 1
@@ -29,7 +29,7 @@ loop = function () {
         default:
     }
 
-    rooms.forEach(towers);
+    towers();
 
     for (const name in Game.creeps) {
         const creep = Game.creeps[name];
