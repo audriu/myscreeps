@@ -7,7 +7,7 @@ const spawning_ = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
 const spawning = require('./spawning');
-const behaving = require('./creeps.behaving');
+const behaving = require('./creeps/behaving');
 
 module.exports = {
     loop: function () {
