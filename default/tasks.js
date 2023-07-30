@@ -97,9 +97,11 @@ work = function (creep) {
     if (creep.memory.harvesting) {
         harvest(creep)
     } else {
-        if (!unload(creep))
-            if (!build(creep))
-                upgrade(creep)
+        if (unload(creep))
+            ; //do nothing
+        else if (build(creep))
+            ; //do nothing
+        else upgrade(creep)
     }
 }
 
