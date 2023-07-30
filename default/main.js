@@ -26,7 +26,6 @@ module.exports = {
         }
 
         towers();
-        behaving();
 
         for (const name in Game.creeps) {
             const creep = Game.creeps[name];
