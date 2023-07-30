@@ -100,7 +100,7 @@ build = function (creep) {
 
 work = function (creep) {
     if (creep.memory.harvesting) {
-        harvest(creep, 1)
+        harvest(creep)
     } else {
         if (!unload(creep))
             if (!build(creep))
