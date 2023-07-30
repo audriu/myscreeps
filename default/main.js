@@ -39,8 +39,8 @@ module.exports = {
             if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
                 creep.memory.harvesting = true;
                 //todo assign random source
-            } else {
-                //creep.suicide();
+            } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
+                creep.suicide();
             }
         }
     }
