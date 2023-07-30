@@ -113,10 +113,16 @@ suicide = function (creep) {
 
 turnOnMining = function (creep) {
     creep.memory.harvesting = true;
-    const targetRoom = creep.memory.targetRoom;
-    console.log("-------"+creep.targetRoom)
-    const numberOfSourcesOnDestinationRoom = Game.rooms[creep.targetRoom].find(FIND_SOURCES).length;
-    creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+    try {
+
+        const targetRoom = creep.memory.targetRoom;
+        console.log("-------"+creep.targetRoom)
+        const numberOfSourcesOnDestinationRoom = Game.rooms[creep.targetRoom].find(FIND_SOURCES).length;
+        creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
+    } catch (error) {
+        console.error(error);
+    }
+    
 }
 
 module.exports = {
