@@ -97,11 +97,9 @@ work = function (creep) {
     if (creep.memory.harvesting) {
         harvest(creep, 1)
     } else {
-        if (!unload(creep)) {
-            build(creep)
-            //todo make these task at random
-            //upgrade(creep)
-        }
+        if (!unload(creep))
+            if (!build(creep))
+                upgrade(creep)
     }
 }
 
@@ -113,16 +111,9 @@ suicide = function (creep) {
 
 turnOnMining = function (creep) {
     creep.memory.harvesting = true;
-    try {
 
-        const targetRoom = creep.memory.targetRoom;
-        console.log("-------"+creep.memory.targetRoom)
-        const numberOfSourcesOnDestinationRoom = Game.rooms[creep.memory.targetRoom].find(FIND_SOURCES).length;
-        creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
-    } catch (error) {
-        console.log(error);
-    }
-    
+    const numberOfSourcesOnDestinationRoom = Game.rooms[creep.memory.targetRoom].find(FIND_SOURCES).length;
+    creep.memory.preferedSource = Math.floor(Math.random() * numberOfSourcesOnDestinationRoom);
 }
 
 module.exports = {
