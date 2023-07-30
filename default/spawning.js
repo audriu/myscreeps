@@ -1,13 +1,11 @@
-const bodyPlanAnt = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
+const antBodyPlan = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
 const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
         contingent: {
-            'harvester': 3,
-            'builder': 1,
-            'upgrader': 1
+            'ant': 8
         }
     },
     'W33S42': {
