@@ -33,6 +33,11 @@ upgrade = function (creep) {
 }
 
 harvest = function (creep) {
+    console.log("----0" + JSON.stringify(creep.memory))
+    console.log("----1" + creep.memory.preferedSource)
+    console.log("----2" + JSON.stringify(creep.room.find(FIND_SOURCES)))
+    console.log("----3" + creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0])
+
     const source = creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0];
     creep.say('⛏');
 
