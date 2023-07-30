@@ -1,3 +1,5 @@
+const tasks = require('tasks');
+
 module.exports = {
     goToYourRoom: function (creep) {
         creep.say('moving out');
@@ -15,7 +17,7 @@ module.exports = {
         }
     },
     fight: function (creep) {
-        creep.say('☠️', tru);
+        creep.say('☠️', true);
         var enemies_b = creep.room.find(FIND_HOSTILE_STRUCTURES);
         var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
         enemies = [...enemies, ...enemies_b];
@@ -90,5 +92,16 @@ module.exports = {
             }
         } else return false //means nothing to do
 
+    },
+    work: function (creep) {
+        if (creep.memory.harvesting) {
+            tasks.harvest(creep, 1)
+        } else {
+            if (!tasks.unload(creep)) {
+                tasks.build(creep)
+                //todo make these task at random
+                //tasks.upgrade(creep)
+            }
+        }
     }
 };

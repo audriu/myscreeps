@@ -1,6 +1,3 @@
-const roleHarvester = require('role.harvester');
-const roleUpgrader = require('role.upgrader');
-const roleBuilder = require('role.builder');
 const spawning = require('spawning');
 const tasks = require('tasks');
 const towers = require('towers');
@@ -31,13 +28,9 @@ module.exports = {
 
             if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
                 tasks.goToYourRoom(creep);
-            } else if (role === 'harvester') {
-                roleHarvester.run(creep);
-            } else if (role === 'upgrader') {
-                roleUpgrader.run(creep);
-            } else if (role === 'builder') {
-                roleBuilder.run(creep);
-            } else if (role === 'colonist' && role !== 'fighter') {
+            } else if (role === 'ant' || role === 'harvester' || role === 'upgrader' || role === 'builder') {
+                tasks.work(creep);
+            } else if (role === 'colonist') {
                 tasks.claim(creep);
             } else if (role === 'fighter') {
                 tasks.fight(creep);
@@ -45,7 +38,8 @@ module.exports = {
 
             if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
                 creep.memory.harvesting = true;
-            } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
+                //todo assign random source
+            } else {
                 creep.suicide();
             }
         }
