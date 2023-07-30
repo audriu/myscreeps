@@ -23,7 +23,6 @@ const room_configs = {
         default_spawn: 'Spawn5',
         body_cost: 800,
         body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
-        priorities: defaultPriorities,
         contingent: {
             'harvester': 1,
             'builder': 1,
