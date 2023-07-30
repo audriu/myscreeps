@@ -23,7 +23,7 @@ function repair(tower) {
 }
 
 module.exports = function () {
-    ['W34S42', 'W33S42', 'W32S42', 'W32S41', 'W33S41', 'W32S43', 'W33S43'];
+    const rooms = Memory.rooms;
 
     var towers1 = Game.rooms.W34S42.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
     var towers2 = Game.rooms.W33S42.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
