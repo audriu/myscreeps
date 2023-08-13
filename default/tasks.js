@@ -1,3 +1,12 @@
+const debuggableScreep = "ant-W32S42-50514641";
+
+debugScreep (screep, log_message) {
+    if (debuggableScreep === screep.name) {
+        console.log(screep.name + " is " + screep.memory.role + " in " + screep.memory.targetRoom + " and is " + screep.memory.harvesting);
+    }
+}
+
+
 goToYourRoom = function (creep) {
     creep.say('moving out');
     const exit = creep.room.findExitTo(creep.memory.targetRoom);
@@ -50,6 +59,7 @@ harvest = function (creep) {
 
 unload = function (creep) {
     creep.say('🌽↓');
+    debugScreep(creep, "unload 1");
     let targets = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
             return (
@@ -60,10 +70,12 @@ unload = function (creep) {
     });
     targets = _.sortBy(targets, s => creep.pos.getRangeTo(s))
     if (targets.length > 0) {
+        debugScreep(creep, "unload 2");
         if (creep.transfer(targets[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
             creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ffffff' } });
         }
     } else {
+        debugScreep(creep, "unload 3");
         creep.say('🌽c');
         let containers = creep.room.find(FIND_STRUCTURES, {
             filter: (structure) => {
@@ -77,7 +89,9 @@ unload = function (creep) {
             if (creep.transfer(containers[0], RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
                 creep.moveTo(containers[0], { visualizePathStyle: { stroke: '#ffffff' } });
             }
-        } else return false //means nothing to do
+        } else {
+            debugScreep(creep, "unload 9");
+            return false //means nothing to do}
     }
 }
 
