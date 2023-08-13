@@ -91,7 +91,8 @@ unload = function (creep) {
             }
         } else {
             debugScreep(creep, "unload 9");
-            return false //means nothing to do}
+            return false //means nothing to do
+        }
     }
 }
 
