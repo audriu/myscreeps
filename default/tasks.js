@@ -1,4 +1,4 @@
-const debuggableScreep = "ant-W32S42-50514641";
+const debuggableScreep = "ant-W32S42-50516135";
 
 debugScreep = function (screep, log_message) {
     if (debuggableScreep === screep.name) {
@@ -112,8 +112,9 @@ work = function (creep) {
     if (creep.memory.harvesting) {
         harvest(creep)
     } else {
-        debugScreep(creep, "unloading returns:: " + unload(creep));
-        if (!unload(creep))
+        let unloadResult = unload(creep);
+        debugScreep(creep, "unloading returns:: " + unloadResult);
+        if (unloadResult)
         ;
             //if (!build(creep))
                 //upgrade(creep)
