@@ -2,7 +2,7 @@ const debuggableScreep = "ant-W32S42-50514641";
 
 debugScreep = function (screep, log_message) {
     if (debuggableScreep === screep.name) {
-        console.log(screep.name + " is " + screep.memory.role + " in " + screep.memory.targetRoom + " and is " + screep.memory.harvesting);
+        console.log(screep.name + " is " + screep.memory.role + " in " + screep.memory.targetRoom + " : \n " + log_message);
     }
 }
 
