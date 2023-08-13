@@ -112,6 +112,7 @@ work = function (creep) {
     if (creep.memory.harvesting) {
         harvest(creep)
     } else {
+        debugScreep(creep, "unloading returns:: " + unload(creep));
         if (!unload(creep))
         ;
             //if (!build(creep))
