@@ -2,7 +2,7 @@ const debuggableScreep = "ant-W32S42-50516135";
 
 debugScreep = function (screep, log_message) {
     if (debuggableScreep === screep.name) {
-        console.log(screep.name + " is " + screep.memory.role + " in " + screep.memory.targetRoom + " : \n " + log_message);
+        console.log(screep.name + " is " + screep.memory.role + " in " + screep.memory.targetRoom + "  :::  " + log_message);
     }
 }
 
@@ -91,7 +91,7 @@ unload = function (creep) {
             }
         } else {
             debugScreep(creep, "unload 9");
-            return false //means nothing to do
+            return "ntd" //means nothing to do
         }
     }
 }
@@ -104,7 +104,7 @@ build = function (creep) {
         if (creep.build(targets[0]) === ERR_NOT_IN_RANGE) {
             creep.moveTo(targets[0], { visualizePathStyle: { stroke: '#ff0000' } });
         }
-    } else return false //means nothing to do
+    } else return "ntd" //means nothing to do
 
 }
 
@@ -114,10 +114,9 @@ work = function (creep) {
     } else {
         let unloadResult = unload(creep);
         debugScreep(creep, "unloading returns:: " + unloadResult);
-        if (unloadResult)
-        ;
-            //if (!build(creep))
-                //upgrade(creep)
+        if (unload(creep) == "ntd")
+            if (build(creep) == "ntd")
+                upgrade(creep)
     }
 }
 
