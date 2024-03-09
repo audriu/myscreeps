@@ -30,8 +30,8 @@ module.exports = {
                 tasks.turnOnMining(creep);
             } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
                 tasks.suicide(creep);
-            } 
-            
+            }
+
             if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
                 tasks.goToYourRoom(creep);
             } else if (role === 'ant' || role === 'harvester' || role === 'upgrader' || role === 'builder') {

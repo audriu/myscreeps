@@ -6,7 +6,6 @@ debugScreep = function (screep, log_message) {
     }
 }
 
-
 goToYourRoom = function (creep) {
     creep.say('moving out');
     const exit = creep.room.findExitTo(creep.memory.targetRoom);

@@ -24,6 +24,14 @@ const room_configs = {
             'ant': 4
         }
     },
+    'W31S42': {
+        default_spawn: 'Spawn5',
+        body_cost: 800,
+        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        contingent: {
+            'ant': 2
+        }
+    },
     'W33S41': {
         default_spawn: 'Spawn7',
         body_cost: 800,
