@@ -64,7 +64,7 @@ const room_configs = {
             'ant': 3
         }
     },
-    'W32S41': {
+    'W31S40': {
         default_spawn: 'Spawn10',
         body_cost: 800,
         body_plan: antBodyPlan,
