@@ -76,7 +76,7 @@ module.exports = {
     },
     handleSpawningForRooms: function () {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
-            const config = room_configs[room];
+            const config = room_configs[roomName];
             const theSpawn = Game.spawns[config.default_spawn];
             const energy_available = theSpawn.room.energyAvailable;
 
