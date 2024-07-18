@@ -1,5 +1,5 @@
 module.exports = function () {
-    Game.rooms.forEach(room => {
+    for (const [roomName, room] of Object.entries(Game.rooms)) {
         const towers = room.find(FIND_STRUCTURES, { filter: (str) => str.structureType == STRUCTURE_TOWER });
         towers.forEach(tower => {
             const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
@@ -13,5 +13,5 @@ module.exports = function () {
                 tower.repair(closestDamagedStructure);
             }
         });
-    });
+    };
 }
