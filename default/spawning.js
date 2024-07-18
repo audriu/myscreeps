@@ -75,7 +75,7 @@ module.exports = {
         }
     },
     handleSpawningForRooms: function () {
-        Object.keys(Game.rooms).forEach(room => {
+        for (const [roomName, room] of Object.entries(Game.rooms)) {
             const config = room_configs[room];
             const theSpawn = Game.spawns[config.default_spawn];
             const energy_available = theSpawn.room.energyAvailable;
@@ -93,6 +93,6 @@ module.exports = {
             if (theSpawn.spawning) {
                 theSpawn.room.visual.text('🥚' + Game.creeps[theSpawn.spawning.name].memory.role, theSpawn.pos.x, theSpawn.pos.y);
             }
-        });
+        };
     }
 };
