@@ -63,6 +63,14 @@ const room_configs = {
         contingent: {
             'ant': 3
         }
+    },
+    'W32S41': {
+        default_spawn: 'Spawn10',
+        body_cost: 800,
+        body_plan: antBodyPlan,
+        contingent: {
+            'ant': 3
+        }
     }
 }
 
