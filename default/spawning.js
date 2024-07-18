@@ -1,6 +1,7 @@
 const fighterBodyCost = 750;
 const fighterBodyPlan = [
     MOVE, MOVE, MOVE, MOVE, MOVE,
+    MOVE, MOVE, MOVE, MOVE, MOVE,
     ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
     TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
     TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
