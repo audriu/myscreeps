@@ -92,7 +92,7 @@ module.exports = {
             const energy_available = theSpawn.room.energyAvailable;
 
             Object.entries(config.contingent).forEach(([role, count]) => {
-                const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === room);
+                const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === roomName);
                 if (creeps.length < count && !theSpawn.spawning && energy_available >= config.body_cost) {
                     const newName = role + "-" + roomName + "-" + Game.time;
                     const memory = { role: role, targetRoom: roomName };
