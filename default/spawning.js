@@ -3,7 +3,7 @@ const room_configs = {
     'W34S42': {
         default_spawn: 'Spawn1',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 6
         }
@@ -11,7 +11,7 @@ const room_configs = {
     'W33S42': {
         default_spawn: 'Spawn4',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 4
         }
@@ -19,7 +19,7 @@ const room_configs = {
     'W32S42': {
         default_spawn: 'Spawn5',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 4
         }
@@ -86,9 +86,9 @@ module.exports = {
             Object.entries(config.contingent).forEach(([role, count]) => {
                 const creeps = _.filter(Game.creeps, (creep) => creep.memory.role === role && creep.memory.targetRoom === room);
                 if (creeps.length < count && !theSpawn.spawning && energy_available >= config.body_cost) {
-                    const newName = role + "-" + room + "-" + Game.time;
-                    const memory = { role: role, targetRoom: room };
-                    console.log('Spawning new ' + newName + ' in ' + room);
+                    const newName = role + "-" + roomName + "-" + Game.time;
+                    const memory = { role: role, targetRoom: roomName };
+                    console.log('Spawning new ' + newName + ' in ' + roomName);
                     theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
                 }
             });
