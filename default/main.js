@@ -29,9 +29,9 @@ module.exports = {
                 tasks.suicide(creep);
             }
 
-            if (creep.memory.harvesting && (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom))) {
+            if (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom)) {
                 tasks.goToYourRoom(creep);
-            } else if (role === 'ant' || role === 'harvester' || role === 'upgrader' || role === 'builder') {
+            } else if (role === 'ant') {
                 tasks.work(creep);
             } else if (role === 'colonist') {
                 tasks.claim(creep);
@@ -43,4 +43,5 @@ module.exports = {
 }
 
 //Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W32S42'}});
+//Game.spawns['Spawn6'].spawnCreep([ATTACK, MOVE, TOUGH],'badass' + new Date().getTime() ,{memory:{role:'fighter',targetRoom:'W31S41'}});
 // bodyPlan: [CLAIM, MOVE], bodyPrice: 650
