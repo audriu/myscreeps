@@ -78,6 +78,9 @@ module.exports = {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
             console.log("---- " + roomName + " ----" + room)
             const config = room_configs[roomName];
+            if (!config) {
+                continue;
+            }
             const theSpawn = Game.spawns[config.default_spawn];
             const energy_available = theSpawn.room.energyAvailable;
 
