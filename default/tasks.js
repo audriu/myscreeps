@@ -25,7 +25,7 @@ claim = function (creep) {
 
 fight = function (creep) {
     creep.say('☠️', true);
-    var structures = creep.room.find(FIND_HOSTILE_STRUCTURES);
+    var structures = creep.room.find(FIND_STRUCTURES);
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
     enemies = [...structures, ...enemies];
     if (creep.attack(enemies[0]) == ERR_NOT_IN_RANGE) {

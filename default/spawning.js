@@ -1,3 +1,11 @@
+const fighterBodyCost = 750;
+const fighterBodyPlan = [
+    MOVE, MOVE, MOVE, MOVE, MOVE,
+    ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+    TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
+    TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
+];
+
 const antBodyPlan = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
 const room_configs = {
     'W34S42': {
@@ -98,6 +106,9 @@ module.exports = {
                     const memory = { role: role, targetRoom: roomName };
                     console.log('Spawning new ' + newName + ' in ' + roomName);
                     theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
+                } else if (energy_available >= fighterBodyCost){
+                    theSpawn.spawnCreep(_.shuffle(fighterBodyPlan), newName, { memory: { role: "fighter", targetRoom: 'W31S41' } });
+                    console.log('Spawning new fighter');
                 }
             });
 
