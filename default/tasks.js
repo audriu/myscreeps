@@ -127,12 +127,12 @@ suicide = function (creep) {
 
 turnOnMining = function (creep) {
     if (!creep.memory.harvesting) {
-        creep.memory.harvesting = true;
         sources = creep.room.find(FIND_SOURCES);
         if (!sources)
             return;
-        const numberOfSourcesOnDestinationRoom = sources.length;
-        creep.memory.preferedSource = _.random(numberOfSourcesOnDestinationRoom - 1);
+        creep.memory.harvesting = true;
+        const numberOfSources = sources.length;
+        creep.memory.preferedSource = _.random(numberOfSources - 1);
     }
 }
 
