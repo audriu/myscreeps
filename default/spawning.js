@@ -25,11 +25,11 @@ const room_configs = {
         }
     },
     'W31S42': {
-        default_spawn: 'Spawn5',
+        default_spawn: 'Spawn10',
         body_cost: 800,
         body_plan: antBodyPlan,
         contingent: {
-            'ant': 2
+            'ant': 3
         }
     },
     'W33S41': {
