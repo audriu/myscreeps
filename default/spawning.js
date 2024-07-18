@@ -107,7 +107,7 @@ module.exports = {
                     console.log('Spawning new ' + newName + ' in ' + roomName);
                     theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
                 } else if (energy_available >= fighterBodyCost){
-                    theSpawn.spawnCreep(_.shuffle(fighterBodyPlan), newName, { memory: { role: "fighter", targetRoom: 'W31S41' } });
+                    theSpawn.spawnCreep(_.shuffle(fighterBodyPlan), 'badass' + Game.time, { memory: { role: "fighter", targetRoom: 'W31S41' } });
                     console.log('Spawning new fighter');
                 }
             });
