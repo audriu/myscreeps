@@ -27,7 +27,7 @@ const room_configs = {
     'W31S42': {
         default_spawn: 'Spawn5',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 2
         }
@@ -35,7 +35,7 @@ const room_configs = {
     'W33S41': {
         default_spawn: 'Spawn7',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 3
         }
@@ -43,7 +43,7 @@ const room_configs = {
     'W33S43': {
         default_spawn: 'Spawn9', //9
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 3
         }
@@ -51,7 +51,7 @@ const room_configs = {
     'W32S43': {
         default_spawn: 'Spawn8',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 3
         }
@@ -59,7 +59,7 @@ const room_configs = {
     'W32S41': {
         default_spawn: 'Spawn6',
         body_cost: 800,
-        body_plan: [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY],
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 3
         }

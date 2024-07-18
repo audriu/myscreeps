@@ -23,7 +23,7 @@ module.exports = {
             const creep = Game.creeps[name];
             const role = creep.memory.role;
 
-            if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
+            if (role === 'ant' && creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
                 tasks.turnOnMining(creep);
             } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
                 tasks.suicide(creep);
@@ -43,5 +43,5 @@ module.exports = {
 }
 
 //Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W32S42'}});
-//Game.spawns['Spawn6'].spawnCreep([ATTACK, MOVE, TOUGH],'badass' + new Date().getTime() ,{memory:{role:'fighter',targetRoom:'W31S41'}});
+//Game.spawns['Spawn1'].spawnCreep([ATTACK, MOVE, TOUGH],'badass' + new Date().getTime() ,{memory:{role:'fighter',targetRoom:'W31S41'}});
 // bodyPlan: [CLAIM, MOVE], bodyPrice: 650
