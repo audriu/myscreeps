@@ -8,9 +8,6 @@ module.exports = {
         Memory.diena = (diena > 6) ? 1 : diena + 1
 
         switch (diena) {
-            case 1:
-                Memory.rooms = Object.keys(Game.rooms);
-                break;
             case 6:
                 spawning.handleSpawningForRooms();
                 break;
