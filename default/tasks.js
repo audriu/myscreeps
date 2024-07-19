@@ -45,7 +45,13 @@ fight = function (creep) {
         const closestHostile = creep.pos.findClosestByRange(enemies);
         console.log(`Closest enemy is ${closestHostile}`);
         if (creep.attack(closestHostile) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(closestHostile);
+            creep.moveTo(closestHostile,
+                {
+                    visualizePathStyle: {
+                        stroke: '#ff0000',
+                        lineWidth: 1
+                    }
+                });
         }
     }
 }
