@@ -23,7 +23,7 @@ claim = function (creep) {
     }
 }
 
-fight = function (creep) {
+fight_ = function (creep) {
     creep.say('☠️', true);
     const closestHostile = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
         filter: (structure) => structure.structureType !== STRUCTURE_WALL
@@ -33,7 +33,7 @@ fight = function (creep) {
     }
 }
 
-fight_ = function (creep) {
+fight = function (creep) {
     creep.say('☠️', true);
     var structures = creep.room.find(FIND_STRUCTURES);
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
