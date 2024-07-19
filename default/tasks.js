@@ -36,14 +36,16 @@ fight_ = function (creep) {
 fight = function (creep) {
     creep.say('☠️', true);
     var structures = creep.room.find(FIND_STRUCTURES);
+    var nonWallStructures = structures.filter(struct => struct.structureType !== STRUCTURE_WALL);
+
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
-    enemies = [...structures, ...enemies];
+    enemies = [...nonWallStructures, ...enemies];
     // If there are hostile creeps, find the closest one
     if (enemies.length > 0) {
         const closestHostile = creep.pos.findClosestByRange(enemies);
         console.log(`Closest enemy is ${closestHostile}`);
-        if (creep.attack(losestHostile) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(losestHostile);
+        if (creep.attack(closestHostile) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(closestHostile);
         }
     }
 }
