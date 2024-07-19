@@ -116,7 +116,7 @@ module.exports = {
                     console.log('Spawning new fighter');
                     const spawnsInRoom = Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
                     for (const spawn of spawnsInRoom) {
-                        spawn.spawnCreep(_.shuffle(fighterBodyPlan), 'badass' + Game.time + spawn, { memory: { role: "fighter", targetRoom: 'W34S38' } });
+                        spawn.spawnCreep(_.shuffle(fighterBodyPlan), 'badass' + Game.time + spawn, { memory: { role: "fighter", targetRoom: 'W32S46' } });
                     }
 
                 }
