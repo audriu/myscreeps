@@ -38,8 +38,13 @@ fight = function (creep) {
     var structures = creep.room.find(FIND_STRUCTURES);
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
     enemies = [...structures, ...enemies];
-    if (creep.attack(enemies[0]) == ERR_NOT_IN_RANGE) {
-        creep.moveTo(enemies[0]);
+    // If there are hostile creeps, find the closest one
+    if (enemies.length > 0) {
+        const closestHostile = creep.pos.findClosestByRange(enemies);
+        console.log(`Closest enemy is ${closestHostile}`);
+        if (creep.attack(losestHostile) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(losestHostile);
+        }
     }
 }
 
