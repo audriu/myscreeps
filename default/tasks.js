@@ -25,7 +25,9 @@ claim = function (creep) {
 
 fight = function (creep) {
     creep.say('☠️', true);
-    const closestHostile = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES);
+    const closestHostile = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
+        filter: (structure) => structure.structureType !== STRUCTURE_WALL
+    });
     if (closestHostile == ERR_NOT_IN_RANGE) {
         creep.moveTo(closestHostile);
     }
