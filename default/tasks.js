@@ -23,15 +23,15 @@ claim = function (creep) {
     }
 }
 
-fight_ = function (creep) {
+fight = function (creep) {
     creep.say('☠️', true);
-    const closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES);
+    const closestHostile = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES);
     if (closestHostile == ERR_NOT_IN_RANGE) {
         creep.moveTo(closestHostile);
     }
 }
 
-fight = function (creep) {
+fight_ = function (creep) {
     creep.say('☠️', true);
     var structures = creep.room.find(FIND_STRUCTURES);
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
