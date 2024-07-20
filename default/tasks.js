@@ -9,7 +9,7 @@ debugScreep = function (screep, log_message) {
 goToYourRoom = function (creep) {
     creep.say('moving out');
     const exit = creep.room.findExitTo(creep.memory.targetRoom);
-    creep.moveTo(creep.pos.findClosestByRange(exit));
+    creep.moveTo(creep.pos.findClosestByRange(exit), { maxRooms: 1 });
 }
 
 claim = function (creep) {
@@ -23,20 +23,12 @@ claim = function (creep) {
     }
 }
 
-fight_ = function (creep) {
-    creep.say('☠️', true);
-    const closestHostile = creep.pos.findClosestByRange(FIND_HOSTILE_STRUCTURES, {
-        filter: (structure) => structure.structureType !== STRUCTURE_WALL
-    });
-    if (closestHostile == ERR_NOT_IN_RANGE) {
-        creep.moveTo(closestHostile);
-    }
-}
-
 fight = function (creep) {
     creep.say('☠️', true);
     var structures = creep.room.find(FIND_STRUCTURES);
-    var nonWallStructures = structures.filter(struct => struct.structureType !== STRUCTURE_WALL);
+    var nonWallStructures = structures.filter(struct =>
+        struct.structureType !== STRUCTURE_WALL &&
+        struct.structureType !== STRUCTURE_CONTROLLER);
 
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
     enemies = [...nonWallStructures, ...enemies];
