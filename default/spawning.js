@@ -13,76 +13,12 @@ const fighterBodyPlan = [
 
 const antBodyPlan = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
 const room_configs = {
-    'W34S42': {
+    'E41S57': {
         default_spawn: 'Spawn1',
         body_cost: 800,
         body_plan: antBodyPlan,
         contingent: {
             'ant': 6
-        }
-    },
-    'W33S42': {
-        default_spawn: 'Spawn4',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 4
-        }
-    },
-    'W32S42': {
-        default_spawn: 'Spawn5',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 4
-        }
-    },
-    'W31S42': {
-        default_spawn: 'Spawn10',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
-        }
-    },
-    'W33S41': {
-        default_spawn: 'Spawn7',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
-        }
-    },
-    'W33S43': {
-        default_spawn: 'Spawn9', //9
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
-        }
-    },
-    'W32S43': {
-        default_spawn: 'Spawn8',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
-        }
-    },
-    'W32S41': {
-        default_spawn: 'Spawn6',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
-        }
-    },
-    'W31S40': {
-        default_spawn: 'Spawn10',
-        body_cost: 800,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 3
         }
     }
 }
