@@ -11,11 +11,11 @@ const fighterBodyPlan = [
     TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
 ];
 
-const antBodyPlan = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
+const antBodyPlan = [WORK, MOVE, CARRY];
 const room_configs = {
     'E41S57': {
         default_spawn: 'Spawn1',
-        body_cost: 800,
+        body_cost: 200,
         body_plan: antBodyPlan,
         contingent: {
             'ant': 6
