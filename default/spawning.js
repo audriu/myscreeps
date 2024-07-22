@@ -12,13 +12,15 @@ const fighterBodyPlan = [
 ];
 
 const antBodyPlan = [WORK, WORK, WORK, WORK, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY];
+
+//{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
-    'E41S57': {
+    'E43S56': {
         default_spawn: 'Spawn1',
-        body_cost: 300,
-        body_plan: [WORK, MOVE, MOVE, CARRY, CARRY],
+        body_cost: 200,
+        body_plan: [WORK, MOVE, CARRY],
         contingent: {
-            'ant': 9
+            'ant': 6
         }
     }
 }
