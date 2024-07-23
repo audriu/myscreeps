@@ -17,6 +17,8 @@ claim = function (creep) {
     const claimResult = creep.claimController(creep.room.controller)
     if (claimResult == ERR_NOT_IN_RANGE) {
         creep.moveTo(creep.room.controller);
+    } else if (claimResult == OK) {
+        creep.signController(creep.room.controller, "🐸")
     } else {
         console.log("claiming room returned: " + claimResult)
         creep.signController(creep.room.controller, "")
