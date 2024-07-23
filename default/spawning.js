@@ -43,7 +43,7 @@ const room_configs = {
             'ant': 4
         }
     },
-    'E41S59': {
+    'E41S59_': {
         default_spawn: 'Spawn1',
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
