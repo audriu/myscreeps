@@ -75,7 +75,15 @@ module.exports = {
 
             let theSpawn = Game.spawns[config.default_spawn];// || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
-                console.log(Object.values(1111));
+
+
+
+                console.log(Object.values("1111"));
+                console.log(Object.values(room_configs[roomName]));
+                console.log(Object.values(default_room_config));
+
+                console.log(Object.values("6666"));
+
                 console.log(Object.values(Game.spawns));
                 console.log(Object.values(roomName));
                 console.log(Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName));
