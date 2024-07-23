@@ -18,8 +18,8 @@ const antBodyPlan = [
 const antBodyCost = 800;
 
 const default_room_config = {
-    body_cost: 400,
-    body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+    body_cost: 200,
+    body_plan: [MOVE, WORK, CARRY],
     contingent: {
         'ant': 8
     }
@@ -75,10 +75,10 @@ module.exports = {
 
             const theSpawn = Game.spawns[config.default_spawn] || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
-                console.log (Object.values(1111));
-                console.log (Object.values(Game.spawns));
-                console.log (Object.values(roomName));
-                console.log (Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName));
+                console.log(Object.values(1111));
+                console.log(Object.values(Game.spawns));
+                console.log(Object.values(roomName));
+                console.log(Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName));
             }
             const energy_available = theSpawn.room.energyAvailable;
 
