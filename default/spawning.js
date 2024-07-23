@@ -32,7 +32,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 1
+            'ant': 2
         }
     },
     'E41S59': {
@@ -40,7 +40,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 1
+            'ant': 2
         }
     },
     'E41S56': {
@@ -48,7 +48,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 1
+            'ant': 2
         }
     }
 }
