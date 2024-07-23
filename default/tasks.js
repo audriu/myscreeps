@@ -7,7 +7,7 @@ debugScreep = function (screep, log_message) {
 }
 
 goToYourRoom = function (creep) {
-    creep.say('moving out');
+    creep.say('🚪');
     const exit = creep.room.findExitTo(creep.memory.targetRoom);
     creep.moveTo(creep.pos.findClosestByRange(exit), { maxRooms: 1 });
 }
@@ -18,14 +18,14 @@ claim = function (creep) {
 
     if (isOwnedByMe) {
         if (creep.signController(creep.room.controller, "🐸") == ERR_NOT_IN_RANGE) {
-            creep.say('Signing');
+            creep.say('🐸');
             creep.moveTo(creep.room.controller);
         }
     } else if (creep.claimController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-        creep.say('Claiming');
+        creep.say('⛳️');
         creep.moveTo(creep.room.controller);
     } else {
-        creep.say('Claimed');
+        creep.say('🚫');
     }
 }
 
@@ -55,7 +55,7 @@ fight = function (creep) {
 }
 
 upgrade = function (creep) {
-    creep.say('upgrading')
+    creep.say('🆙')
     if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
         creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#3333ff' } });
     }
@@ -63,7 +63,7 @@ upgrade = function (creep) {
 
 harvest = function (creep) {
     const source = creep.room.find(FIND_SOURCES)[creep.memory.preferedSource || 0];
-    creep.say('⛏');
+    creep.say('⛏️');
 
     const harvestRes = creep.harvest(source);
     if (harvestRes === ERR_NOT_IN_RANGE || creep.store.getUsedCapacity() === 0) {
