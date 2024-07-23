@@ -75,7 +75,9 @@ module.exports = {
 
             const theSpawn = Game.spawns[config.default_spawn] ;
             if (!theSpawn) {
-              console.log (Object.values(Game.spawns).find(s => s.room.name === roomName));
+                console.log (Object.values(Game.spawns));
+                console.log (Object.values(roomName));
+                console.log (Object.values(Game.spawns).find(s => s.room.name === roomName));
             }
             const energy_available = theSpawn.room.energyAvailable;
 
