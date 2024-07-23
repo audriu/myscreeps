@@ -73,7 +73,7 @@ module.exports = {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
             const config = room_configs[roomName] || default_room_config;
 
-            const theSpawn = Game.spawns[config.default_spawn] ;
+            const theSpawn = Game.spawns[config.default_spawn] || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
                 console.log (Object.values(1111));
                 console.log (Object.values(Game.spawns));
