@@ -71,7 +71,11 @@ module.exports = {
     },
     handleSpawningForRooms: function () {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
-            const config = room_configs[roomName] || default_room_config;
+            const config = room_configs[roomName];
+
+            if (!config) {
+                continue;
+            }
 
             let theSpawn = Game.spawns[config.default_spawn];// || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
