@@ -21,8 +21,8 @@ const antBodyCost = 800;
 const room_configs = {
     'E43S56': {
         default_spawn: 'Spawn1',
-        body_cost: 400,
-        body_plan: [WORK, WORK, MOVE, MOVE, CARRY, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 6
         }
