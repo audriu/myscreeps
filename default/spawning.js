@@ -17,6 +17,14 @@ const antBodyPlan = [
     CARRY, CARRY, CARRY, CARRY];
 const antBodyCost = 800;
 
+const default_room_config = {
+    body_cost: 400,
+    body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+    contingent: {
+        'ant': 8
+    }
+}
+
 //{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
     'E43S56': {
@@ -43,7 +51,7 @@ const room_configs = {
             'ant': 4
         }
     },
-    'E41S56': {
+    'E41S56_': {
         default_spawn: 'Spawn1',
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
@@ -63,11 +71,9 @@ module.exports = {
     },
     handleSpawningForRooms: function () {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
-            const config = room_configs[roomName];
-            if (!config) {
-                continue;
-            }
-            const theSpawn = Game.spawns[config.default_spawn];
+            const config = room_configs[roomName] || default_room_config;
+
+            const theSpawn = Game.spawns[config.default_spawn] || Object.values(Game.spawns).find(s => s.room.name === roomName)[0];
             const energy_available = theSpawn.room.energyAvailable;
 
             Object.entries(config.contingent).forEach(([role, count]) => {
