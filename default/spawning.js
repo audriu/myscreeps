@@ -26,6 +26,22 @@ const room_configs = {
         contingent: {
             'ant': 6
         }
+    },
+    'E41S57': {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 1
+        }
+    },
+    'E41S59': {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 1
+        }
     }
 }
 
