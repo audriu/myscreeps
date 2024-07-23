@@ -38,23 +38,23 @@ const room_configs = {
     'E41S57': {
         default_spawn: 'Spawn1',
         body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_plan: [MOVE, WORK, CARRY],
         contingent: {
             'ant': 4
         }
     },
     'E41S59': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn3',
         body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_plan: [MOVE, WORK, CARRY],
         contingent: {
             'ant': 4
         }
     },
     'E41S56': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn4',
         body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_plan: [MOVE, WORK, CARRY],
         contingent: {
             'ant': 4
         }
