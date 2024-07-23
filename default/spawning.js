@@ -24,29 +24,29 @@ const room_configs = {
         body_cost: antBodyCost,
         body_plan: antBodyPlan,
         contingent: {
-            'ant': 6
+            'ant': 8
         }
     },
     'E41S57': {
         default_spawn: 'Spawn1',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
+        body_cost: 400,
+        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
             'ant': 2
         }
     },
     'E41S59': {
         default_spawn: 'Spawn1',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
+        body_cost: 400,
+        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
             'ant': 2
         }
     },
     'E41S56': {
         default_spawn: 'Spawn1',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
+        body_cost: 400,
+        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
             'ant': 2
         }
