@@ -82,10 +82,13 @@ unload = function (creep) {
     debugScreep(creep, "unload 1");
     let targets = creep.room.find(FIND_STRUCTURES, {
         filter: (structure) => {
+            const isMyStructure = structure.owner && structure.owner.username === "Dzioba";
             return (
-                (structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
-                (structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
-                (structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) >= 300));
+                isMyStructure &&
+                ((structure.structureType === STRUCTURE_EXTENSION && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
+                    (structure.structureType === STRUCTURE_SPAWN && structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0) ||
+                    (structure.structureType === STRUCTURE_TOWER && structure.store.getFreeCapacity(RESOURCE_ENERGY) >= 300))
+            );
         }
     });
     targets = _.sortBy(targets, s => creep.pos.getRangeTo(s))
