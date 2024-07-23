@@ -79,7 +79,7 @@ module.exports = {
 
 
                 console.log(Object.values("1111"));
-                console.log(rroomName);
+                console.log(roomName);
                 console.log(room_configs[roomName]);
                 console.log(Object.values(default_room_config));
 
