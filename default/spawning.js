@@ -73,13 +73,7 @@ module.exports = {
         for (const [roomName, room] of Object.entries(Game.rooms)) {
             const config = room_configs[roomName] || default_room_config;
 
-            const theSpawn = Game.spawns[config.default_spawn];
-            if (!theSpawn) {
-            console.log(111);
-            console.log(theSpawn);
-            console.log(Object.values(Game.spawns));
-            console.log(Object.values(Game.spawns).find(s => s.room.name === roomName));}
-           // || Object.values(Game.spawns).find(s => s.room.name === roomName)[0];
+            const theSpawn = Game.spawns[config.default_spawn] || Object.values(Game.spawns).find(s => s.room.name === roomName);
             const energy_available = theSpawn.room.energyAvailable;
 
             Object.entries(config.contingent).forEach(([role, count]) => {
