@@ -14,14 +14,15 @@ goToYourRoom = function (creep) {
 
 claim = function (creep) {
     creep.say('claiming');
-    const claimResult = creep.claimController(creep.room.controller)
-    if (claimResult == ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller);
-    } else if (claimResult == OK) {
+    const isClaimed = creep.room.controller && creep.room.controller.owner;
+    const isOwnedByMe = isClaimed && creep.room.controller.owner.username === "Dzioba";
+
+    if (isOwnedByMe) {
         creep.signController(creep.room.controller, "🐸")
+    } else if (creep.claimController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+        creep.moveTo(creep.room.controller);
     } else {
-        console.log("claiming room returned: " + claimResult)
-        creep.signController(creep.room.controller, "")
+        creep.say('Claimed');
     }
 }
 
