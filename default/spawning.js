@@ -67,23 +67,23 @@ const room_configs = {
             'ant': 5
         }
     }
-    ,
-    'E44S61': {
-        default_spawn: 'Spawn1',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 5
-        }
-    },
-    'E43S61': {
-        default_spawn: 'Spawn1',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 5
-        }
-    }
+    // ,
+    // 'E44S61': {
+    //     default_spawn: 'Spawn1',
+    //     body_cost: 200,
+    //     body_plan: [MOVE, WORK, CARRY],
+    //     contingent: {
+    //         'ant': 5
+    //     }
+    // },
+    // 'E43S61': {
+    //     default_spawn: 'Spawn1',
+    //     body_cost: 200,
+    //     body_plan: [MOVE, WORK, CARRY],
+    //     contingent: {
+    //         'ant': 5
+    //     }
+    // }
 }
 
 module.exports = {
