@@ -60,11 +60,11 @@ const room_configs = {
         }
     },
     'E41S61': {
-        default_spawn: 'Spawn3',
+        default_spawn: 'Spawn5',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 6
+            'ant': 4
         }
     }
 }
