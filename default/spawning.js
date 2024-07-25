@@ -67,6 +67,24 @@ const room_configs = {
             'ant': 4
         }
     }
+    ,
+    'E44S61': {
+        default_spawn: 'Spawn3',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 1
+        }
+    }
+    ,
+    'E43S61': {
+        default_spawn: 'Spawn3',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 1
+        }
+    }
 }
 
 module.exports = {
