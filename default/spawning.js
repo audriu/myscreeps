@@ -27,7 +27,7 @@ const default_room_config = {
 
 //{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
-    'E75N51': {
+    'W13N56': {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [WORK, MOVE, CARRY],
