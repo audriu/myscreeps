@@ -27,64 +27,14 @@ const default_room_config = {
 
 //{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
-    'E43S56': {
+    'E75N51': {
         default_spawn: 'Spawn1',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
+        body_cost: 200,
+        body_plan: [WORK, MOVE, CARRY],
         contingent: {
             'ant': 8
         }
-    },
-    'E41S57': {
-        default_spawn: 'Spawn2',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 5
-        }
-    },
-    'E41S59': {
-        default_spawn: 'Spawn3',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 5
-        }
-    },
-    'E41S56': {
-        default_spawn: 'Spawn4',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 5
-        }
-    },
-    'E41S61': {
-        default_spawn: 'Spawn5',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 4
-        }
     }
-    // ,
-    // 'E44S61': {
-    //     default_spawn: 'Spawn3',
-    //     body_cost: 200,
-    //     body_plan: [MOVE, WORK, CARRY],
-    //     contingent: {
-    //         'ant': 1
-    //     }
-    // }
-    // ,
-    // 'E43S61': {
-    //     default_spawn: 'Spawn3',
-    //     body_cost: 200,
-    //     body_plan: [MOVE, WORK, CARRY],
-    //     contingent: {
-    //         'ant': 1
-    //     }
-    // }
 }
 
 module.exports = {
