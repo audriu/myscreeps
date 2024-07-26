@@ -34,6 +34,7 @@ fight = function (creep) {
     var structures = creep.room.find(FIND_STRUCTURES);
     var nonWallStructures = structures.filter(struct =>
         struct.structureType !== STRUCTURE_WALL &&
+        struct.structureType !== STRUCTURE_KEEPER_LAIR &&
         struct.structureType !== STRUCTURE_CONTROLLER);
 
     var enemies = creep.room.find(FIND_HOSTILE_CREEPS);
