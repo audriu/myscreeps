@@ -9,10 +9,7 @@ debugScreep = function (screep, log_message) {
 goToYourRoom = function (creep) {
     creep.say('🚪');
     const exit = creep.room.findExitTo(creep.memory.targetRoom);
-    creep.moveTo(creep.pos.findClosestByRange(exit), { maxRooms: 1, visualizePathStyle: {
-        stroke: '#ff0000',
-        lineWidth: 1
-    }});
+    creep.moveTo(creep.pos.findClosestByRange(exit), { maxRooms: 1, visualizePathStyle: { stroke: '#000000', lineWidth: 7 } });
 }
 
 claim = function (creep) {
