@@ -29,12 +29,8 @@ const default_room_config = {
 const room_configs = {
     'W13N56': {
         default_spawn: 'Spawn1',
-        body_cost: 550,
-        body_plan: [
-            WORK, MOVE, CARRY,
-            WORK, MOVE, CARRY,
-            WORK, CARRY
-        ],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 8
         }
