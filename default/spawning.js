@@ -27,7 +27,7 @@ const room_configs = {
         body_cost: antBodyCost,
         body_plan: antBodyPlan,
         contingent: {
-            'ant': 10
+            'ant': 9
         }
     }
 }
