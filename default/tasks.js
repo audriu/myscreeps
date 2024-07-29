@@ -31,7 +31,7 @@ claim = function (creep) {
 
 fight = function (creep) {
     creep.say('☠️', true);
-    var structures = creep.room.find(FIND_STRUCTURES);
+    var structures = creep.room.find(FIND_HOSTILE_STRUCTURES);
     var nonWallStructures = structures.filter(struct =>
         struct.structureType !== STRUCTURE_WALL &&
         struct.structureType !== STRUCTURE_KEEPER_LAIR &&
