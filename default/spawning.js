@@ -22,10 +22,10 @@ const default_room_config = {
 
 //{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
-    'W13N56': {
+    'W32N18': {
         default_spawn: 'Spawn1',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
         contingent: {
             'ant': 9
         }
