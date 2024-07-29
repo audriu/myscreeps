@@ -17,8 +17,13 @@ claim = function (creep) {
     const isOwnedByMe = isClaimed && creep.room.controller.owner.username === "Dzioba";
 
     if (isOwnedByMe) {
-        if (creep.signController(creep.room.controller, "🐸") == ERR_NOT_IN_RANGE) {
-            creep.say('🐸');
+        if (creep.room.find(FIND_SOURCES).length === 1 ) {
+            signature = "🐸";
+        } else {
+            signature = "🐸🐸";
+        }
+        if (creep.signController(creep.room.controller, signature) == ERR_NOT_IN_RANGE) {
+            creep.say(signature);
             creep.moveTo(creep.room.controller);
         }
     } else if (creep.claimController(creep.room.controller) == ERR_NOT_IN_RANGE) {
