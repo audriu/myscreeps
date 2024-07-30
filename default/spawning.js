@@ -24,8 +24,8 @@ const default_room_config = {
 const room_configs = {
     'W32N18': {
         default_spawn: 'Spawn1',
-        body_cost: 250,
-        body_plan: [MOVE, WORK, CARRY, CARRY],
+        body_cost: 400,
+        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
             'ant': 7
         }
