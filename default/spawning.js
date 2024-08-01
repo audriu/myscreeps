@@ -27,7 +27,7 @@ const room_configs = {
         body_cost: 500,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY, WORK],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
     ,"W31N16": {
@@ -35,7 +35,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 3
         }
     }
     ,"W31N17":  {
@@ -43,7 +43,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 3
         }
     }
     ,"W31N15": {
@@ -51,7 +51,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 3
         }
     }
 }
