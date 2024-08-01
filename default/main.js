@@ -46,6 +46,6 @@ module.exports = {
     }
 }
 
-//Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W13N57'}});
+//Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W31N17'}});
 //Game.spawns['Spawn1'].spawnCreep([ATTACK, MOVE],'badass ' + Game.time ,{memory:{role:'fighter',targetRoom:'E41S59'}});
 // bodyPlan: [CLAIM, MOVE], bodyPrice: 650
