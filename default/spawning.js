@@ -31,19 +31,19 @@ const room_configs = {
         }
     }
     ,"W31N16": {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn2',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 3
+            'ant': 6
         }
     }
     ,"W31N17":  {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn3',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 3
+            'ant': 6
         }
     }
     ,"W31N15": {
@@ -51,7 +51,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 3
+            'ant': 5
         }
     }
 }
