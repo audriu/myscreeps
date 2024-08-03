@@ -78,6 +78,22 @@ const room_configs = {
             'ant': 6
         }
     }
+    ,"W35N19":  {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 4
+        }
+    }
+    ,"W35N18": {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 4
+        }
+    }
 }
 
 module.exports = {
