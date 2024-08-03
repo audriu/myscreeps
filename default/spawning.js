@@ -55,27 +55,27 @@ const room_configs = {
         }
     }
     ,"W31N14": {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn5',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
     ,"W32N14":  {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn6',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
     ,"W32N13": {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn7',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
 }
