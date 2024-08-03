@@ -78,7 +78,7 @@ const room_configs = {
             'ant': 6
         }
     }
-    ,"W35N19":  {
+    ,"W36N18":  {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -86,7 +86,7 @@ const room_configs = {
             'ant': 4
         }
     }
-    ,"W35N18": {
+    ,"W36N17": {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
