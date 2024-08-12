@@ -49,3 +49,8 @@ module.exports = {
 //Game.spawns['Spawn1'].spawnCreep([CLAIM, MOVE],'colonist1',{memory:{role:'colonist',targetRoom:'W31N17'}});
 //Game.spawns['Spawn1'].spawnCreep([ATTACK, MOVE],'badass ' + Game.time ,{memory:{role:'fighter',targetRoom:'E41S59'}});
 // bodyPlan: [CLAIM, MOVE], bodyPrice: 650
+
+
+//Spawn in random spawn and configure just room and not spawn name. Default if null.
+//Change sources if harvesting from empty and another is full
+//Maybe to set default source - better solution I think

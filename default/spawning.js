@@ -55,9 +55,10 @@ const room_configs = {
         }
     }
     , "W31N14": {
-        default_spawn: 'Spawn5',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        //sunaikintas
+        default_spawn: 'Spawn2',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
         contingent: {
             'ant': 6
         }
@@ -114,6 +115,7 @@ module.exports = {
 
             let theSpawn = Game.spawns[config.default_spawn];// || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
+                continue;
 
 
 
