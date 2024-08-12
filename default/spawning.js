@@ -80,7 +80,7 @@ const room_configs = {
         }
     }
     , "W36N18": {
-        default_spawn: 'Spawn9',
+        default_spawn: 'Spawn1',
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
@@ -88,7 +88,7 @@ const room_configs = {
         }
     }
     , "W36N17": {
-        default_spawn: 'Spawn8',
+        default_spawn: 'Spawn1',
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
