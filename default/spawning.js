@@ -84,7 +84,7 @@ const room_configs = {
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 1
         }
     }
     , "W36N17": {
@@ -92,7 +92,7 @@ const room_configs = {
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 1
         }
     }
 }
