@@ -48,15 +48,14 @@ const room_configs = {
     }
     , "W31N15": {
         default_spawn: 'Spawn4',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 6
         }
     }
     , "W31N14": {
-        //sunaikintas
-        default_spawn: 'Spawn2',
+        default_spawn: 'Spawn55',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
@@ -64,6 +63,7 @@ const room_configs = {
         }
     }
     , "W32N14": {
+        //uzgrobtas
         default_spawn: 'Spawn6',
         body_cost: antBodyCost,
         body_plan: antBodyPlan,
