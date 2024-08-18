@@ -27,7 +27,7 @@ const room_configs = {
         body_cost: 500,
         body_plan: [WORK, WORK, WORK, MOVE, MOVE, CARRY, CARRY],
         contingent: {
-            'ant': 8
+            'ant': 10
         }
     }
 }
