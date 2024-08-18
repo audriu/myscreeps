@@ -22,59 +22,10 @@ const default_room_config = {
 
 //{ "move": 50, "work": 100, "attack": 80, "carry": 50, "heal": 250, "ranged_attack": 150, "tough": 10, "claim": 600 }
 const room_configs = {
-    'W32N18': {
+    'E12N39': {
         default_spawn: 'Spawn1',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W31N16": {
-        default_spawn: 'Spawn2',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W31N17": {
-        default_spawn: 'Spawn3',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W31N15": {
-        default_spawn: 'Spawn4',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W31N14": {
-        default_spawn: 'Spawn55',
         body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W32N14": {
-        //uzgrobtas
-        default_spawn: 'Spawn6',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
-        contingent: {
-            'ant': 6
-        }
-    }
-    , "W36N17": {
-        default_spawn: 'SpawnW36N17',
-        body_cost: antBodyCost,
-        body_plan: antBodyPlan,
+        body_plan: [WORK, MOVE, CARRY],
         contingent: {
             'ant': 6
         }
