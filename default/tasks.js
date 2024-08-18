@@ -17,7 +17,7 @@ claim = function (creep) {
     const isOwnedByMe = isClaimed && creep.room.controller.owner.username === "Dzioba";
 
     if (isOwnedByMe) {
-        if (creep.room.find(FIND_SOURCES).length === 1 ) {
+        if (creep.room.find(FIND_SOURCES).length === 1) {
             signature = "🐸";
         } else {
             signature = "🐸🐸";
@@ -63,7 +63,7 @@ fight = function (creep) {
 upgrade = function (creep) {
     creep.say('🆙')
     if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#3333ff' } });
+        creep.moveTo(creep.room.controller, { visualizePathStyle: { stroke: '#3333ff', lineWidth: 0.3 } });
     }
 }
 
