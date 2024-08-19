@@ -20,7 +20,7 @@ claim = function (creep) {
         if (creep.room.find(FIND_SOURCES).length === 1) {
             signature = "🐸";
         } else {
-            signature = "🐸🐸";
+            signature = "🐸";
         }
         if (creep.signController(creep.room.controller, signature) == ERR_NOT_IN_RANGE) {
             creep.say(signature);
