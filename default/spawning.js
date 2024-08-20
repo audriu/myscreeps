@@ -79,7 +79,7 @@ const room_configs = {
         }
     }
     , 'E12N38': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn2',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
@@ -87,7 +87,7 @@ const room_configs = {
         }
     }
     , 'E13N38': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn2',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
@@ -95,7 +95,7 @@ const room_configs = {
         }
     }
     , 'E14N38': {
-        default_spawn: 'Spawn1',
+        default_spawn: 'Spawn2',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
