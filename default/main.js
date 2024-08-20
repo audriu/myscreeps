@@ -27,10 +27,12 @@ module.exports = {
                 creep.memory.targetRoom = 'W13N56';
             }
 
-            if (role === 'ant' && creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
-                tasks.turnOnMining(creep);
-            } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
-                tasks.suicide(creep);
+            if (role === 'ant') {
+                if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive > 100) {
+                    tasks.turnOnMining(creep);
+                } else if (creep.store[RESOURCE_ENERGY] === 0 && creep.ticksToLive < 100) {
+                    tasks.suicide(creep);
+                }
             }
 
             if (creep.memory.targetRoom && (creep.room.name != creep.memory.targetRoom)) {
