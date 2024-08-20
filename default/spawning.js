@@ -54,6 +54,30 @@ const room_configs = {
             'ant': 6
         }
     }
+    ,'E11N36':{
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 3
+        }
+    }
+    ,'E11N34':{
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 3
+        }
+    }
+    ,'EE12N34':{
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 3
+        }
+    }
 }
 
 module.exports = {
