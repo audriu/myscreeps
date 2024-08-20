@@ -30,7 +30,7 @@ const room_configs = {
             'ant': 10
         }
     }
-    ,'E13N37':{
+    , 'E13N37': {
         default_spawn: 'Spawn2',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -38,7 +38,7 @@ const room_configs = {
             'ant': 8
         }
     }
-    ,'E11N39':{
+    , 'E11N39': {
         default_spawn: 'Spawn3',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -46,7 +46,7 @@ const room_configs = {
             'ant': 6
         }
     }
-    ,'E11N38':{
+    , 'E11N38': {
         default_spawn: 'Spawn4',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -54,7 +54,7 @@ const room_configs = {
             'ant': 6
         }
     }
-    ,'E11N36':{
+    , 'E11N36': {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -62,7 +62,7 @@ const room_configs = {
             'ant': 3
         }
     }
-    ,'E11N34':{
+    , 'E11N34': {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
@@ -70,7 +70,7 @@ const room_configs = {
             'ant': 3
         }
     }
-    ,'EE12N34':{
+    , 'EE12N34': {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
