@@ -70,7 +70,7 @@ const room_configs = {
             'ant': 6
         }
     }
-    , 'EE12N34': {
+    , 'E12N34': {
         default_spawn: 'Spawn5',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
