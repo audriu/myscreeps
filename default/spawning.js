@@ -79,7 +79,7 @@ const room_configs = {
         }
     }
     , 'E12N38': {
-        default_spawn: 'Spawn2',
+        default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
