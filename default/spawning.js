@@ -71,11 +71,11 @@ const room_configs = {
         }
     }
     , 'E12N34': {
-        default_spawn: 'Spawn5',
+        default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
     , 'E12N38': {
@@ -103,6 +103,22 @@ const room_configs = {
         }
     }
     , 'E11N37': {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 4
+        }
+    }
+    , 'E11N35': {
+        default_spawn: 'Spawn1',
+        body_cost: 200,
+        body_plan: [MOVE, WORK, CARRY],
+        contingent: {
+            'ant': 4
+        }
+    }
+    , 'E12N35': {
         default_spawn: 'Spawn1',
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
