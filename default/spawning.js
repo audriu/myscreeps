@@ -7,10 +7,10 @@ const fighterBodyPlan = [
 ];
 
 const antBodyPlan = [
-    WORK, WORK, WORK, WORK,
-    MOVE, MOVE, MOVE, MOVE,
-    CARRY, CARRY, CARRY, CARRY];
-const antBodyCost = 800;
+    WORK, WORK, WORK, WORK, WORK,
+    MOVE, MOVE, MOVE, MOVE, MOVE,
+    CARRY, CARRY, CARRY, CARRY, CARRY];
+const antBodyCost = 1000;
 
 const default_room_config = {
     body_cost: 200,
@@ -91,7 +91,7 @@ const room_configs = {
         body_cost: 200,
         body_plan: [MOVE, WORK, CARRY],
         contingent: {
-            'ant': 3
+            'ant': 2
         }
     }
     , 'E14N38': {
