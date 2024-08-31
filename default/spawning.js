@@ -40,50 +40,48 @@ const room_configs = {
     }
     , 'E11N39': {
         default_spawn: 'Spawn3',
-        body_cost: 600,
-        body_plan: [MOVE, WORK, CARRY,
-            MOVE, WORK, CARRY,
-            MOVE, WORK, CARRY,],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 6
         }
     }
     , 'E11N38': {
         default_spawn: 'Spawn4',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 7
         }
     }
     , 'E11N36': {
         default_spawn: 'Spawn6',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 2
         }
     }
     , 'E11N34': {
         default_spawn: 'Spawn5',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 6
         }
     }
     , 'E12N34': {
         default_spawn: 'Spawn7',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 7
         }
     }
     , 'E12N38': {
         default_spawn: 'Spawn10',
-        body_cost: 200,
-        body_plan: [MOVE, WORK, CARRY],
+        body_cost: 400,
+        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
             'ant': 2
         }
@@ -93,7 +91,7 @@ const room_configs = {
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
-            'ant': 2
+            'ant': 3
         }
     }
     , 'E14N38': {
@@ -101,29 +99,29 @@ const room_configs = {
         body_cost: 400,
         body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
         contingent: {
-            'ant': 5
+            'ant': 6
         }
     }
     , 'E11N37': {
         default_spawn: 'Spawn11',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 5
         }
     }
     , 'E11N35': {
         default_spawn: 'Spawn13',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 5
         }
     }
     , 'E12N35': {
         default_spawn: 'Spawn12',
-        body_cost: 400,
-        body_plan: [MOVE, WORK, CARRY, MOVE, WORK, CARRY],
+        body_cost: antBodyCost,
+        body_plan: antBodyPlan,
         contingent: {
             'ant': 4
         }
@@ -149,23 +147,6 @@ module.exports = {
             let theSpawn = Game.spawns[config.default_spawn];// || Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
             if (!theSpawn) {
                 continue;
-
-
-
-                console.log(Object.values("1111"));
-                console.log(roomName);
-                console.log(room_configs[roomName]);
-                console.log(Object.values(default_room_config));
-
-                console.log(Object.values("6666"));
-
-                console.log(Object.values(Game.spawns));
-                console.log(Object.values(roomName));
-                console.log(Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName));
-                console.log(typeof Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName));
-                console.log(Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName).room);
-
-
             }
             const energy_available = theSpawn.room.energyAvailable;
 
