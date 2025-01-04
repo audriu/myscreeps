@@ -42,6 +42,7 @@ module.exports = {
             } else if (role === 'colonist') {
                 tasks.claim(creep);
             } else if (role === 'fighter') {
+                creep.memory.targetRoom = 'E13N39';
                 tasks.fight(creep);
             }
         }
