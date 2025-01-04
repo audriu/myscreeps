@@ -24,7 +24,7 @@ module.exports = {
             const role = creep.memory.role;
 
             if (role === 'fighter') {
-                creep.memory.targetRoom = 'W13N56';
+                creep.memory.targetRoom = 'E13N39';
             }
 
             if (role === 'ant') {
@@ -42,7 +42,7 @@ module.exports = {
             } else if (role === 'colonist') {
                 tasks.claim(creep);
             } else if (role === 'fighter') {
-                creep.memory.targetRoom = 'E13N39';
+                //creep.memory.targetRoom = 'E13N39';
                 tasks.fight(creep);
             }
         }
