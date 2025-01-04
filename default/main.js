@@ -24,7 +24,7 @@ module.exports = {
             const role = creep.memory.role;
 
             if (role === 'fighter') {
-                creep.memory.targetRoom = 'E13N35';
+                creep.memory.targetRoom = 'E13N36';
             }
 
             if (role === 'ant') {
