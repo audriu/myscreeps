@@ -158,11 +158,11 @@ module.exports = {
                     console.log('Spawning new ' + newName + ' in ' + roomName);
                     theSpawn.spawnCreep(_.shuffle(config.body_plan), newName, { memory: memory });
                 } else if (energy_available > fighterBodyCost + 1000) {
-                    // const spawnsInRoom = Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
-                    // for (const spawn of spawnsInRoom) {
-                    //     const spawnRes = spawn.spawnCreep(_.shuffle(fighterBodyPlan), 'badass' + Game.time + spawn, { memory: { role: "fighter", targetRoom: 'E13N35' } });
-                    //     console.log('Spawning new fighter ' + spawnRes);
-                    // }
+                    const spawnsInRoom = Object.values(Game.spawns).filter(spawn => spawn.room.name === roomName);
+                    for (const spawn of spawnsInRoom) {
+                        const spawnRes = spawn.spawnCreep(_.shuffle(fighterBodyPlan), 'badass' + Game.time + spawn, { memory: { role: "fighter", targetRoom: 'E13N39' } });
+                        console.log('Spawning new fighter ' + spawnRes);
+                    }
                 }
             });
 
