@@ -1,0 +1,11 @@
+https://screeps.com/a/#!/room/shard0/E12N39
+https://wiki.screepspl.us/MemHack/
+https://docs.screeps.com/
+https://wiki.screepspl.us/
+https://bencbartlett.com/projects/overmind/
+https://screeps.com/forum/
+https://alaycock.co.uk/tag/screeps/
+https://www.youtube.com/hashtag/screeps
+https://www.youtube.com/playlist?list=PLw9di5JwI6p-HUP0yPUxciaEjrsFb2kR2
+https://github.com/bencbartlett/Overmind
+https://github.com/CTNOriginals/CTN_Screeps/blob/main/src/main.ts
