@@ -4,7 +4,8 @@
  */
 
 module.exports = {
-    signature: '🐸 experimental',
+    // Applied on owned controllers while upgrading (one intent/tick, no extra trips)
+    signature: '🐸',
 
     // Soft CPU guard: skip scouting/construction when bucket is low
     cpu: {
@@ -53,32 +54,39 @@ module.exports = {
         },
         builders: 2,
         defendersPerThreat: 2,
+        // One scout per mature room — flood the frontier
         scouts: 1,
         // Pioneers sent to claim targets / spawnless rooms
-        pioneersPerTarget: 3,
+        pioneersPerTarget: 4,
+        // Race claims: send a spare claimer per target
+        claimersPerTarget: 2,
         remoteMinersPerSource: 1,
-        remoteHaulersPerSource: 1,
+        remoteHaulersPerSource: 2,
         reserversPerRemote: 1,
     },
 
     expansion: {
         // Claim when owned rooms < GCL and a home room is healthy
         enabled: true,
-        // Home room must be at least this RCL before funding expansion
-        minHomeRcl: 3,
-        // Prefer rooms with this many sources
+        // Expand as soon as a neighbor room can fund a claimer
+        minHomeRcl: 2,
+        // Prefer rooms with this many sources (1-source neighbors still claimed)
         preferSources: 2,
-        // Max claim distance in room-hops from any owned room
-        maxRange: 3,
+        // Stay glued to the border — claim outwards from current rooms
+        maxRange: 2,
+        // Strongly prefer orthogonally adjacent rooms over anything further
+        preferAdjacent: true,
+        // Claim every free GCL slot in parallel
+        parallelClaims: true,
         // How often (ticks) to re-evaluate expansion targets
-        replanInterval: 500,
+        replanInterval: 50,
         // Scout refresh
-        scoutInterval: 300,
-        // Remote mining adjacent neutrals
+        scoutInterval: 100,
+        // Remote mining adjacent neutrals — pressure every border
         remotes: true,
-        maxRemotesPerRoom: 2,
-        // Hard cap across the whole empire (important when you already own many rooms)
-        maxRemotesTotal: 8,
+        maxRemotesPerRoom: 4,
+        // Cap remotes empire-wide (raise if CPU allows)
+        maxRemotesTotal: 24,
     },
 
     // Legacy role names from the default branch — treat as workers

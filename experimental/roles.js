@@ -105,11 +105,7 @@ const hauler = {
         }
         if (!lib.deliverEnergy(creep)) {
             // Upgrade as overflow sink
-            if (creep.room.controller && creep.room.controller.my) {
-                if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-                    lib.moveTo(creep, creep.room.controller, { stroke: '#3333ff' });
-                }
-            }
+            lib.upgradeMyController(creep);
         }
     },
 };
@@ -159,10 +155,7 @@ const worker = {
         }
 
         if (room.controller && room.controller.my) {
-            creep.say('⬆');
-            if (creep.upgradeController(room.controller) === ERR_NOT_IN_RANGE) {
-                lib.moveTo(creep, room.controller, { stroke: '#3333ff' });
-            }
+            lib.upgradeMyController(creep);
         }
     },
 };
@@ -197,9 +190,7 @@ const upgrader = {
         }
 
         if (creep.room.controller && creep.room.controller.my) {
-            if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-                lib.moveTo(creep, creep.room.controller, { stroke: '#3333ff' });
-            }
+            lib.upgradeMyController(creep);
         }
     },
 };
@@ -393,9 +384,7 @@ const pioneer = {
         }
 
         if (creep.room.controller && creep.room.controller.my) {
-            if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-                lib.moveTo(creep, creep.room.controller, { stroke: '#3333ff' });
-            }
+            lib.upgradeMyController(creep);
         }
     },
 };
@@ -492,11 +481,7 @@ const remoteHauler = {
             return;
         }
         if (!lib.deliverEnergy(creep)) {
-            if (creep.room.controller && creep.room.controller.my) {
-                if (creep.upgradeController(creep.room.controller) === ERR_NOT_IN_RANGE) {
-                    lib.moveTo(creep, creep.room.controller);
-                }
-            }
+            lib.upgradeMyController(creep);
         }
     },
 };

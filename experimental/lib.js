@@ -351,6 +351,33 @@ function log(msg) {
     console.log(`[exp ${Game.time}] ${msg}`);
 }
 
+/**
+ * Upgrade owned controller; if the sign is wrong and we're in range, sign
+ * instead this tick (same range as upgrade — no extra travel).
+ * Returns true if the creep spent its intent on sign/upgrade/move.
+ */
+function upgradeMyController(creep) {
+    const ctrl = creep.room.controller;
+    if (!ctrl || !ctrl.my) return false;
+
+    if (!creep.pos.inRangeTo(ctrl, 3)) {
+        creep.say('⬆');
+        moveTo(creep, ctrl, { stroke: '#3333ff' });
+        return true;
+    }
+
+    const want = config.signature;
+    if (!ctrl.sign || ctrl.sign.text !== want) {
+        creep.say('🐸');
+        creep.signController(ctrl, want);
+        return true;
+    }
+
+    creep.say('⬆');
+    creep.upgradeController(ctrl);
+    return true;
+}
+
 module.exports = {
     bodyCost,
     scaleBody,
@@ -373,4 +400,5 @@ module.exports = {
     ensureCreepHome,
     bucketOk,
     log,
+    upgradeMyController,
 };

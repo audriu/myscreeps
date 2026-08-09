@@ -144,37 +144,38 @@ function empireWants() {
 
     const owned = lib.ownedRooms();
     const gcl = Game.gcl.level;
-    const target = Memory.empire && Memory.empire.expansionTarget;
+    const targets = (Memory.empire && Memory.empire.expansionTargets && Memory.empire.expansionTargets.length)
+        ? Memory.empire.expansionTargets
+        : ((Memory.empire && Memory.empire.expansionTarget) ? [Memory.empire.expansionTarget] : []);
 
-    // Claimers
-    if (target && owned.length < gcl) {
-        const existing = creepsTarget(target, 'claimer').length;
-        if (existing < 1) {
-            wanted.push({
-                role: 'claimer',
-                count: 1,
-                targetRoom: target,
-                priority: 80,
-                body: () => bodies.claimer(),
-                // Spawn from nearest mature room
-                fromNearestTo: target,
-            });
-        }
+    const claimersWanted = config.population.claimersPerTarget || 2;
+    const freeSlots = Math.max(0, gcl - owned.length);
 
-        // Pioneers to bootstrap spawn
+    // Claim every open target in parallel (up to free GCL slots)
+    for (const target of targets.slice(0, Math.max(freeSlots, targets.length))) {
+        if (freeSlots <= 0) break;
+
+        wanted.push({
+            role: 'claimer',
+            count: claimersWanted,
+            targetRoom: target,
+            priority: 92,
+            body: () => bodies.claimer(),
+            fromNearestTo: target,
+        });
+
         const targetRoom = Game.rooms[target];
         const needsPioneer = !targetRoom ||
             !targetRoom.controller ||
             !targetRoom.controller.my ||
             targetRoom.find(FIND_MY_SPAWNS).length === 0;
 
-        if (needsPioneer || (targetRoom && targetRoom.controller && targetRoom.controller.my &&
-            targetRoom.find(FIND_MY_SPAWNS).length === 0)) {
+        if (needsPioneer) {
             wanted.push({
                 role: 'pioneer',
                 count: config.population.pioneersPerTarget,
                 targetRoom: target,
-                priority: 75,
+                priority: 86,
                 body: bodies.pioneer,
                 fromNearestTo: target,
             });
@@ -184,21 +185,18 @@ function empireWants() {
     // Also pioneer any owned room missing a spawn
     for (const room of owned) {
         if (room.find(FIND_MY_SPAWNS).length === 0) {
-            const have = creepsTarget(room.name, 'pioneer').length;
-            if (have < config.population.pioneersPerTarget) {
-                wanted.push({
-                    role: 'pioneer',
-                    count: config.population.pioneersPerTarget,
-                    targetRoom: room.name,
-                    priority: 88,
-                    body: bodies.pioneer,
-                    fromNearestTo: room.name,
-                });
-            }
+            wanted.push({
+                role: 'pioneer',
+                count: config.population.pioneersPerTarget,
+                targetRoom: room.name,
+                priority: 94,
+                body: bodies.pioneer,
+                fromNearestTo: room.name,
+            });
         }
     }
 
-    // Remotes
+    // Remotes — pressure every assigned border room
     if (config.expansion.remotes && Memory.empire && Memory.empire.remotes) {
         for (const remoteName in Memory.empire.remotes) {
             const remote = Memory.empire.remotes[remoteName];
@@ -210,7 +208,7 @@ function empireWants() {
                 count: sourceCount * config.population.remoteMinersPerSource,
                 targetRoom: remoteName,
                 home: remote.home,
-                priority: 55,
+                priority: 70,
                 body: bodies.remoteMiner,
                 spawnIn: remote.home,
                 assignSources: true,
@@ -220,7 +218,7 @@ function empireWants() {
                 count: sourceCount * config.population.remoteHaulersPerSource,
                 targetRoom: remoteName,
                 home: remote.home,
-                priority: 54,
+                priority: 69,
                 body: bodies.remoteHauler,
                 spawnIn: remote.home,
             });
@@ -229,7 +227,7 @@ function empireWants() {
                 count: config.population.reserversPerRemote,
                 targetRoom: remoteName,
                 home: remote.home,
-                priority: 45,
+                priority: 60,
                 body: bodies.reserver,
                 spawnIn: remote.home,
             });
@@ -387,11 +385,14 @@ function runEmpire() {
         const spawn = pickSpawn(homeRoom.name);
         if (!spawn) continue;
 
-        // Require healthy home for expansion creeps
+        // Require healthy home for expansion creeps — keep the bar low for aggression
         if (want.role === 'claimer' || want.role === 'pioneer') {
-            if (homeRoom.controller.level < config.expansion.minHomeRcl) continue;
-            if (homeRoom.energyAvailable < homeRoom.energyCapacityAvailable * 0.5 &&
-                homeRoom.energyAvailable < 650) continue;
+            if (homeRoom.controller.level < config.expansion.minHomeRcl &&
+                homeRoom.energyCapacityAvailable < 650) continue;
+            // Claimer only needs 650; don't wait for a full refill
+            if (want.role === 'claimer' && homeRoom.energyAvailable < 650) continue;
+            if (want.role === 'pioneer' &&
+                homeRoom.energyAvailable < Math.min(400, homeRoom.energyCapacityAvailable * 0.3)) continue;
         }
 
         if (trySpawn(spawn, Object.assign({}, want, { home: want.home || homeRoom.name }), homeRoom)) {

@@ -41,17 +41,23 @@ Drop this folder into your Screeps client (or sync tool) as a branch named `expe
 Edit `config.js`:
 
 - `expansion.enabled` / `expansion.maxRange` / `expansion.minHomeRcl`
-- `expansion.remotes` / `maxRemotesPerRoom`
+- `expansion.preferAdjacent` / `expansion.parallelClaims`
+- `expansion.remotes` / `maxRemotesPerRoom` / `maxRemotesTotal`
+- `population.claimersPerTarget` / `pioneersPerTarget`
 - `population.*` creep counts
 - `fortify.*` wall/rampart repair ceilings
-- `signature` controller sign text
+- `signature` controller sign text (default `🐸`)
 
 ## Expansion behavior
 
-- Claims only while `ownedRooms < Game.gcl.level`.
-- Needs at least one owned room at `minHomeRcl` (default 3) with a spawn to fund claimers/pioneers.
-- Remotes are adjacent unowned rooms (not source-keeper); reserved with `reserver` creeps.
+- Claims **all free GCL slots in parallel**, preferring rooms orthogonally adjacent to what you already own.
+- Funds claims from RCL2+ neighbors (not waiting for RCL3).
+- Remotes push into adjacent neutrals (up to `maxRemotesTotal`).
 - New rooms: claimer → pioneers build first spawn → room enters bootstrap → develop → mature.
+
+## Controller signs
+
+Owned rooms are signed `🐸` when an upgrader/worker is already in range to upgrade (one intent per tick — no extra travel). Fresh claims are signed immediately by the claimer.
 
 ## Notes
 
