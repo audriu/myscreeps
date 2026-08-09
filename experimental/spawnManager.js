@@ -284,7 +284,13 @@ function countMatching(want) {
 
 function countForWant(want, homeRoom) {
     return lib.countCreeps(c => {
-        if (lib.roleOf(c) !== want.role) return false;
+        // Workers include legacy aliases (ant/harvester/…); other roles must match memory.role
+        // exactly so a remapper bug cannot zero the count and flood-spawn.
+        if (want.role === 'worker') {
+            if (lib.roleOf(c) !== 'worker') return false;
+        } else if (c.memory.role !== want.role) {
+            return false;
+        }
         if (want.role === 'scout') return lib.homeOf(c) === homeRoom.name;
         if (want.role === 'claimer' || want.role === 'pioneer') {
             return c.memory.targetRoom === want.targetRoom;

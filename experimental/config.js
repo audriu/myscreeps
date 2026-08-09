@@ -89,6 +89,8 @@ module.exports = {
         maxRemotesTotal: 24,
     },
 
-    // Legacy role names from the default branch — treat as workers
-    legacyWorkerRoles: ['ant', 'builder', 'harvester', 'upgrader', 'repairer'],
+    // Legacy role names from older branches — remapped to worker on adopt.
+    // Do NOT include experimental first-class roles (builder, upgrader, etc.)
+    // or spawn counts never match and those roles flood forever.
+    legacyWorkerRoles: ['ant', 'harvester', 'repairer'],
 };

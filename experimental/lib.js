@@ -316,6 +316,7 @@ function creepsBy(filterFn) {
 function roleOf(creep) {
     const role = creep.memory.role;
     if (!role) return 'worker';
+    // Only remap true legacy aliases — never experimental roles like builder/upgrader
     if (config.legacyWorkerRoles.indexOf(role) !== -1) return 'worker';
     return role;
 }
@@ -334,8 +335,9 @@ function ensureCreepHome(creep) {
             creep.memory.home = creep.room.name;
         }
     }
-    // Migrate legacy role
-    if (config.legacyWorkerRoles.indexOf(creep.memory.role) !== -1) {
+    // Migrate legacy aliases only (ant/harvester/repairer). Never rewrite
+    // first-class experimental roles — that zeroes spawn counts and floods.
+    if (creep.memory.role && config.legacyWorkerRoles.indexOf(creep.memory.role) !== -1) {
         creep.memory.role = 'worker';
     }
 }
