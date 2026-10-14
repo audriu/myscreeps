@@ -12,21 +12,21 @@ Personal [Screeps](https://screeps.com/) colony scripts.
 ## Layout
 
 ```
-default/
-  main.js       # game loop
-  spawning.js   # creep spawning & cleanup
-  tasks.js      # roles: ant, colonist, fighter
-  towers.js     # tower defense
+default/      # the colony AI (upload as branch "default"), see default/README.md
+tools/sim/    # offline simulator that runs the script against real room snapshots
+bookmarks     # links
 ```
 
-## Roles
+## Deploy
 
-| Role | Job |
-|------|-----|
-| `ant` | harvest energy and work |
-| `colonist` | claim rooms |
-| `fighter` | attack target rooms |
+Upload every `default/*.js` file as the `default` branch. With the Screeps
+client's local folder sync on Windows that folder is
+`%LOCALAPPDATA%\Screeps\scripts\screeps.com\default\`; delete the old modules
+there first, then copy the new files in.
 
-## Sync
+## Test before uploading
 
-Drop the `default/` folder into your Screeps client (or sync tool) as a branch named `default`.
+```
+node tools/sim/fetch.js <username> shard0
+node tools/sim/run.js default E12N39 2000
+```
