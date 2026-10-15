@@ -1,6 +1,6 @@
 /**
  * Cross-room decisions: helpers for spawnless rooms, couriers from rich rooms
- * into weak ones, scouting, and carefully gated claiming.
+ * into weak ones, scouting, reclaiming lost rooms and carefully gated claiming.
  */
 const config = require('config');
 const util = require('util');
@@ -110,29 +110,98 @@ function roomStatusOk(name) {
     return true;
 }
 
+function myUsername() {
+    const h = util.heap;
+    if (h.myName) return h.myName;
+    for (const n in Game.spawns) {
+        const sp = Game.spawns[n];
+        if (sp.owner && sp.owner.username) return (h.myName = sp.owner.username);
+    }
+    const owned = util.ownedRooms();
+    if (owned.length && owned[0].controller.owner) return (h.myName = owned[0].controller.owner.username);
+    return null;
+}
+
+function wantClaimer(wants, c) {
+    addWant(wants, {
+        role: 'claimer',
+        spawnIn: c.from,
+        home: c.from,
+        count: 1,
+        priority: c.reclaim ? 450 : 320,
+        memory: { targetRoom: c.target },
+        match: { targetRoom: c.target },
+    });
+}
+
+/** Owned room with the shortest walking route (in rooms) to `target`, or null. */
+function nearestByRoute(target, pred, maxHops) {
+    const rooms = util.ownedRooms();
+    let best = null;
+    for (let i = 0; i < rooms.length; i++) {
+        const r = rooms[i];
+        if (util.roomDistance(r.name, target) > maxHops) continue;
+        if (pred && !pred(r)) continue;
+        const route = Game.map.findRoute(r.name, target, {
+            routeCallback: n => (util.isHighway(n) ? 2 : util.isKeeperRoom(n) ? 10 : 1),
+        });
+        if (route === ERR_NO_PATH || !route.length || route.length > maxHops) continue;
+        if (!best || route.length < best.hops) best = { room: r, hops: route.length };
+    }
+    return best;
+}
+
+/**
+ * Rooms whose controller we lost while our buildings still stand. We keep
+ * vision through the structures, so no scouting or funding gate applies: a
+ * claimer costs 650 energy and the room restarts on its own (re-activated)
+ * spawn. Sets e.claim and returns true when a target was picked.
+ */
+function planReclaim(e) {
+    const cfg = config.reclaim;
+    if (!cfg || !cfg.enabled) return false;
+    const me = myUsername();
+    let best = null;
+    for (const name in Game.rooms) {
+        const room = Game.rooms[name];
+        const ctrl = room.controller;
+        if (!ctrl || ctrl.my || ctrl.owner) continue;
+        if (ctrl.reservation && ctrl.reservation.username !== me) continue;
+        if (e.blacklist[name] && Game.time - e.blacklist[name] < cfg.retry) continue;
+        if (!roomStatusOk(name)) continue;
+        const mine = room.find(FIND_MY_STRUCTURES);
+        let spawns = 0;
+        for (let i = 0; i < mine.length; i++) if (mine[i].structureType === STRUCTURE_SPAWN) spawns++;
+        if (!spawns && mine.length < cfg.minStructures) continue;
+        if (room.find(FIND_HOSTILE_STRUCTURES, { filter: s => s.structureType === STRUCTURE_INVADER_CORE }).length) continue;
+        if (room.find(FIND_HOSTILE_CREEPS).length) continue;
+        const from = nearestByRoute(name, r => {
+            const s = roomState.get(r);
+            return s.activeSpawns.length > 0 && s.rcl >= cfg.spawnerMinRcl && !s.hostiles.length;
+        }, cfg.maxLinearDistance);
+        if (!from) continue;
+        const score = spawns * 100 + mine.length - from.hops * 50;
+        if (!best || score > best.score) best = { score, name, from: from.room.name, spawns, n: mine.length };
+    }
+    if (!best) return false;
+    e.claim = { target: best.name, from: best.from, t: Game.time, reclaim: true };
+    util.log('Reclaiming ' + best.name + ' (' + best.spawns + ' spawn(s), ' + best.n + ' structures) from ' + best.from);
+    Game.notify('Reclaiming lost room ' + best.name + ' from ' + best.from);
+    return true;
+}
+
 function planExpansion(wants, states) {
     const e = ensure();
     const cfg = config.expansion;
-    if (!cfg.enabled) {
-        e.claim = null;
-        return;
-    }
     const owned = util.ownedRooms();
     if (Game.gcl.level <= owned.length) {
         e.claim = null;
         return;
     }
+    let expansionOk = !!cfg.enabled;
     for (let i = 0; i < states.length; i++) {
-        if (states[i].rcl < cfg.allRoomsMinRcl || !states[i].spawns.length) {
-            e.claim = null;
-            return;
-        }
+        if (states[i].rcl < cfg.allRoomsMinRcl || !states[i].spawns.length) expansionOk = false;
     }
-    if (Game.cpu.bucket < cfg.minBucket) return;
-
-    const funders = states.filter(s => s.activeSpawns.length && s.rcl >= cfg.funderMinRcl &&
-        s.storage && (s.storage.store[RESOURCE_ENERGY] || 0) >= cfg.funderMinStorage && !s.hostiles.length);
-    if (!funders.length) return;
 
     // Keep an existing claim alive.
     if (e.claim) {
@@ -142,21 +211,33 @@ function planExpansion(wants, states) {
             e.blacklist[c.target] = Game.time;
             e.claim = null;
         } else if (util.isOwned(c.target)) {
-            util.log('Expansion ' + c.target + ' claimed; helpers will build the spawn');
+            util.log(c.reclaim
+                ? 'Reclaimed ' + c.target + '; its spawn restarts the room'
+                : 'Expansion ' + c.target + ' claimed; helpers will build the spawn');
+            e.claim = null;
+        } else if (!c.reclaim && !expansionOk) {
             e.claim = null;
         } else {
-            addWant(wants, {
-                role: 'claimer',
-                spawnIn: c.from,
-                home: c.from,
-                count: 1,
-                priority: 320,
-                memory: { targetRoom: c.target },
-                match: { targetRoom: c.target },
-            });
+            wantClaimer(wants, c);
             return;
         }
     }
+
+    // Lost rooms with our buildings come first and bypass the expansion gates.
+    if (planReclaim(e)) {
+        wantClaimer(wants, e.claim);
+        return;
+    }
+
+    if (!expansionOk) {
+        e.claim = null;
+        return;
+    }
+    if (Game.cpu.bucket < cfg.minBucket) return;
+
+    const funders = states.filter(s => s.activeSpawns.length && s.rcl >= cfg.funderMinRcl &&
+        s.storage && (s.storage.store[RESOURCE_ENERGY] || 0) >= cfg.funderMinStorage && !s.hostiles.length);
+    if (!funders.length) return;
 
     // Candidate rooms: exits of funders (and their exits), not owned, not bad.
     const candidates = {};

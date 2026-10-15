@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -15,6 +15,7 @@ const traceArg = args.find(a => a.startsWith('--trace='));
 const traceEvery = traceArg ? +traceArg.split('=')[1] : 0;
 const invadeArg = args.find(a => a.startsWith('--invade='));   // --invade=ROOM:TICK[:big]
 const unownedArg = args.find(a => a.startsWith('--unowned=')); // --unowned=ROOM
+const lostArg = args.find(a => a.startsWith('--lost='));       // --lost=ROOM (controller lost, buildings remain)
 const spawnDiag = args.includes('--spawndiag');
 const meta = fs.existsSync(path.join(path.resolve(__dirname, 'data'), 'time.json')) ? JSON.parse(fs.readFileSync(path.join(path.resolve(__dirname, 'data'), 'time.json'))) : { time: 78296030 };
 const startTime = meta.time;
@@ -24,6 +25,7 @@ E.installGlobals();
 W.time = startTime;
 for (const r of rooms) E.loadRoom(r, dataDir);
 if (unownedArg) E.makeUnowned(unownedArg.split('=')[1]);
+if (lostArg) E.makeLost(lostArg.split('=')[1]);
 
 // module loader mimicking Screeps' flat require()
 const cache = {};

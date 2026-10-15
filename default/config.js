@@ -74,6 +74,16 @@ module.exports = {
         claimTimeout: 4000,
     },
 
+    // Rooms whose controller was lost while our buildings still stand are
+    // claimed back before any new expansion, from the nearest capable room.
+    reclaim: {
+        enabled: true,
+        minStructures: 5,       // without a surviving spawn, this many owned structures still qualify
+        spawnerMinRcl: 3,       // a claimer costs 650 energy
+        maxLinearDistance: 3,   // a CLAIM creep lives 600 ticks
+        retry: 20000,           // ticks before a timed-out reclaim is tried again
+    },
+
     cpu: {
         plannerMinBucket: 1000,
         empireMinBucket: 3000,

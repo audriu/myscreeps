@@ -12,6 +12,7 @@ node tools/sim/run.js default E12N39 2000          # one room, 2000 ticks
 node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
 node tools/sim/run.js default E15N38,E16N38 5000 --unowned=E16N38   # claim + settle test
+node tools/sim/run.js default E12N34,E11N34 3000 --lost=E11N34      # reclaim a room whose controller was lost
 node tools/sim/run.js default E13N34 600 --trace=50 --map
 ```
 

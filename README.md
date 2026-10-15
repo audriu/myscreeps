@@ -19,10 +19,9 @@ bookmarks     # links
 
 ## Deploy
 
-Upload every `default/*.js` file as the `default` branch. With the Screeps
-client's local folder sync on Windows that folder is
-`%LOCALAPPDATA%\Screeps\scripts\screeps.com\default\`; delete the old modules
-there first, then copy the new files in.
+Pushing to `main` deploys: the Screeps GitHub integration
+(https://screeps.com/a/#!/account/github) syncs the `default` folder of this
+repository into the `default` code branch. Only `*.js` files are uploaded.
 
 ## Test before uploading
 

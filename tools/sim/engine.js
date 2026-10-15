@@ -825,6 +825,12 @@ function makeUnowned(roomName) {
     for (const c of room.creeps.slice()) killCreep(c, true);
     room.sites = []; for (const id in W.sites) if (W.sites[id].pos.roomName === roomName) delete W.sites[id];
 }
+/** Lose a room the way a downgrade does: controller neutral, creeps dead, our structures still standing (inactive). */
+function makeLost(roomName) {
+    const room = W.rooms[roomName];
+    room.controller.my = false; room.controller.owner = undefined; room.controller.level = 0; room.controller.progress = 0; room.controller.sign = undefined;
+    for (const c of room.creeps.slice()) killCreep(c, true);
+}
 function makeGame() {
     const rooms = {}; for (const n in W.rooms) rooms[n] = W.rooms[n];
     return {
@@ -852,6 +858,26 @@ function makeGame() {
                 edge(3, () => { for (let y = 0; y < 50; y++) if (room.terrain.get(49, y) !== 1) return true; return false; });
                 return out;
             },
+            findRoute(from, to, opts) {
+                // BFS over room exits; unloaded rooms count as open plains.
+                if (from === to) return [];
+                const cb = opts && opts.routeCallback;
+                const prev = { [from]: null }; const queue = [from];
+                while (queue.length) {
+                    const cur = queue.shift();
+                    const exits = this.describeExits(cur);
+                    for (const dir in exits) {
+                        const n = exits[dir];
+                        if (n in prev) continue;
+                        if (cb && cb(n, cur) === Infinity) continue;
+                        prev[n] = { room: cur, exit: +dir };
+                        if (n === to) { const out = []; let x = n; while (prev[x]) { out.unshift({ exit: prev[x].exit, room: x }); x = prev[x].room; } return out; }
+                        if (Object.keys(prev).length > 400) return C.ERR_NO_PATH;
+                        queue.push(n);
+                    }
+                }
+                return C.ERR_NO_PATH;
+            },
             getRoomLinearDistance(a, b) { const p = worldXY(a), q = worldXY(b); return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y)); },
             getRoomStatus() { return { status: 'normal', timestamp: null }; },
             getRoomTerrain(name) { return W.rooms[name] ? W.rooms[name].terrain : new Terrain('0'.repeat(2500)); },
@@ -872,4 +898,4 @@ function installGlobals() {
     global._ = undefined;
 }
 
-module.exports = { W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned };
+module.exports = { W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned, makeLost };

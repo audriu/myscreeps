@@ -44,7 +44,8 @@ function roleFromName(name) {
 
 function normalizeCreep(creep) {
     const m = creep.memory;
-    if (m.v === config.version && m.role && m.home) return;
+    // Re-home creeps whose room was lost (controller downgraded away).
+    if (m.v === config.version && m.role && m.home && util.isOwned(m.home)) return;
     let role = m.role || roleFromName(creep.name) || 'worker';
     if (ROLE_MAP[role]) role = ROLE_MAP[role];
     const known = ['miner', 'hauler', 'upgrader', 'worker', 'courier', 'defender', 'claimer', 'scout'];
