@@ -13,7 +13,51 @@ function ensure() {
     if (!e.scoutQueue) e.scoutQueue = [];
     if (!e.intel) e.intel = {};
     if (!e.blacklist) e.blacklist = {};
+    if (!e.abandoned) e.abandoned = {};
     return e;
+}
+
+/**
+ * Console switch for a full GCL: `Memory.empire.release = 'W1N1'` unclaims
+ * that room on the next empire pass and marks it abandoned, so neither the
+ * reclaim logic nor expansion ever takes it back (delete it from
+ * Memory.empire.abandoned to allow that again). The freed GCL slot then goes
+ * to the best lost room, if any.
+ */
+function releaseRoom(e) {
+    const name = e.release;
+    if (!name) return;
+    delete e.release;
+    const room = Game.rooms[name];
+    if (!room || !room.controller || !room.controller.my) {
+        util.warn('Release of ' + name + ' ignored: not an owned room');
+        return;
+    }
+    const res = room.controller.unclaim();
+    if (res !== OK) {
+        util.warn('Release of ' + name + ' failed (' + res + ')');
+        return;
+    }
+    e.abandoned[name] = Game.time;
+    if (e.claim && e.claim.target === name) e.claim = null;
+    util.warn('Released ' + name + ': controller unclaimed, room marked abandoned');
+    Game.notify('Released room ' + name + ' (controller unclaimed)');
+}
+
+/** Once per new GCL level: log and email that a room slot opened up. */
+function watchGcl(e) {
+    const level = Game.gcl.level;
+    if (e.gclLevel == null) {
+        e.gclLevel = level;
+        return;
+    }
+    if (level <= e.gclLevel) return;
+    e.gclLevel = level;
+    const owned = util.ownedRooms().length;
+    const msg = 'GCL rose to ' + level + ': ' + owned + ' room(s) owned, ' + (level - owned) + ' slot(s) free' +
+        (level > owned ? '; lost rooms with our buildings are reclaimed first' : '');
+    util.warn(msg);
+    Game.notify(msg);
 }
 
 /** Record intel for visible rooms that are not ours. */
@@ -155,11 +199,12 @@ function nearestByRoute(target, pred, maxHops) {
  * Rooms whose controller we lost while our buildings still stand. We keep
  * vision through the structures, so no scouting or funding gate applies: a
  * claimer costs 650 energy and the room restarts on its own (re-activated)
- * spawn. Sets e.claim and returns true when a target was picked.
+ * spawn. pickReclaim returns the best candidate (or null); planReclaim sets
+ * e.claim from it and returns true when a target was picked.
  */
-function planReclaim(e) {
+function pickReclaim(e) {
     const cfg = config.reclaim;
-    if (!cfg || !cfg.enabled) return false;
+    if (!cfg || !cfg.enabled) return null;
     const me = myUsername();
     let best = null;
     for (const name in Game.rooms) {
@@ -167,6 +212,7 @@ function planReclaim(e) {
         const ctrl = room.controller;
         if (!ctrl || ctrl.my || ctrl.owner) continue;
         if (ctrl.reservation && ctrl.reservation.username !== me) continue;
+        if (e.abandoned[name]) continue;
         if (e.blacklist[name] && Game.time - e.blacklist[name] < cfg.retry) continue;
         if (!roomStatusOk(name)) continue;
         const mine = room.find(FIND_MY_STRUCTURES);
@@ -183,6 +229,11 @@ function planReclaim(e) {
         const score = spawns * 100 + mine.length - from.hops * 50;
         if (!best || score > best.score) best = { score, name, from: from.room.name, spawns, n: mine.length };
     }
+    return best;
+}
+
+function planReclaim(e) {
+    const best = pickReclaim(e);
     if (!best) return false;
     e.claim = { target: best.name, from: best.from, t: Game.time, reclaim: true };
     util.log('Reclaiming ' + best.name + ' (' + best.spawns + ' spawn(s), ' + best.n + ' structures) from ' + best.from);
@@ -196,6 +247,18 @@ function planExpansion(wants, states) {
     const owned = util.ownedRooms();
     if (Game.gcl.level <= owned.length) {
         e.claim = null;
+        // A lost room with our spawn in it stays lost until a slot frees up: say so.
+        if (Game.time % 1000 === 0) {
+            const lost = pickReclaim(e);
+            if (lost) {
+                util.warn('GCL full (' + owned.length + '/' + Game.gcl.level + '): lost room ' + lost.name + ' (' + lost.spawns +
+                    ' spawn(s), ' + lost.n + ' structures) cannot be reclaimed; set Memory.empire.release = \'ROOM\' to give one up');
+                if (e.gclFullNotified !== lost.name) {
+                    e.gclFullNotified = lost.name;
+                    Game.notify('GCL full: lost room ' + lost.name + ' with ' + lost.spawns + ' spawn(s) cannot be reclaimed');
+                }
+            }
+        }
         return;
     }
     let expansionOk = !!cfg.enabled;
@@ -255,6 +318,7 @@ function planExpansion(wants, states) {
     const needScout = [];
     for (const name in candidates) {
         if (util.isOwned(name)) continue;
+        if (e.abandoned[name]) continue;
         if (e.blacklist[name] && Game.time - e.blacklist[name] < 20000) continue;
         if (!roomStatusOk(name)) continue;
         const intel = e.intel[name];
@@ -303,6 +367,8 @@ function planExpansion(wants, states) {
 
 function run() {
     const e = ensure();
+    watchGcl(e);
+    releaseRoom(e);
     if (Game.cpu.bucket < config.cpu.empireMinBucket) return;
     if (Game.time % 20 !== 0 && e.wants.length !== undefined && e.plannedAt && Game.time - e.plannedAt < 20) return;
     e.plannedAt = Game.time;

@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -17,6 +17,9 @@ const invadeArg = args.find(a => a.startsWith('--invade='));   // --invade=ROOM:
 const unownedArg = args.find(a => a.startsWith('--unowned=')); // --unowned=ROOM
 const lostArg = args.find(a => a.startsWith('--lost='));       // --lost=ROOM (controller lost, buildings remain)
 const spawnDiag = args.includes('--spawndiag');
+const gclArg = args.find(a => a.startsWith('--gcl='));         // --gcl=N (Game.gcl.level)
+const gclRaiseArg = args.find(a => a.startsWith('--gclraise=')); // --gclraise=TICK (GCL level +1 at that tick)
+const releaseArg = args.find(a => a.startsWith('--release=')); // --release=ROOM:TICK (sets Memory.empire.release at that tick)
 const meta = fs.existsSync(path.join(path.resolve(__dirname, 'data'), 'time.json')) ? JSON.parse(fs.readFileSync(path.join(path.resolve(__dirname, 'data'), 'time.json'))) : { time: 78296030 };
 const startTime = meta.time;
 const dataDir = path.resolve(__dirname, 'data');
@@ -26,6 +29,7 @@ W.time = startTime;
 for (const r of rooms) E.loadRoom(r, dataDir);
 if (unownedArg) E.makeUnowned(unownedArg.split('=')[1]);
 if (lostArg) E.makeLost(lostArg.split('=')[1]);
+if (gclArg) W.gcl = +gclArg.split('=')[1];
 
 // module loader mimicking Screeps' flat require()
 const cache = {};
@@ -69,6 +73,8 @@ for (let i = 0; i < ticks; i++) {
     global.Memory = JSON.parse(memoryJson);
     W.tickStart = process.hrtime.bigint();
     if (invadeArg) { const [, spec] = invadeArg.split('='); const [room, tick, big] = spec.split(':'); if (i + 1 === +tick) { E.spawnInvader(room, big ? ['tough','tough','tough','tough','attack','attack','attack','attack','attack','attack','heal','heal','move','move','move','move','move','move','move','move'] : null); if (big) E.spawnInvader(room, null); } }
+    if (gclRaiseArg && i + 1 === +gclRaiseArg.split('=')[1]) W.gcl++;
+    if (releaseArg) { const [room, tick] = releaseArg.split('=')[1].split(':'); if (i + 1 === +tick) { Memory.empire = Memory.empire || {}; Memory.empire.release = room; } }
     if (spawnDiag && (i + 1) % 25 === 0) {
         for (const sn in W.spawns) { const sp = W.spawns[sn]; if (sp.spawning && sp.spawning.remainingTime === 0) {
             const room = sp.room; const near = room.creeps.filter(c => !c.spawning && sp.pos.isNearTo(c)).map(c => { const m = (Memory.creeps || {})[c.name] || {}; return `${c.name}@${c.pos.x},${c.pos.y}[${m.role}/${m.task || ''}/${m.tk || ''}/fat${c.fatigue}]`; });

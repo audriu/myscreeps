@@ -29,8 +29,13 @@ modules from the branch first; `main.js` only requires the modules listed below.
   hostiles at the spawn, or when the controller is attacked.
 - **Empire**: couriers carry energy from rich storages into weak neighbours;
   terminals balance energy between RCL6+ rooms; owned rooms without a spawn get
-  helper workers; claiming is gated (all rooms RCL3+, a healthy RCL5+ funder,
-  CPU bucket high) and picks 2-source rooms next to owned ones.
+  helper workers; lost rooms that still hold our spawn are claimed back first;
+  claiming is gated (all rooms RCL3+, a healthy RCL5+ funder, CPU bucket high)
+  and picks 2-source rooms next to owned ones. When GCL is full a lost room
+  cannot be reclaimed: the console warns every 1000 ticks, and
+  `Memory.empire.release = 'W1N1'` gives a room up (unclaimed, never retaken)
+  so the slot goes to the lost room. Every new GCL level is logged and
+  emailed with the number of free slots.
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped.

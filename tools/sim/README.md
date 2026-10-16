@@ -13,6 +13,8 @@ node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
 node tools/sim/run.js default E15N38,E16N38 5000 --unowned=E16N38   # claim + settle test
 node tools/sim/run.js default E12N34,E11N34 3000 --lost=E11N34      # reclaim a room whose controller was lost
+node tools/sim/run.js default E13N34,E13N35,E12N36 1500 --lost=E13N35 --gcl=2 --release=E12N36:400  # GCL full, give a room up
+node tools/sim/run.js default E13N34,E13N35 1500 --lost=E13N35 --gcl=1 --gclraise=500            # GCL full, then a level up
 node tools/sim/run.js default E13N34 600 --trace=50 --map
 ```
 

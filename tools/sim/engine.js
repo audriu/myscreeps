@@ -258,6 +258,7 @@ class Controller extends RoomObject {
         this.reservation = undefined; this.hits = undefined;
     }
     get progressTotal() { return C.CONTROLLER_LEVELS[this.level]; }
+    unclaim() { if (!this.my) return C.ERR_NOT_OWNER; this.my = false; this.owner = undefined; this.level = 0; this.progress = 0; W.logs.push('UNCLAIMED ' + this.pos.roomName); return C.OK; }
     activateSafeMode() { if (!this.safeModeAvailable) return C.ERR_NOT_ENOUGH_RESOURCES; this.safeModeAvailable--; this.safeMode = 20000; W.logs.push('SAFE MODE in ' + this.pos.roomName); return C.OK; }
 }
 
