@@ -14,7 +14,19 @@ function ensure() {
     if (!e.intel) e.intel = {};
     if (!e.blacklist) e.blacklist = {};
     if (!e.abandoned) e.abandoned = {};
+    dropAvoided(e);
     return e;
+}
+
+/** TEMPORARY: forget scout/claim targets that sit in an avoided room (see config.avoidRooms). */
+function dropAvoided(e) {
+    const avoided = util.avoidedRooms();
+    if (!avoided.length) return;
+    if (e.claim && util.isAvoided(e.claim.target)) {
+        util.warn('Dropping claim of avoided room ' + e.claim.target);
+        e.claim = null;
+    }
+    e.scoutQueue = e.scoutQueue.filter(n => !util.isAvoided(n));
 }
 
 /**
@@ -148,6 +160,7 @@ function planCouriers(wants, states) {
 }
 
 function roomStatusOk(name) {
+    if (util.isAvoided(name)) return false;
     if (util.isHighway(name) || util.isKeeperRoom(name)) return false;
     const status = Game.map.getRoomStatus ? Game.map.getRoomStatus(name) : null;
     if (status && status.status !== 'normal') return false;
@@ -187,7 +200,7 @@ function nearestByRoute(target, pred, maxHops) {
         if (util.roomDistance(r.name, target) > maxHops) continue;
         if (pred && !pred(r)) continue;
         const route = Game.map.findRoute(r.name, target, {
-            routeCallback: n => (util.isHighway(n) ? 2 : util.isKeeperRoom(n) ? 10 : 1),
+            routeCallback: n => (util.isAvoided(n) ? Infinity : util.isHighway(n) ? 2 : util.isKeeperRoom(n) ? 10 : 1),
         });
         if (route === ERR_NO_PATH || !route.length || route.length > maxHops) continue;
         if (!best || route.length < best.hops) best = { room: r, hops: route.length };

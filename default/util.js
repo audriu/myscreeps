@@ -158,6 +158,24 @@ function exitRooms(roomName) {
     return out;
 }
 
+/** TEMPORARY: rooms from config.avoidRooms (or the Memory.avoidRooms override) are off limits. */
+function avoidedRooms() {
+    const list = Array.isArray(Memory.avoidRooms) ? Memory.avoidRooms : config.avoidRooms;
+    return list || [];
+}
+
+function isAvoided(roomName) {
+    return avoidedRooms().indexOf(roomName) !== -1;
+}
+
+/** Cost matrix with every tile impassable: makes PathFinder route around a room. */
+function blockedMatrix() {
+    if (heap.blockedMatrix) return heap.blockedMatrix;
+    const m = new PathFinder.CostMatrix();
+    for (let x = 0; x < 50; x++) for (let y = 0; y < 50; y++) m.set(x, y, 255);
+    return (heap.blockedMatrix = m);
+}
+
 function roomCoords(name) {
     const m = /^([WE])(\d+)([NS])(\d+)$/.exec(name);
     if (!m) return null;
@@ -183,8 +201,12 @@ function park(creep) {
     r[creep.pos.x + ':' + creep.pos.y] = Game.time;
 }
 
-/** Cost matrix callback marking recently parked creeps as impassable. */
+/**
+ * Cost matrix callback: avoided rooms are impassable (unless the creep is
+ * already inside one and has to walk out), recently parked creeps too.
+ */
 function parkedCallback(roomName, matrix) {
+    if (isAvoided(roomName) && roomName !== heap.pathingFrom) return blockedMatrix();
     const r = heap.parked[roomName];
     if (!r) return;
     for (const key in r) {
@@ -220,6 +242,7 @@ function travel(creep, target, opts) {
     // While jammed alternate between creep-aware and creep-blind pathing.
     const ignoreCreeps = !stuck || stuckFor % 2 === 1;
 
+    heap.pathingFrom = creep.pos.roomName;
     const res = creep.moveTo(pos, {
         range,
         reusePath: stuck ? 4 : (opts.reusePath || (sameRoom ? 15 : 40)),
@@ -334,6 +357,8 @@ module.exports = {
     roomDistance,
     nearestOwnedRoom,
     exitRooms,
+    avoidedRooms,
+    isAvoided,
     roomCoords,
     isHighway,
     isKeeperRoom,

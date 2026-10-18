@@ -771,7 +771,7 @@ function defender(creep, m) {
 
 function claimer(creep, m) {
     const target = m.targetRoom;
-    if (!target) {
+    if (!target || util.isAvoided(target)) {
         recycle(creep);
         return;
     }
@@ -817,7 +817,11 @@ function claimer(creep, m) {
 
 function scout(creep, m) {
     const queue = Memory.empire && Memory.empire.scoutQueue ? Memory.empire.scoutQueue : [];
-    if (!m.targetRoom && queue.length) m.targetRoom = queue.shift();
+    while (!m.targetRoom && queue.length) {
+        const next = queue.shift();
+        if (!util.isAvoided(next)) m.targetRoom = next;
+    }
+    if (m.targetRoom && util.isAvoided(m.targetRoom)) delete m.targetRoom;
     if (!m.targetRoom) {
         recycle(creep);
         return;

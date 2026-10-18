@@ -1,8 +1,9 @@
 # default
 
 Self-contained Screeps colony AI. Discovers everything from live game state
-(no room names in code), takes over an existing colony, repairs broken bases
-and grows every owned room.
+(no room names in code, apart from the temporary `avoidRooms` list in
+`config.js`), takes over an existing colony, repairs broken bases and grows
+every owned room.
 
 Upload the files in this folder as the `default` branch (Screeps client local
 folder sync, or copy them into
@@ -39,6 +40,11 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped.
+- **Avoided rooms (temporary)**: `config.avoidRooms` lists rooms creeps must
+  not enter, path through, scout, claim or reclaim (currently E11N36, another
+  player's tower room between E11N35 and E11N37). `Memory.avoidRooms = [...]`
+  overrides the list from the console; `[]` disables it. Remove the config
+  entry once the room is safe again.
 
 ## Files
 

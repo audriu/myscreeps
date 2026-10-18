@@ -1,8 +1,16 @@
 /**
  * Tunables. Everything else is discovered from live game state.
- * Room names are never hard-coded.
+ * Room names are never hard-coded (except the TEMPORARY avoidRooms list).
  */
 module.exports = {
+    // TEMPORARY (added 2026-10-18): rooms our creeps must never enter, path
+    // through, scout, claim or reclaim. E11N36 belongs to another player
+    // (RCL7, towers) and sits between E11N35 and E11N37, so creeps cutting
+    // through it were being shot. Remove the entry once the room is safe or
+    // ours again. Console override without a deploy: Memory.avoidRooms = [...]
+    // (replaces this list; set it to [] to disable).
+    avoidRooms: ['E11N36'],
+
     // Bump to re-run the one-time Memory migration (old branch data is dropped).
     version: 3,
     signature: '🐸',
