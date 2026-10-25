@@ -859,6 +859,21 @@ const NEUTRAL_RAZE = {
     [STRUCTURE_WALL]: 10,
 };
 
+/** Hostile ramparts in the room keyed by position (per-tick cache). */
+function rampartMap(room) {
+    return util.cache(room.name + '|rampartMap', () => {
+        const out = {};
+        const list = room.find(FIND_HOSTILE_STRUCTURES, { filter: s => s.structureType === STRUCTURE_RAMPART });
+        for (let i = 0; i < list.length; i++) out[list[i].pos.x + ':' + list[i].pos.y] = list[i];
+        return out;
+    });
+}
+
+/** Is this object standing under a hostile rampart (attacks hit the rampart instead)? */
+function covered(obj) {
+    return !!rampartMap(obj.room)[obj.pos.x + ':' + obj.pos.y];
+}
+
 /** Can this creep or structure hurt us (or keep others alive)? */
 function canResist(obj) {
     if (obj.structureType) return obj.structureType === STRUCTURE_TOWER && (obj.store[RESOURCE_ENERGY] || 0) >= 10;
@@ -876,6 +891,8 @@ function pickHostileCreep(creep, hostiles) {
     let bestScore = -Infinity;
     for (let i = 0; i < candidates.length; i++) {
         const h = candidates[i];
+        // Anything under a rampart only soaks damage into millions of rampart hits: last resort.
+        if (covered(h)) continue;
         let score = -creep.pos.getRangeTo(h) * 10;
         if (canResist(h)) score += 1000;
         if (!h.structureType && util.hasParts(h, [HEAL])) score += 15;
@@ -896,6 +913,7 @@ function pickHostileStructure(creep) {
     let bestScore = -Infinity;
     for (let i = 0; i < list.length; i++) {
         const s = list[i];
+        if (covered(s)) continue;
         const score = (STRUCTURE_KILL_ORDER[s.structureType] || 20) * 100 - creep.pos.getRangeTo(s);
         if (score > bestScore) {
             bestScore = score;
@@ -903,8 +921,15 @@ function pickHostileStructure(creep) {
         }
     }
     if (best) return best;
+    // Only rampart-covered things remain: the whole squad focuses the weakest rampart.
     const ramparts = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'ramparts', s => s.structureType === STRUCTURE_RAMPART);
-    if (ramparts.length) return creep.pos.findClosestByRange(ramparts);
+    if (ramparts.length) {
+        return util.cache(creep.room.name + '|weakestRampart', () => {
+            let weakest = ramparts[0];
+            for (let i = 1; i < ramparts.length; i++) if (ramparts[i].hits < weakest.hits) weakest = ramparts[i];
+            return weakest;
+        });
+    }
     if (!config.war.razeAll) return null;
     // Nothing owned is left: flatten the neutral leftovers, quick ones first, walls last.
     const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);

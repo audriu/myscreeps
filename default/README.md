@@ -49,7 +49,9 @@ modules from the branch first; `main.js` only requires the modules listed below.
   `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
   public 💀, hit the nearest thing that can fight back first (armed creeps and
   loaded towers, healers breaking ties), then the harmless creeps, spawns
-  and every other hostile structure, then (with `razeAll`) the ownerless
+  and every other hostile structure. Anything under a rampart is left for
+  last, because hits on it only dent the rampart; once nothing else is left
+  the whole squad focuses the weakest rampart. Then come (with `razeAll`) the ownerless
   containers, roads and walls, breaching walls when nothing is reachable,
   and hold the room when it is clear. While the target sits in safe mode the
   squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
