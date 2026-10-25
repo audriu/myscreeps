@@ -859,16 +859,27 @@ const NEUTRAL_RAZE = {
     [STRUCTURE_WALL]: 10,
 };
 
-/** Hostile creep to hit: healers first, then whatever is closest. */
+/** Can this creep or structure hurt us (or keep others alive)? */
+function canResist(obj) {
+    if (obj.structureType) return obj.structureType === STRUCTURE_TOWER && (obj.store[RESOURCE_ENERGY] || 0) >= 10;
+    return util.hasParts(obj, [ATTACK, RANGED_ATTACK, HEAL]);
+}
+
+/**
+ * What to hit among hostile creeps and towers: the closest thing that can
+ * fight back wins, healers break ties, harmless creeps come after that.
+ */
 function pickHostileCreep(creep, hostiles) {
+    const towers = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'towers', s => s.structureType === STRUCTURE_TOWER);
+    const candidates = hostiles.concat(towers);
     let best = null;
     let bestScore = -Infinity;
-    for (let i = 0; i < hostiles.length; i++) {
-        const h = hostiles[i];
+    for (let i = 0; i < candidates.length; i++) {
+        const h = candidates[i];
         let score = -creep.pos.getRangeTo(h) * 10;
-        if (util.hasParts(h, [HEAL])) score += 60;
-        if (util.hasParts(h, [ATTACK, RANGED_ATTACK])) score += 30;
-        score -= h.hits / 500;
+        if (canResist(h)) score += 1000;
+        if (!h.structureType && util.hasParts(h, [HEAL])) score += 15;
+        score -= h.hits / 2000;
         if (score > bestScore) {
             bestScore = score;
             best = h;
@@ -929,7 +940,7 @@ function engage(creep, target) {
     let res = OK;
     if (melee || range > 3) {
         if (range > 1 || melee) res = util.travel(creep, target, { range: melee ? 1 : 3, reusePath: 5 });
-    } else if (ranged && range < 3 && target.getActiveBodyparts && target.getActiveBodyparts(ATTACK)) {
+    } else if (ranged && range < 3 && !target.structureType && target.getActiveBodyparts(ATTACK)) {
         // Keep melee creeps at arm's length.
         const dir = util.stepAwayFrom(creep, target.pos);
         if (dir) creep.move(dir);
@@ -1023,7 +1034,7 @@ function soldier(creep, m) {
                 healerFollow(creep, war.rallyPos(w));
                 return;
             }
-            const target = hostiles.length ? pickHostileCreep(creep, hostiles) : pickHostileStructure(creep);
+            const target = pickHostileCreep(creep, hostiles) || pickHostileStructure(creep);
             if (target) engage(creep, target);
             else {
                 // Cleared: hold the room near its centre, out of the exits.

@@ -47,7 +47,8 @@ modules from the branch first; `main.js` only requires the modules listed below.
   'E11N36'` sends them to a rally room (the owned room nearest the target,
   or `Memory.war.rally`), and once most of the wave stands there (or
   `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
-  public 💀, kill creeps first (healers before fighters), then towers, spawns
+  public 💀, hit the nearest thing that can fight back first (armed creeps and
+  loaded towers, healers breaking ties), then the harmless creeps, spawns
   and every other hostile structure, then (with `razeAll`) the ownerless
   containers, roads and walls, breaching walls when nothing is reachable,
   and hold the room when it is clear. While the target sits in safe mode the
