@@ -85,7 +85,45 @@ Every 100 ticks: `rooms=N/GCL creeps=N cpu~X/limit bucket=N`. Every 500 ticks a
 line per room (RCL, energy, storage, sites, downgrade timer, creeps by role).
 Warnings in orange, errors and safe mode in red.
 
+### Console commands
+
+War (see `war.js`):
+
+```js
+Memory.war = { muster: true }                               // every eligible room builds and keeps a squad
+Memory.war.target = 'E11N36'                                // gather at the rally room, then march in
+Memory.war.go = true                                        // skip the gathering wait, march now
+Memory.war = { muster: true, target: 'E11N36', go: Game.time } // all of the above in one line: attack immediately
+Memory.war.muster = false                                   // stop spawning soldiers; the living ones keep fighting
+delete Memory.war.target                                    // call the squad home (kept while muster is on)
+Memory.war = { muster: false }                              // end the war: survivors walk home and recycle
+Memory.war.rally = 'E11N35'                                 // optional: pick the staging room yourself
+Memory.war.wave = 12                                        // optional: soldiers that must gather before marching
+Memory.war                                                  // show state: rally, go, wave, safeUntil, cleared
+```
+
+Rooms:
+
+```js
+Memory.avoidRooms = ['E11N36']        // creeps never enter these rooms (overrides config.avoidRooms)
+Memory.avoidRooms = []                // disable avoidance without a deploy
+delete Memory.avoidRooms              // back to the config list
+Memory.empire.release = 'E11N39'      // give a room up when GCL is full so a lost room can be reclaimed
+delete Memory.empire.abandoned.E11N39 // allow a released room to be taken again
+Memory.empire                         // claim target, scout queue, blacklist, abandoned rooms
+```
+
+Status:
+
+```js
+Game.gcl.level                        // room slots; the 100-tick summary shows rooms=owned/GCL
+_.filter(Game.creeps, c => c.memory.role === 'soldier').length
+Game.rooms.E11N36.controller.safeMode // ticks of safe mode left in the target (needs vision)
+```
+
 ## Tuning
 
 `config.js`: population caps, courier/terminal thresholds, expansion gating,
-planner intervals, `pixels`, `signature`.
+planner intervals, `pixels`, `signature`, path visuals (`pathStyle`,
+`pathStyleWar`) and the `war` block (squad size and mix, eligibility,
+`razeAll`, gathering).
