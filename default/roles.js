@@ -1001,8 +1001,23 @@ function soldier(creep, m) {
     // Target set: gather at the rally room, then march in and clear it.
     if (w.target) {
         const inTarget = creep.room.name === w.target;
-        if (w.go || inTarget) creep.say('💀', true);
-        if (inTarget) {
+        if (war.safeModeActive(w)) {
+            // Nothing can be hit while the target is in safe mode: pull back and wait.
+            creep.say('⏳', true);
+            const rally = war.rallyPos(w);
+            if (rally) {
+                util.markIdle(creep);
+                if (!creep.pos.inRangeTo(rally, 6) || creep.pos.roomName !== rally.roomName) {
+                    util.travel(creep, rally, { range: 5, reusePath: 50, avoidRoom: w.target });
+                }
+                return;
+            }
+            if (inTarget) {
+                util.travel(creep, util.roomCenter(w.target), { range: 6 });
+                return;
+            }
+        } else if (w.go || inTarget) creep.say('💀', true);
+        if (inTarget && !war.safeModeActive(w)) {
             const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
             if (healer) {
                 healerFollow(creep, war.rallyPos(w));

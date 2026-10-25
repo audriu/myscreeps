@@ -96,6 +96,7 @@ function run() {
         delete w.target;
     }
     if (!w.target) {
+        delete w.safeUntil;
         delete w.rally;
         delete w.go;
         delete w.wave;
@@ -134,6 +135,20 @@ function run() {
             util.log('WAR: gathering at ' + (w.rally || '?') + ' ' + gathered + '/' + need + ' (' + waited + ' ticks)');
         }
     }
+    // Safe mode blocks every hostile action: wait it out at the rally room instead of feeding the towers.
+    const tRoom = Game.rooms[w.target];
+    if (tRoom && tRoom.controller && tRoom.controller.safeMode) {
+        const until = Game.time + tRoom.controller.safeMode;
+        if (!w.safeUntil || Math.abs(w.safeUntil - until) > 5) {
+            w.safeUntil = until;
+            util.warn('WAR: ' + w.target + ' is in safe mode for ' + tRoom.controller.safeMode + ' ticks; squad waits at ' + (w.rally || 'home'));
+            Game.notify('War: ' + w.target + ' is in safe mode for ' + tRoom.controller.safeMode + ' ticks, squad waiting');
+        }
+    } else if (w.safeUntil && (tRoom || Game.time > w.safeUntil)) {
+        delete w.safeUntil;
+        util.warn('WAR: safe mode in ' + w.target + ' is over; resuming');
+        Game.notify('War: safe mode in ' + w.target + ' over, squad resuming');
+    }
     const left = remainingTargets(w.target);
     if (left === 0 && !w.cleared) {
         w.cleared = Game.time;
@@ -145,10 +160,15 @@ function run() {
     if (Game.time % config.logEvery === 0) {
         let inTarget = 0;
         for (let i = 0; i < all.length; i++) if (all[i].pos.roomName === w.target) inTarget++;
-        util.log('WAR: ' + (w.go ? 'attacking' : 'gathering') + ' ' + w.target + ' soldiers=' + all.length +
+        util.log('WAR: ' + (w.safeUntil ? 'waiting (safe mode ' + (w.safeUntil - Game.time) + ')' : w.go ? 'attacking' : 'gathering') + ' ' + w.target + ' soldiers=' + all.length +
             ' inTarget=' + inTarget + (left == null ? ' (no vision)' : ' hostilesLeft=' + left) +
             (w.muster ? '' : ' (muster off: no reinforcements)'));
     }
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, rallyPos, run };
+/** Target under safe mode (known from vision or remembered until it expires). */
+function safeModeActive(w) {
+    return !!(w && w.safeUntil && Game.time < w.safeUntil);
+}
+
+module.exports = { KINDS, state, soldiers, composition, roomEligible, rallyPos, safeModeActive, run };

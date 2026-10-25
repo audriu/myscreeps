@@ -50,7 +50,8 @@ modules from the branch first; `main.js` only requires the modules listed below.
   public 💀, kill creeps first (healers before fighters), then towers, spawns
   and every other hostile structure, then (with `razeAll`) the ownerless
   containers, roads and walls, breaching walls when nothing is reachable,
-  and hold the room when it is clear. `delete Memory.war.target`
+  and hold the room when it is clear. While the target sits in safe mode the
+  squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
   brings them home; `Memory.war.muster = false` stops spawning and idle
   soldiers recycle. Progress is logged every `logEvery` ticks and the big
   steps (target set, marching, cleared) are emailed. The target may be an
