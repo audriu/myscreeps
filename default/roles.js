@@ -951,14 +951,22 @@ function pickHostileStructure(creep) {
  * are short-lived, so time spent walking to a "better" target is wasted.
  */
 function pickClosestTarget(creep, hostiles) {
+    const all = war.unrestricted(creep.room.name);
+    const ok = o => all || !covered(o);
     const candidates = [];
-    for (let i = 0; i < hostiles.length; i++) if (!covered(hostiles[i])) candidates.push(hostiles[i]);
+    for (let i = 0; i < hostiles.length; i++) if (ok(hostiles[i])) candidates.push(hostiles[i]);
     const structs = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
         s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
-    for (let i = 0; i < structs.length; i++) if (!covered(structs[i])) candidates.push(structs[i]);
+    for (let i = 0; i < structs.length; i++) if (ok(structs[i])) candidates.push(structs[i]);
     if (config.war.razeAll) {
         const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
-        for (let i = 0; i < neutral.length; i++) if (!covered(neutral[i])) candidates.push(neutral[i]);
+        for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
+    }
+    if (all) {
+        // Nothing is spared here: ramparts and walls are ordinary targets.
+        const extra = util.find(creep.room, FIND_STRUCTURES, 'rampartsWalls',
+            s => (s.structureType === STRUCTURE_RAMPART && !s.my) || s.structureType === STRUCTURE_WALL);
+        for (let i = 0; i < extra.length; i++) candidates.push(extra[i]);
     }
     if (candidates.length) return creep.pos.findClosestByRange(candidates);
     return null;

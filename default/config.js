@@ -12,6 +12,8 @@ module.exports = {
     // Bump to re-run the one-time Memory migration (old branch data is dropped).
     version: 3,
     signature: '🐸',
+    // Shuffle body part order on spawn. Off: TOUGH first, MOVE last (damage eats parts front to back).
+    shuffleBody: true,
     // Speech bubbles cost CPU; keep off unless debugging.
     say: false,
     visuals: true,
@@ -72,6 +74,9 @@ module.exports = {
         ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
         razeAll: true,          // after the owned structures: also flatten roads and containers (walls are kept)
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
+        // Rooms where nothing is spared: walls and rampart-covered structures join the
+        // closest-first pool instead of being skipped. Console: Memory.war.everything = true.
+        unrestrictedRooms: ['E11N31'],
         maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
         gatherShare: 0.8,       // fraction of the wave that must stand at the rally point
     },

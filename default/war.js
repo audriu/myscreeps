@@ -85,6 +85,7 @@ function remainingTargets(roomName) {
             filter: s => !s.my && (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER),
         }).length;
     }
+    if (unrestricted(roomName)) structs += room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_WALL }).length;
     return creeps + structs;
 }
 
@@ -166,9 +167,17 @@ function run() {
     }
 }
 
+/** Nothing spared in this room: walls and rampart-covered structures are ordinary targets. */
+function unrestricted(roomName) {
+    const w = state();
+    if (w && w.everything) return true;
+    const list = config.war.unrestrictedRooms || [];
+    return list.indexOf(roomName) !== -1;
+}
+
 /** Target under safe mode (known from vision or remembered until it expires). */
 function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, rallyPos, safeModeActive, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, rallyPos, safeModeActive, unrestricted, run };

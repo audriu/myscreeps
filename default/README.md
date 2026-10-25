@@ -53,12 +53,17 @@ modules from the branch first; `main.js` only requires the modules listed below.
   only dent the rampart; once nothing else is left the whole squad focuses
   the weakest rampart. A wall is only hit when it blocks the path to a
   target, and the squad holds the room when it is clear. `closestFirst: false` restores the
-  priority order (armed creeps and loaded towers, then the rest). While the target sits in safe mode the
+  priority order (armed creeps and loaded towers, then the rest). In rooms
+  listed in `config.war.unrestrictedRooms` (or with `Memory.war.everything =
+  true`) nothing is spared: walls and rampart-covered structures are ordinary
+  closest-first targets. While the target sits in safe mode the
   squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
   brings them home; `Memory.war.muster = false` stops spawning and idle
   soldiers recycle. Progress is logged every `logEvery` ticks and the big
   steps (target set, marching, cleared) are emailed. The target may be an
   avoided room: soldiers are the only creeps allowed to path into it.
+- **Bodies**: `config.shuffleBody` randomises body part order on spawn;
+  off, TOUGH goes first and MOVE last so damage eats MOVE parts last.
 - **Avoided rooms**: `config.avoidRooms` lists rooms creeps must not enter,
   path through, scout, claim or reclaim (empty by default; soldiers heading
   for `Memory.war.target` ignore it). `Memory.avoidRooms = [...]` overrides
@@ -102,6 +107,7 @@ delete Memory.war.target                                    // call the squad ho
 Memory.war = { muster: false }                              // end the war: survivors walk home and recycle
 Memory.war.rally = 'E11N35'                                 // optional: pick the staging room yourself
 Memory.war.wave = 12                                        // optional: soldiers that must gather before marching
+Memory.war.everything = true                                // spare nothing in the target: walls and ramparts too
 Memory.war                                                  // show state: rally, go, wave, safeUntil, cleared
 ```
 

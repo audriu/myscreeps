@@ -2,6 +2,7 @@
  * Body plans scaled to an energy budget. Every plan returns parts ordered so
  * that TOUGH is hit first and MOVE survives longest.
  */
+const config = require('config');
 const util = require('util');
 
 function assemble(counts) {
@@ -10,6 +11,14 @@ function assemble(counts) {
     for (let i = 0; i < order.length; i++) {
         const part = order[i];
         for (let n = counts[part] || 0; n > 0; n--) body.push(part);
+    }
+    if (config.shuffleBody) {
+        for (let i = body.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = body[i];
+            body[i] = body[j];
+            body[j] = t;
+        }
     }
     return body;
 }
