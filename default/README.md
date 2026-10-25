@@ -48,11 +48,11 @@ modules from the branch first; `main.js` only requires the modules listed below.
   or `Memory.war.rally`), and once most of the wave stands there (or
   `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
   public 💀 and destroy whatever enemy creep or structure is closest
-  (`closestFirst`; with `razeAll` the ownerless containers, roads and walls
-  count too). Anything under a rampart is left for last, because hits on it
+  (`closestFirst`; with `razeAll` the ownerless containers and roads count
+  too, walls are never targeted on purpose). Anything under a rampart is left for last, because hits on it
   only dent the rampart; once nothing else is left the whole squad focuses
-  the weakest rampart. Walls get breached when nothing is reachable, and the
-  squad holds the room when it is clear. `closestFirst: false` restores the
+  the weakest rampart. A wall is only hit when it blocks the path to a
+  target, and the squad holds the room when it is clear. `closestFirst: false` restores the
   priority order (armed creeps and loaded towers, then the rest). While the target sits in safe mode the
   squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
   brings them home; `Memory.war.muster = false` stops spawning and idle

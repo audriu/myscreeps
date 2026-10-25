@@ -852,11 +852,10 @@ const STRUCTURE_KILL_ORDER = {
     [STRUCTURE_RAMPART]: 5,
 };
 
-/** Ownerless structures razed after the hostile ones (config.war.razeAll); higher goes first. */
+/** Ownerless structures razed after the hostile ones (config.war.razeAll); higher goes first. Walls are kept. */
 const NEUTRAL_RAZE = {
     [STRUCTURE_CONTAINER]: 30,
     [STRUCTURE_ROAD]: 20,
-    [STRUCTURE_WALL]: 10,
 };
 
 /** Hostile ramparts in the room keyed by position (per-tick cache). */
