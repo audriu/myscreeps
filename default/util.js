@@ -257,6 +257,7 @@ function travel(creep, target, opts) {
         maxOps: sameRoom ? 2000 : 10000,
         plainCost: opts.plainCost,
         swampCost: opts.swampCost,
+        visualizePathStyle: config.visuals ? (opts.pathStyle || (creep.memory.role === 'soldier' ? config.pathStyleWar : config.pathStyle)) : undefined,
     });
     if (stuck) shoveIdleNeighbours(creep);
     if (stuckFor >= 6 && stuckFor % 3 === 0) {

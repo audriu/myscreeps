@@ -15,6 +15,9 @@ module.exports = {
     // Speech bubbles cost CPU; keep off unless debugging.
     say: false,
     visuals: true,
+    // Draw each walking creep's path ahead of it (needs visuals). Soldiers use pathStyleWar.
+    pathStyle: { stroke: '#ffffff', opacity: 0.25, lineStyle: 'dashed', strokeWidth: 0.1 },
+    pathStyleWar: { stroke: '#ff3333', opacity: 0.5, lineStyle: 'dashed', strokeWidth: 0.15 },
     // Console summary interval (ticks).
     logEvery: 100,
     // Generate pixels when the bucket is full and average CPU is comfortable.
