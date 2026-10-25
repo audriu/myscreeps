@@ -7,6 +7,7 @@ const config = require('config');
 const util = require('util');
 const bodies = require('bodies');
 const roomState = require('roomState');
+const war = require('war');
 
 const POP = config.population;
 
@@ -199,6 +200,30 @@ function wants(room, st) {
             shrink: false,
             body: e => bodies.worker(Math.min(e, st.sites.length > 6 ? 1500 : 1000)),
         });
+    }
+
+    // War effort: while Memory.war.muster is on, eligible rooms keep a squad
+    // (melee, ranged and healers) and replace losses.
+    const w = war.state();
+    if (w && w.muster && war.roomEligible(st)) {
+        const mix = war.composition(st);
+        const squad = st.creeps.soldier || [];
+        const bodyFor = { melee: bodies.soldier, ranged: bodies.marksman, healer: bodies.healer };
+        for (let k = 0; k < war.KINDS.length; k++) {
+            const kind = war.KINDS[k];
+            if (!mix[kind]) continue;
+            const have = alive(squad.filter(c => c.memory.kind === kind), 100);
+            if (have >= mix[kind]) continue;
+            list.push({
+                role: 'soldier',
+                count: mix[kind],
+                have,
+                priority: config.war.priority,
+                shrink: false,
+                memory: { kind },
+                body: e => bodyFor[kind](e),
+            });
+        }
     }
 
     // Empire requests assigned to this room.

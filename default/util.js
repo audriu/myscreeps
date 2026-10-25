@@ -206,7 +206,8 @@ function park(creep) {
  * already inside one and has to walk out), recently parked creeps too.
  */
 function parkedCallback(roomName, matrix) {
-    if (isAvoided(roomName) && roomName !== heap.pathingFrom) return blockedMatrix();
+    if (isAvoided(roomName) && roomName !== heap.pathingFrom && roomName !== heap.pathingTo) return blockedMatrix();
+    if (heap.pathingAvoid === roomName && roomName !== heap.pathingFrom) return blockedMatrix();
     const r = heap.parked[roomName];
     if (!r) return;
     for (const key in r) {
@@ -222,6 +223,8 @@ function parkedCallback(roomName, matrix) {
 /**
  * Move toward target (object or RoomPosition) until within `range`.
  * Reuses paths, routes around parked creeps and recovers from traffic jams.
+ * opts.avoidRoom: a room name the path must not cross (e.g. the war target
+ * while the squad is still gathering).
  */
 function travel(creep, target, opts) {
     opts = opts || {};
@@ -243,6 +246,8 @@ function travel(creep, target, opts) {
     const ignoreCreeps = !stuck || stuckFor % 2 === 1;
 
     heap.pathingFrom = creep.pos.roomName;
+    heap.pathingTo = pos.roomName;
+    heap.pathingAvoid = opts.avoidRoom || null;
     const res = creep.moveTo(pos, {
         range,
         reusePath: stuck ? 4 : (opts.reusePath || (sameRoom ? 15 : 40)),

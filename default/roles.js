@@ -6,6 +6,7 @@
 const config = require('config');
 const util = require('util');
 const roomState = require('roomState');
+const war = require('war');
 
 const heap = util.heap;
 
@@ -835,7 +836,209 @@ function scout(creep, m) {
     if (!queue.length) recycle(creep);
 }
 
-const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout };
+
+/* ------------------------------------------------------------------ */
+/* War: soldiers (melee / ranged / healer)                             */
+/* ------------------------------------------------------------------ */
+
+const STRUCTURE_KILL_ORDER = {
+    [STRUCTURE_TOWER]: 100,
+    [STRUCTURE_SPAWN]: 90,
+    [STRUCTURE_STORAGE]: 60,
+    [STRUCTURE_TERMINAL]: 60,
+    [STRUCTURE_EXTENSION]: 50,
+    [STRUCTURE_LINK]: 40,
+    [STRUCTURE_LAB]: 40,
+    [STRUCTURE_RAMPART]: 5,
+};
+
+/** Hostile creep to hit: healers first, then whatever is closest. */
+function pickHostileCreep(creep, hostiles) {
+    let best = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < hostiles.length; i++) {
+        const h = hostiles[i];
+        let score = -creep.pos.getRangeTo(h) * 10;
+        if (util.hasParts(h, [HEAL])) score += 60;
+        if (util.hasParts(h, [ATTACK, RANGED_ATTACK])) score += 30;
+        score -= h.hits / 500;
+        if (score > bestScore) {
+            bestScore = score;
+            best = h;
+        }
+    }
+    return best;
+}
+
+/** Hostile structure to hit: towers and spawns first, then the rest, closest wins ties. */
+function pickHostileStructure(creep) {
+    const list = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
+        s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
+    let best = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < list.length; i++) {
+        const s = list[i];
+        const score = (STRUCTURE_KILL_ORDER[s.structureType] || 20) * 100 - creep.pos.getRangeTo(s);
+        if (score > bestScore) {
+            bestScore = score;
+            best = s;
+        }
+    }
+    if (best) return best;
+    const ramparts = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'ramparts', s => s.structureType === STRUCTURE_RAMPART);
+    return ramparts.length ? creep.pos.findClosestByRange(ramparts) : null;
+}
+
+/** Nothing reachable: chew through the nearest wall or rampart instead of standing still. */
+function breachTarget(creep) {
+    const walls = util.find(creep.room, FIND_STRUCTURES, 'walls',
+        s => s.structureType === STRUCTURE_WALL || (s.structureType === STRUCTURE_RAMPART && !s.my));
+    return walls.length ? creep.pos.findClosestByRange(walls) : null;
+}
+
+function engage(creep, target) {
+    const melee = util.countParts(creep, ATTACK) > 0;
+    const ranged = util.countParts(creep, RANGED_ATTACK) > 0;
+    const range = creep.pos.getRangeTo(target);
+    if (ranged) {
+        if (range <= 1) creep.rangedMassAttack();
+        else if (range <= 3) creep.rangedAttack(target);
+    }
+    if (melee && range <= 1) creep.attack(target);
+    let res = OK;
+    if (melee || range > 3) {
+        if (range > 1 || melee) res = util.travel(creep, target, { range: melee ? 1 : 3, reusePath: 5 });
+    } else if (ranged && range < 3 && target.getActiveBodyparts && target.getActiveBodyparts(ATTACK)) {
+        // Keep melee creeps at arm's length.
+        const dir = util.stepAwayFrom(creep, target.pos);
+        if (dir) creep.move(dir);
+    }
+    if (res === ERR_NO_PATH) {
+        const wall = breachTarget(creep);
+        if (wall) {
+            if (creep.pos.isNearTo(wall)) {
+                if (melee) creep.attack(wall);
+                if (ranged) creep.rangedAttack(wall);
+            } else util.travel(creep, wall, { range: 1, reusePath: 5 });
+        }
+    }
+}
+
+function healAround(creep) {
+    const hurt = util.find(creep.room, FIND_MY_CREEPS, 'hurt', c => c.hits < c.hitsMax);
+    if (!hurt.length) return false;
+    let best = null;
+    let bestScore = Infinity;
+    for (let i = 0; i < hurt.length; i++) {
+        const c = hurt[i];
+        const range = creep.pos.getRangeTo(c);
+        if (range > 3) continue;
+        const score = c.hits / c.hitsMax + range * 0.1;
+        if (score < bestScore) {
+            bestScore = score;
+            best = c;
+        }
+    }
+    if (!best) return false;
+    if (creep.pos.isNearTo(best)) creep.heal(best);
+    else creep.rangedHeal(best);
+    return true;
+}
+
+/** Healers shadow the most damaged fighter nearby, or the closest one. */
+function healerFollow(creep, fallbackPos) {
+    const fighters = util.find(creep.room, FIND_MY_CREEPS, 'fighters',
+        c => c.memory.role === 'soldier' && c.memory.kind !== 'healer');
+    if (!fighters.length) {
+        if (fallbackPos) util.travel(creep, fallbackPos, { range: 3 });
+        return;
+    }
+    let best = null;
+    let bestScore = Infinity;
+    for (let i = 0; i < fighters.length; i++) {
+        const c = fighters[i];
+        const score = c.hits / c.hitsMax * 10 + creep.pos.getRangeTo(c) * 0.5;
+        if (score < bestScore) {
+            bestScore = score;
+            best = c;
+        }
+    }
+    util.travel(creep, best, { range: 1, reusePath: 3 });
+}
+
+function soldier(creep, m) {
+    const w = war.state();
+    const healer = m.kind === 'healer';
+    if (healer) healAround(creep);
+
+    // No war, or muster switched off and no target: go home and recycle.
+    if (!w || (!w.muster && !w.target)) {
+        recycle(creep);
+        return;
+    }
+
+    // Target set: gather at the rally room, then march in and clear it.
+    if (w.target) {
+        const inTarget = creep.room.name === w.target;
+        if (w.go || inTarget) creep.say('💀', true);
+        if (inTarget) {
+            const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
+            if (healer) {
+                healerFollow(creep, war.rallyPos(w));
+                return;
+            }
+            const target = hostiles.length ? pickHostileCreep(creep, hostiles) : pickHostileStructure(creep);
+            if (target) engage(creep, target);
+            else {
+                // Cleared: hold the room near its centre, out of the exits.
+                util.markIdle(creep);
+                util.travel(creep, util.roomCenter(w.target), { range: 6 });
+            }
+            return;
+        }
+        if (w.go) {
+            if (healer) {
+                // Travel with the pack: stick to a fighter heading the same way if one is near.
+                const near = creep.pos.findInRange(FIND_MY_CREEPS, 3, { filter: c => c.memory.role === 'soldier' && c.memory.kind !== 'healer' });
+                if (near.length && creep.pos.roomName !== w.target) {
+                    util.travel(creep, near[0], { range: 1, reusePath: 3 });
+                    return;
+                }
+            }
+            util.travel(creep, util.roomCenter(w.target), { range: 20, reusePath: 50 });
+            return;
+        }
+        const rally = war.rallyPos(w);
+        if (rally) {
+            util.markIdle(creep);
+            if (!creep.pos.inRangeTo(rally, 6) || creep.pos.roomName !== rally.roomName) {
+                // Never cut through the target on the way to the rally point.
+                util.travel(creep, rally, { range: 5, reusePath: 50, avoidRoom: w.target });
+            }
+            return;
+        }
+        // No rally room known yet: wait at home.
+    }
+
+    // Mustering at home: defend it if attacked, otherwise stay out of the way.
+    const st = homeState(creep);
+    if (!st) {
+        recycle(creep);
+        return;
+    }
+    if (creep.room.name !== st.name) {
+        util.travel(creep, st.anchor, { range: 4, reusePath: 50 });
+        return;
+    }
+    if (st.hostiles.length) {
+        if (healer) healerFollow(creep, st.idle);
+        else engage(creep, pickHostileCreep(creep, st.hostiles));
+        return;
+    }
+    idle(creep, st);
+}
+
+const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier };
 
 function run(creep) {
     if (creep.spawning) return;

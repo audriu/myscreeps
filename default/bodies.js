@@ -73,6 +73,25 @@ function ranger(energy) {
     return assemble({ ranged_attack: units, move: units });
 }
 
+/** Melee soldier: ATTACK/MOVE pairs, leftover energy buys TOUGH (max 50 parts). */
+function soldier(energy) {
+    const units = util.clamp(Math.floor(Math.max(130, energy) / 130), 1, 22);
+    const tough = util.clamp(Math.floor((energy - units * 130) / 10), 0, Math.min(6, 50 - units * 2));
+    return assemble({ tough, attack: units, move: units });
+}
+
+/** Ranged soldier: RANGED_ATTACK/MOVE pairs (max 50 parts). */
+function marksman(energy) {
+    const units = util.clamp(Math.floor(Math.max(200, energy) / 200), 1, 25);
+    return assemble({ ranged_attack: units, move: units });
+}
+
+/** Healer: HEAL/MOVE pairs (max 50 parts). */
+function healer(energy) {
+    const units = util.clamp(Math.floor(Math.max(300, energy) / 300), 1, 25);
+    return assemble({ heal: units, move: units });
+}
+
 function claimer(energy) {
     if (energy >= 700) return assemble({ claim: 1, move: 2 });
     return assemble({ claim: 1, move: 1 });
@@ -95,6 +114,9 @@ module.exports = {
     upgrader,
     defender,
     ranger,
+    soldier,
+    marksman,
+    healer,
     claimer,
     scout,
     courier,

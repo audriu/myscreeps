@@ -359,7 +359,8 @@ class Creep extends RoomObject {
     attack(t) { if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; t.hits -= 30 * this.getActiveBodyparts('attack'); return C.OK; }
     rangedAttack(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits -= 10 * this.getActiveBodyparts('ranged_attack'); return C.OK; }
     rangedMassAttack() { return C.OK; }
-    heal(t) { t.hits = Math.min(t.hitsMax, t.hits + 12); return C.OK; }
+    heal(t) { t.hits = Math.min(t.hitsMax, t.hits + 12 * this.getActiveBodyparts('heal')); return C.OK; }
+    rangedHeal(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits = Math.min(t.hitsMax, t.hits + 4 * this.getActiveBodyparts('heal')); return C.OK; }
     move(dir) {
         if (this.spawning) return C.ERR_BUSY;
         if (this.fatigue > 0) return C.ERR_TIRED;
@@ -378,15 +379,23 @@ class Creep extends RoomObject {
         if (this.fatigue > 0) return C.ERR_TIRED;
         W.stats.moveToCalls = (W.stats.moveToCalls || 0) + 1;
         let goal = target;
+        let goals = null;
         if (target.roomName !== this.pos.roomName) {
-            goal = exitToward(this.pos.roomName, target.roomName, this.pos);
-            if (!goal) return C.ERR_NO_PATH;
+            // Route room by room like the real engine, then walk to any exit tile facing the next room.
+            // A costCallback that blanks a whole room (all 255) makes that room impassable for routing too.
+            const blocked = name => { if (!opts.costCallback) return false; const m = opts.costCallback(name, new CostMatrix()); return m instanceof CostMatrix && m.get(25, 25) === 255 && m.get(1, 1) === 255 && m.get(48, 48) === 255; };
+            const route = global.Game.map.findRoute(this.pos.roomName, target.roomName, { routeCallback: name => (name !== target.roomName && blocked(name) ? Infinity : 1) });
+            if (route === C.ERR_NO_PATH || !route.length) return C.ERR_NO_PATH;
+            const nextRoom = route[0].room;
+            goals = exitTilesToward(this.pos.roomName, nextRoom);
+            if (!goals.length) return C.ERR_NO_PATH;
+            goal = exitToward(this.pos.roomName, nextRoom, this.pos);
         }
         const key = goal.x + ',' + goal.y + ',' + goal.roomName + ',' + range;
         const reuse = opts.reusePath != null ? opts.reusePath : 5;
         let cached = this._path;
         if (!cached || cached.key !== key || cached.until < W.time || !cached.path.length) {
-            const res = PathFinder.search(this.pos, { pos: goal, range: target.roomName === this.pos.roomName ? range : 0 }, {
+            const res = PathFinder.search(this.pos, goals ? goals.map(g => ({ pos: g, range: 0 })) : { pos: goal, range }, {
                 roomCallback: () => { let m = roomMatrix(this.room, opts.ignoreCreeps !== false ? null : this); if (opts.costCallback) { m = m.clone(); const r = opts.costCallback(this.room.name, m); if (r instanceof CostMatrix) m = r; } return m; },
                 plainCost: opts.plainCost || 2, swampCost: opts.swampCost || 10, maxOps: opts.maxOps || 2000,
             });
@@ -539,6 +548,20 @@ function roomMatrix(room, creepAware) {
     room._mx = room._mx || {}; room._mx[key] = { t: W.time, m };
     return m;
 }
+/** Every walkable exit tile on the edge facing `to` (the real engine routes to whichever is reachable). */
+function exitTilesToward(from, to) {
+    const a = worldXY(from); const b = worldXY(to);
+    const dx = Math.sign(b.x - a.x); const dy = Math.sign(b.y - a.y);
+    const room = W.rooms[from];
+    const horiz = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) && dx !== 0;
+    const out = [];
+    for (let i = 1; i < 49; i++) {
+        const x = horiz ? (dx > 0 ? 49 : 0) : i; const y = horiz ? i : (dy > 0 ? 0 : 49);
+        if (room.terrain.get(x, y) === 1) continue;
+        out.push(new RoomPosition(x, y, from));
+    }
+    return out;
+}
 function exitToward(from, to, pos) {
     const a = worldXY(from); const b = worldXY(to);
     const dx = Math.sign(b.x - a.x); const dy = Math.sign(b.y - a.y);
@@ -674,6 +697,12 @@ function loadRoom(name, dir) {
 /* ---------------- tick processing ---------------- */
 function endTick() {
     runInvaders();
+    // combat damage: anything shot to zero disappears
+    for (const rn in W.rooms) {
+        const room = W.rooms[rn];
+        for (const s of room.structures.slice()) if (s.hits != null && s.hits <= 0) { destroyStructure(s, false); W.logs.push(s.structureType + ' destroyed in ' + rn + ' at tick ' + W.time); }
+        for (const c of room.creeps.slice()) if (c.my && c.hits <= 0) { killCreep(c, false); W.logs.push(c.name + ' killed in ' + rn + ' at tick ' + W.time); }
+    }
     // moves: resolved simultaneously so creeps can follow and swap like the real engine
     const pending = [];
     const occupant = {};
@@ -826,6 +855,15 @@ function makeUnowned(roomName) {
     for (const c of room.creeps.slice()) killCreep(c, true);
     room.sites = []; for (const id in W.sites) if (W.sites[id].pos.roomName === roomName) delete W.sites[id];
 }
+/** Hand a loaded room to another player: controller and structures hostile, a guard creep inside. */
+function makeHostile(roomName) {
+    const room = W.rooms[roomName];
+    room.controller.my = false; room.controller.owner = { username: 'other' }; room.controller.sign = undefined;
+    for (const c of room.creeps.slice()) killCreep(c, true);
+    for (const s of room.structures) if (s.my) { s.my = false; s.owner = { username: 'other' }; if (s.structureType === 'spawn') delete W.spawns[s.name]; }
+    room.sites = []; for (const id in W.sites) if (W.sites[id].pos.roomName === roomName) delete W.sites[id];
+    spawnInvader(roomName, ['tough', 'tough', 'attack', 'attack', 'attack', 'attack', 'move', 'move', 'move', 'move', 'move', 'move']);
+}
 /** Lose a room the way a downgrade does: controller neutral, creeps dead, our structures still standing (inactive). */
 function makeLost(roomName) {
     const room = W.rooms[roomName];
@@ -899,4 +937,4 @@ function installGlobals() {
     global._ = undefined;
 }
 
-module.exports = { W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned, makeLost };
+module.exports = { W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned, makeLost, makeHostile };

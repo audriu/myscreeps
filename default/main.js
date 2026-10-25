@@ -15,6 +15,7 @@ const spawner = require('spawner');
 const planner = require('planner');
 const roles = require('roles');
 const empire = require('empire');
+const war = require('war');
 
 function guard(label, fn) {
     try {
@@ -66,7 +67,8 @@ function summary(owned) {
     util.log('rooms=' + owned.length + '/' + Game.gcl.level + ' creeps=' + index.total +
         ' cpu~' + avg + '/' + Game.cpu.limit + ' bucket=' + Game.cpu.bucket +
         (Memory.empire && Memory.empire.claim ? ' claim=' + Memory.empire.claim.target : '') +
-        (Memory.empire && Memory.empire.wants ? ' empireWants=' + Memory.empire.wants.length : ''));
+        (Memory.empire && Memory.empire.wants ? ' empireWants=' + Memory.empire.wants.length : '') +
+        (Memory.war && (Memory.war.muster || Memory.war.target) ? ' war=' + (Memory.war.target || 'muster') + '/' + war.soldiers().length : ''));
     if (Game.time % (config.logEvery * 5) === 0) {
         for (let i = 0; i < owned.length; i++) {
             const st = roomState.get(owned[i]);
@@ -84,6 +86,7 @@ module.exports.loop = function () {
     guard('adopt', () => adopt.run());
     guard('cleanup', cleanup);
     roles.prepare();
+    guard('war', () => war.run());
 
     const owned = util.ownedRooms();
     for (let i = 0; i < owned.length; i++) {

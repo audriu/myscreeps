@@ -40,6 +40,20 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped.
+- **War** (`war.js`, role `soldier`): console-driven offence. `Memory.war =
+  { muster: true }` makes every room at RCL4+ with a stocked storage keep a
+  squad of `config.war.maxPerRoom` soldiers (melee, ranged and healers) and
+  replace losses; they idle at home and help defend it. `Memory.war.target =
+  'E11N36'` sends them to a rally room (the owned room nearest the target,
+  or `Memory.war.rally`), and once most of the wave stands there (or
+  `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
+  public 💀, kill creeps first (healers before fighters), then towers, spawns
+  and every other hostile structure, breaching walls when nothing is
+  reachable, and hold the room when it is clear. `delete Memory.war.target`
+  brings them home; `Memory.war.muster = false` stops spawning and idle
+  soldiers recycle. Progress is logged every `logEvery` ticks and the big
+  steps (target set, marching, cleared) are emailed. The target may be an
+  avoided room: soldiers are the only creeps allowed to path into it.
 - **Avoided rooms (temporary)**: `config.avoidRooms` lists rooms creeps must
   not enter, path through, scout, claim or reclaim (currently E11N36, another
   player's tower room between E11N35 and E11N37). `Memory.avoidRooms = [...]`
@@ -58,6 +72,7 @@ modules from the branch first; `main.js` only requires the modules listed below.
 | `planner.js` | Layout, spawn un-boxing, cleanup |
 | `spawner.js` | Population targets and spawning |
 | `roles.js` | Creep behaviours |
+| `war.js` | Offensive squads: muster, rally, march, clear (Memory.war) |
 | `defense.js` | Towers and safe mode |
 | `logistics.js` | Links and terminal balancing |
 | `empire.js` | Helpers, couriers, scouting, claiming |

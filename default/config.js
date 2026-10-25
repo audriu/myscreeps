@@ -54,6 +54,25 @@ module.exports = {
 
     links: { minSend: 400 },
 
+    // Offensive squads, driven from the console through Memory.war:
+    //   Memory.war = { muster: true }        every room accumulates soldiers (up to maxPerRoom)
+    //   Memory.war.target = 'E11N36'         gather at the rally room, then march in and kill everything
+    //   Memory.war.go = true                 skip the gathering wait and march now
+    //   delete Memory.war.target             soldiers return home (still kept while muster is on)
+    //   Memory.war.muster = false            stop spawning; idle soldiers recycle themselves
+    // Optional: Memory.war.rally = 'W1N1' (owned staging room, else the one nearest the target),
+    // Memory.war.wave = N (soldiers that must gather before marching; default: all alive).
+    war: {
+        maxPerRoom: 10,         // soldiers each room keeps while mustering
+        minRcl: 4,
+        minStorage: 20000,      // rooms with less stored energy sit the war out
+        priority: 480,          // below miners/haulers/upgraders, above builders
+        healers: 0.3,           // share of the squad that heals
+        ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
+        maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
+        gatherShare: 0.8,       // fraction of the wave that must stand at the rally point
+    },
+
     // Long-distance haulers moving energy from rich storages into weak neighbours.
     courier: {
         donorMinStorage: 150000,
