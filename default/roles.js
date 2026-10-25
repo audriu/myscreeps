@@ -852,6 +852,13 @@ const STRUCTURE_KILL_ORDER = {
     [STRUCTURE_RAMPART]: 5,
 };
 
+/** Ownerless structures razed after the hostile ones (config.war.razeAll); higher goes first. */
+const NEUTRAL_RAZE = {
+    [STRUCTURE_CONTAINER]: 30,
+    [STRUCTURE_ROAD]: 20,
+    [STRUCTURE_WALL]: 10,
+};
+
 /** Hostile creep to hit: healers first, then whatever is closest. */
 function pickHostileCreep(creep, hostiles) {
     let best = null;
@@ -886,7 +893,21 @@ function pickHostileStructure(creep) {
     }
     if (best) return best;
     const ramparts = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'ramparts', s => s.structureType === STRUCTURE_RAMPART);
-    return ramparts.length ? creep.pos.findClosestByRange(ramparts) : null;
+    if (ramparts.length) return creep.pos.findClosestByRange(ramparts);
+    if (!config.war.razeAll) return null;
+    // Nothing owned is left: flatten the neutral leftovers, quick ones first, walls last.
+    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
+    best = null;
+    bestScore = -Infinity;
+    for (let i = 0; i < neutral.length; i++) {
+        const s = neutral[i];
+        const score = NEUTRAL_RAZE[s.structureType] * 100 - creep.pos.getRangeTo(s);
+        if (score > bestScore) {
+            bestScore = score;
+            best = s;
+        }
+    }
+    return best;
 }
 
 /** Nothing reachable: chew through the nearest wall or rampart instead of standing still. */

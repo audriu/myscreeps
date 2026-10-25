@@ -70,6 +70,7 @@ module.exports = {
         priority: 480,          // below miners/haulers/upgraders, above builders
         healers: 0.3,           // share of the squad that heals
         ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
+        razeAll: true,          // after the owned structures: also flatten walls, roads and containers
         maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
         gatherShare: 0.8,       // fraction of the wave that must stand at the rally point
     },

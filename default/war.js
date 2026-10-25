@@ -77,9 +77,14 @@ function remainingTargets(roomName) {
     const room = Game.rooms[roomName];
     if (!room) return null;
     const creeps = room.find(FIND_HOSTILE_CREEPS).length;
-    const structs = room.find(FIND_HOSTILE_STRUCTURES, {
+    let structs = room.find(FIND_HOSTILE_STRUCTURES, {
         filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null,
     }).length;
+    if (config.war.razeAll) {
+        structs += room.find(FIND_STRUCTURES, {
+            filter: s => !s.my && (s.structureType === STRUCTURE_WALL || s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER),
+        }).length;
+    }
     return creeps + structs;
 }
 
