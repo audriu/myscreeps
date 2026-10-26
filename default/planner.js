@@ -836,6 +836,11 @@ function placeAll(room, st, ctx) {
     if (towerNeed > 0) spend(placeOnBoard(ctx, STRUCTURE_TOWER, Math.min(towerNeed, budget), 7));
     if (used()) return;
 
+    // Ramparts on critical structures come before everything else that is
+    // optional: a bare tower or spawn is the first thing a raid takes down.
+    if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget));
+    if (used()) return;
+
     // Storage.
     if (allowed(STRUCTURE_STORAGE, rcl) > have(ctx, STRUCTURE_STORAGE)) {
         if (placeNear(ctx, STRUCTURE_STORAGE, ctx.anchor, 2, 5)) spend(1);
@@ -905,10 +910,6 @@ function placeAll(room, st, ctx) {
 
     // Roads from RCL3: spawn rings, then paths to containers.
     if (rcl >= PLAN.roadsFromRcl) spend(placeRoads(ctx, budget));
-    if (used()) return;
-
-    // Ramparts on critical structures.
-    if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget));
 }
 
 function placeRoads(ctx, budget) {
