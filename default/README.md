@@ -141,16 +141,22 @@ creeps as large as the room can afford (14 CLAIM at 9300 energy capacity).
 - **Teams**: hits landing in the same tick all count (the engine checks the
   block from the start of the tick), so the team waits at the controller
   (🏴🤝) and strikes together. It strikes without the stragglers
-  `unclaimSync` (200) ticks after the first one arrived, or when a waiting
+  `unclaimSync` (350) ticks after the first one arrived, or when a waiting
   one is about to expire. A team of four with 18 CLAIM each takes 21,600
   ticks in one strike.
 - **Where from**: rooms within `unclaimRange` (3) of the target, ranked by
   CLAIM parts; rooms with less than half the best room's parts are skipped
   and the strong rooms take turns filling the slots.
 - **Timing**: a team spawns `unclaimLead` (500) ticks before the block ends
-  (energy fill and travel), at priority 490 (above soldiers). A full team
-  costs about 9k energy per member, so rooms with empty storage shrink the
-  later teams; keep `cheap` on so the terminal reserve pays for them.
+  (energy fill and travel), at priority 490 (above soldiers). Bodies shrink
+  so a room's share of the team spawns within `unclaimWindow` (330) ticks
+  (one spawn, five slots: 11 CLAIM each), and a member that could not reach
+  the controller before the team must strike is not spawned at all.
+- **Energy is the real limit**: refilling extensions takes time, so in
+  practice each strong room adds about one big unclaimer per strike. A
+  member costs up to ~12k energy; keep `cheap` on so the terminal reserve
+  pays for them. No soldiers needed for an empty room:
+  `Memory.war = { muster: false, cheap: true, unclaim: 5, target: 'E11N36' }`.
 - Each creep strikes once, then stays by the controller for vision.
 
 ### What you see
@@ -204,7 +210,7 @@ controller neutral.
 | `razeAll` | true | old ending only: roads and containers |
 | `unrestrictedRooms` | `['E11N31']` | rooms where nothing is spared from the start |
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
-| `unclaimRange`, `unclaimLead`, `unclaimSync` | 3, 500, 200 | unclaimer reach, spawn lead, team wait |
+| `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |
 
 ## Files
 

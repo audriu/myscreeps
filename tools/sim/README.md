@@ -23,7 +23,7 @@ node tools/sim/run.js default E11N38,E12N39,E13N37,E11N39,E13N36,E12N37,E12N36,E
 
 War flags: `--war=TARGET:TICK` (muster from tick 1, target at TICK), `--go`
 (march at once), `--hostile=ROOM` (one of your snapshots turned into an enemy
-room with a guard), `--cheap[=FLOOR]`, `--unclaim[=N]`. Enemy controllers run
+room with a guard), `--cheap[=FLOOR]`, `--unclaim[=N]`, `--nomuster` (no soldiers, e.g. unclaimers only). Enemy controllers run
 down, lose levels and go neutral; same-tick `attackController` hits stack like
 in the engine. Hostile rooms report `structures=` (owned) and `leftovers=`
 (ownerless) so the final sweep can be checked.

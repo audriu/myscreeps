@@ -90,7 +90,8 @@ module.exports = {
         // its 1000-tick attack block runs out (-300 downgrade ticks per CLAIM part; the owner
         // cannot upgrade or start safe mode while it is blocked) until it goes neutral.
         unclaimRange: 3,        // linear rooms from the spawning room (a CLAIM creep lives 600 ticks)
-        unclaimSync: 200,       // ticks the first unclaimer at an open controller waits for the rest of the team
+        unclaimSync: 350,       // ticks the first unclaimer at an open controller waits for the rest of the team
+        unclaimWindow: 330,     // spawn ticks a room may spend on one team; bodies shrink to fit (more spawns, bigger bodies)
         unclaimLead: 500,       // spawn this many ticks before the controller can be attacked again (energy fill + travel)
         maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
         gatherShare: 0.8,       // fraction of the wave that must stand at the rally point

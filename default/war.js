@@ -229,6 +229,20 @@ function unclaimWant(st) {
     let have = 0;
     for (let i = 0; i < team.length; i++) if (team[i].memory.from === st.name) have++;
     if (have >= slots) return null;
+    // The whole team must be out within unclaimWindow ticks or the first ones die
+    // waiting (a CLAIM creep lives 600 ticks): one spawn, five slots -> 11 CLAIM each.
+    const spawns = Math.max(1, st.activeSpawns.length);
+    const maxClaim = Math.max(1, Math.floor(config.war.unclaimWindow * spawns / (CREEP_SPAWN_TIME * 2 * slots)));
+    // Late members only waste energy: skip one that cannot reach the controller
+    // before the team has to strike (its oldest member about to expire, or the
+    // sync wait over).
+    let deadline = Infinity;
+    for (let i = 0; i < team.length; i++) {
+        if (!team[i].spawning) deadline = Math.min(deadline, Game.time + team[i].ticksToLive - 60);
+    }
+    if (w.unclaimReady) deadline = Math.min(deadline, w.unclaimReady + config.war.unclaimSync);
+    const eta = Game.time + maxClaim * 2 * CREEP_SPAWN_TIME + (Game.map.getRoomLinearDistance(st.name, w.target) + 1) * 60;
+    if (eta > deadline) return null;
     return {
         role: 'unclaimer',
         count: slots,
@@ -237,7 +251,7 @@ function unclaimWant(st) {
         shrink: false,
         memory: { targetRoom: w.target, from: st.name },
         body: e => {
-            const n = Math.max(1, unclaimParts(e));
+            const n = Math.max(1, Math.min(maxClaim, unclaimParts(e)));
             const body = [];
             for (let i = 0; i < n; i++) body.push(CLAIM);
             for (let i = 0; i < n; i++) body.push(MOVE);
