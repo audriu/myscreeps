@@ -1154,6 +1154,7 @@ function unclaimer(creep, m) {
         return;
     }
     if (creep.room.name !== target) {
+        creep.say('🏴', true);
         util.travel(creep, util.roomCenter(target), { range: 20, reusePath: 50 });
         return;
     }
@@ -1163,16 +1164,17 @@ function unclaimer(creep, m) {
         return;
     }
     if (!creep.pos.isNearTo(ctrl)) {
+        creep.say('🏴', true);
         util.travel(creep, ctrl);
         return;
     }
     if (m.struck || ctrl.upgradeBlocked || ctrl.safeMode) {
-        creep.say(m.struck ? '🏴' : '⏳' + (ctrl.upgradeBlocked || ctrl.safeMode), true);
+        creep.say(m.struck ? '🏴' : '🏴⏳' + (ctrl.upgradeBlocked || ctrl.safeMode), true);
         return;
     }
     // Hits only add up within one tick: wait for the rest of the team.
     if (!war.unclaimGo(w, ctrl)) {
-        creep.say('🤝', true);
+        creep.say('🏴🤝', true);
         return;
     }
     const before = ctrl.ticksToDowngrade;
