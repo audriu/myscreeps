@@ -33,7 +33,11 @@ module.exports = {
         spawnFreeTiles: 3,      // destroy cheap blockers until every active spawn has this many exits
         pruneInactive: true,    // remove RCL-inactive extensions/towers that sit off the checkerboard
         roadsFromRcl: 3,
-        rampartsFromRcl: 4,
+        rampartsFromRcl: 4,     // ramparts over spawns, towers, storage and terminal
+        // Once nothing else is left to build and the room has spare energy
+        // (defense.workerFortify), cover these too.
+        coverFromRcl: 5,
+        coverTypes: ['lab', 'factory', 'powerSpawn', 'nuker', 'observer', 'link', 'extension'],
         rampartTarget: { 4: 20000, 5: 50000, 6: 100000, 7: 300000, 8: 1000000 },
     },
 
@@ -53,6 +57,12 @@ module.exports = {
         fortifyMinStorage: 50000,
         // Repair non-rampart structures (roads, containers) below this fraction of max hits.
         repairBelow: 0.5,
+        // With nothing to build or repair, workers thicken ramparts toward
+        // planner.rampartTarget instead of upgrading, once this much energy sits in
+        // storage (or in the source containers of a room without storage). They stop
+        // when it falls below half. Ramparts over spawns, towers, storage and terminal
+        // go first, then the rest; the room gets one extra worker for it.
+        workerFortify: { storage: 20000, containers: 1500 },
     },
 
     links: { minSend: 400 },

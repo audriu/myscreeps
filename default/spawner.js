@@ -8,6 +8,7 @@ const util = require('util');
 const bodies = require('bodies');
 const roomState = require('roomState');
 const war = require('war');
+const defense = require('defense');
 
 const POP = config.population;
 
@@ -190,6 +191,9 @@ function wants(room, st) {
     if (st.sites.length > 0) workerWant++;
     if (st.sites.length > 6) workerWant++;
     if (st.rcl <= 4 && st.sources.length >= 2) workerWant++;
+    // Spare energy and thin ramparts: one more worker thickens them (config.defense.workerFortify).
+    const fortify = !st.sites.length && defense.spareEnergy(st) && defense.fortifyTargets(st).length > 0;
+    if (fortify) workerWant++;
     workerWant = Math.min(workerWant, POP.maxWorkers);
     if (alive(workers, 30) < workerWant) {
         list.push({
@@ -198,7 +202,7 @@ function wants(room, st) {
             have: alive(workers, 30),
             priority: st.sites.length && !workers.length ? 600 : 400,
             shrink: false,
-            body: e => bodies.worker(Math.min(e, st.sites.length > 6 ? 1500 : 1000)),
+            body: e => bodies.worker(Math.min(e, st.sites.length > 6 || fortify ? 1500 : 1000)),
         });
     }
 

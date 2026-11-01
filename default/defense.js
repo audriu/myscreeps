@@ -79,6 +79,67 @@ function rampartUnderFire(st) {
     return best;
 }
 
+/** Structures whose ramparts are thickened first. */
+const KEY_STRUCTURES = [STRUCTURE_SPAWN, STRUCTURE_TOWER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL];
+
+/** Energy in reserve: storage, or the source containers in a room without one. */
+function reserve(st) {
+    if (st.storage) return st.storage.store[RESOURCE_ENERGY] || 0;
+    let n = 0;
+    for (let i = 0; i < st.sources.length; i++) {
+        if (st.sources[i].container) n += st.sources[i].container.store[RESOURCE_ENERGY] || 0;
+    }
+    return n;
+}
+
+/**
+ * Can workers spend energy on thickening ramparts? Needs a reserve above
+ * config.defense.workerFortify (storage, or source containers without one);
+ * stays on until the reserve falls below half of it so workers do not flip
+ * between fortifying and upgrading every time the spawn drains the room.
+ */
+function spareEnergy(st) {
+    const rh = util.roomHeap(st.name);
+    if (rh.spareAt === Game.time) return rh.spare;
+    const cfg = config.defense.workerFortify;
+    const need = st.storage ? cfg.storage : cfg.containers;
+    const have = reserve(st);
+    if (st.downgrade) rh.spare = false;
+    else if (have >= need) rh.spare = true;
+    else if (have < need / 2) rh.spare = false;
+    rh.spareAt = Game.time;
+    return !!rh.spare;
+}
+
+/**
+ * Our ramparts below the RCL goal (config.planner.rampartTarget), the ones over
+ * spawns, towers, storage and terminal first, weakest first within each group.
+ */
+function fortifyTargets(st) {
+    const rh = util.roomHeap(st.name);
+    let ids = rh.fortify && Game.time - rh.fortify.t < 10 ? rh.fortify.list : null;
+    if (!ids) {
+        const goal = config.planner.rampartTarget[st.rcl] || 0;
+        const key = {};
+        for (let t = 0; t < KEY_STRUCTURES.length; t++) {
+            const list = st.byType[KEY_STRUCTURES[t]] || [];
+            for (let i = 0; i < list.length; i++) if (list[i].my) key[list[i].pos.x + ':' + list[i].pos.y] = true;
+        }
+        const list = (st.byType[STRUCTURE_RAMPART] || [])
+            .filter(r => r.my && r.hits < goal)
+            .map(r => ({ id: r.id, hits: r.hits, key: key[r.pos.x + ':' + r.pos.y] ? 0 : 1 }));
+        list.sort((a, b) => a.key - b.key || a.hits - b.hits);
+        ids = list.map(e => e.id);
+        rh.fortify = { t: Game.time, list: ids };
+    }
+    const out = [];
+    for (let i = 0; i < ids.length; i++) {
+        const r = Game.getObjectById(ids[i]);
+        if (r) out.push(r);
+    }
+    return out;
+}
+
 function pickTarget(st, hostiles) {
     let best = null;
     let bestScore = -Infinity;
@@ -208,4 +269,4 @@ function run(room, st) {
     }
 }
 
-module.exports = { run };
+module.exports = { run, spareEnergy, fortifyTargets, KEY_STRUCTURES };

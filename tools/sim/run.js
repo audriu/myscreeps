@@ -57,6 +57,12 @@ const main = req('main');
 const cpuSamples = [];
 let errors = 0;
 
+function rampartSummary(room) {
+    const h = room.structures.filter(s => s.structureType === 'rampart').map(s => s.hits).sort((a, b) => a - b);
+    if (!h.length) return 0;
+    return `${h.length}(min=${h[0]} mid=${h[h.length >> 1]} max=${h[h.length - 1]})`;
+}
+
 function snapshot(tag) {
     for (const rn of rooms) {
         const room = W.rooms[rn];
@@ -67,7 +73,7 @@ function snapshot(tag) {
         const spawns = room.structures.filter(s => s.structureType === 'spawn');
         const stor = room.storage;
         if (!ctrl.my) { console.log(`[${tag}] ${rn} HOSTILE structures=${room.structures.filter(s => s.owner && !s.my).length} leftovers=${JSON.stringify(room.structures.filter(s => !s.my && !s.owner && s.hits != null).reduce((a, s) => (a[s.structureType] = (a[s.structureType] || 0) + 1, a), {}))} creeps=${room.creeps.filter(c => !c.my).length} ours=${room.creeps.filter(c => c.my).length}`); continue; }
-        console.log(`[${tag}] ${rn} RCL${ctrl.level} prog=${ctrl.progress}/${ctrl.progressTotal || '-'} down=${ctrl.ticksToDowngrade} energy=${room.energyAvailable}/${room.energyCapacityAvailable} store=${stor ? stor.store.energy || 0 : '-'} creeps(home)=${all.length} inRoom=${JSON.stringify(byRole)} sites=${room.sites.length} spawning=[${spawns.map(s => s.name + ':' + (s.spawning ? s.spawning.name + '/' + s.spawning.remainingTime : '-')).join(' ')}] containers=${room.structures.filter(s => s.structureType === 'container').map(c => c.store.energy || 0).join(',')} dropped=${room.resources.reduce((a, r) => a + r.amount, 0)}`);
+        console.log(`[${tag}] ${rn} RCL${ctrl.level} prog=${ctrl.progress}/${ctrl.progressTotal || '-'} down=${ctrl.ticksToDowngrade} energy=${room.energyAvailable}/${room.energyCapacityAvailable} store=${stor ? stor.store.energy || 0 : '-'} creeps(home)=${all.length} inRoom=${JSON.stringify(byRole)} sites=${room.sites.length} spawning=[${spawns.map(s => s.name + ':' + (s.spawning ? s.spawning.name + '/' + s.spawning.remainingTime : '-')).join(' ')}] containers=${room.structures.filter(s => s.structureType === 'container').map(c => c.store.energy || 0).join(',')} dropped=${room.resources.reduce((a, r) => a + r.amount, 0)} ramparts=${rampartSummary(room)}`);
     }
 }
 

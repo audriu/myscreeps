@@ -23,7 +23,11 @@ modules from the branch first; `main.js` only requires the modules listed below.
   checkerboard grid, reconnects sources to the controller area.
 - **Planner**: checkerboard layout around the first spawn, nothing non-walkable
   next to a spawn, containers at sources and controller, towers, storage,
-  links, terminal, extra spawns, roads (RCL3+), ramparts on key structures.
+  links, terminal, extra spawns, roads (RCL3+), ramparts on key structures
+  (spawns, towers, storage, terminal) from RCL4. From RCL5, once nothing else
+  is left to build and the room has spare energy, it also covers labs,
+  factory, power spawn, nuker, observer, links and extensions
+  (`planner.coverTypes`).
 - **Defense**: towers focus the most dangerous hostile they can actually
   wear down (tower falloff, boosted TOUGH and nearby HEAL are counted); when
   every hostile out-heals them they hold fire and repair the weakest rampart
@@ -31,6 +35,15 @@ modules from the branch first; `main.js` only requires the modules listed below.
   roads/containers and ramparts (fortify only when storage is healthy). Safe
   mode when critical structures take damage, when a tower-less room has
   hostiles at the spawn, or when the controller is attacked.
+- **Ramparts with spare energy**: new ramparts are repaired to 3k before more
+  are built (they start at 1 hit and decay), and every rampart is kept at
+  20k at least. When there is nothing to build or repair and the room holds
+  spare energy (20k in storage, or 1.5k in the source containers of a room
+  without storage; `defense.workerFortify`), the worker thickens ramparts
+  toward `planner.rampartTarget` (RCL5 50k, RCL6 100k, RCL7 300k, RCL8 1M)
+  instead of upgrading: ramparts over spawns, towers, storage and terminal
+  first, weakest first, then the rest. The room spawns one extra worker
+  for it. It stops when the reserve drops below half the threshold.
 - **Empire**: couriers carry energy from rich storages into weak neighbours;
   terminals balance energy between RCL6+ rooms; owned rooms without a spawn get
   helper workers; lost rooms that still hold our spawn are claimed back first;

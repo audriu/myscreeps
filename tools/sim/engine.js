@@ -340,7 +340,7 @@ class Creep extends RoomObject {
         const work = this.getActiveBodyparts('work'); if (!work) return C.ERR_NO_BODYPART;
         const e = this.store.energy || 0; if (!e) return C.ERR_NOT_ENOUGH_RESOURCES;
         const g = this._group('work'); if (g !== C.OK) return g;
-        const n = Math.min(work, e); this.store.energy -= n; s.hits = Math.min(s.hitsMax, s.hits + n * 100); return C.OK;
+        const n = Math.min(work, e); this.store.energy -= n; W.stats.repairEnergy = (W.stats.repairEnergy || 0) + n; s.hits = Math.min(s.hitsMax, s.hits + n * 100); return C.OK;
     }
     upgradeController(ctrl) {
         if (!(ctrl instanceof Controller) || !ctrl.my) return C.ERR_INVALID_TARGET;
@@ -517,9 +517,11 @@ function completeSite(site) {
     const room = W.rooms[site.pos.roomName];
     const neutral = ['road', 'container', 'constructedWall'].includes(site.structureType);
     const opts = { neutral };
+    if (site.structureType === 'rampart') opts.nextDecay = W.time + 100;
     if (site.structureType === 'rampart' || site.structureType === 'constructedWall') { opts.hits = 1; opts.hitsMax = site.structureType === 'rampart' ? (C.RAMPART_HITS_MAX[room.controller.level] || 300000) : 300000000; }
     if (site.structureType === 'spawn') { let n = 1; while (W.spawns['Spawn' + n]) n++; opts.name = 'Spawn' + n; }
     const s = new Structure(site.pos.x, site.pos.y, site.pos.roomName, site.structureType, opts);
+    if (opts.nextDecay) s.nextDecay = opts.nextDecay;
     room.structures.push(s); W.objects[s.id] = s; if (s.structureType === 'spawn') W.spawns[s.name] = s;
     W.stats.built[site.structureType] = (W.stats.built[site.structureType] || 0) + 1;
 }
@@ -801,7 +803,7 @@ function endTick() {
             if (s.structureType === 'spawn' && s.my && s.isActive() && !s.spawning && (s.store.energy || 0) < 300 && room.energyAvailable < 300) s.store.energy = (s.store.energy || 0) + 1;
             if (s.structureType === 'link' && s.cooldown > 0) s.cooldown--;
             if (s.structureType === 'terminal' && s.cooldown > 0) s.cooldown--;
-            if (s.structureType === 'rampart' && W.time % 100 === 0) { s.hits -= 300; if (s.hits <= 0) destroyStructure(s, false); }
+            if (s.structureType === 'rampart' && (s.nextDecay != null ? W.time >= s.nextDecay : W.time % 100 === 0)) { if (s.nextDecay != null) s.nextDecay = W.time + 100; s.hits -= 300; if (s.hits <= 0) { W.logs.push('rampart decayed in ' + rn + ' at ' + s.pos.x + ',' + s.pos.y + ' tick ' + W.time); destroyStructure(s, false); } }
             if (s.structureType === 'container' && W.time % 100 === 0) { s.hits -= 5000; if (s.hits <= 0) destroyStructure(s, false); }
             if (s.structureType === 'road' && W.time % 1000 === 0) { s.hits -= 100; if (s.hits <= 0) destroyStructure(s, false); }
         }

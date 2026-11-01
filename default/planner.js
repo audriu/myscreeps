@@ -10,6 +10,7 @@
  */
 const config = require('config');
 const util = require('util');
+const defense = require('defense');
 
 const PLAN = config.planner;
 
@@ -807,6 +808,7 @@ function placeLinkNear(ctx, around, maxRange, extra) {
 function placeAll(room, st, ctx) {
     let budget = siteBudget(st);
     if (budget <= 0) return;
+    const startBudget = budget;
     const rcl = st.rcl;
     const used = () => budget <= 0 || ctx.sitesFull;
     const spend = n => { budget -= n; };
@@ -838,7 +840,7 @@ function placeAll(room, st, ctx) {
 
     // Ramparts on critical structures come before everything else that is
     // optional: a bare tower or spawn is the first thing a raid takes down.
-    if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget));
+    if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget, defense.KEY_STRUCTURES));
     if (used()) return;
 
     // Storage.
@@ -910,6 +912,14 @@ function placeAll(room, st, ctx) {
 
     // Roads from RCL3: spawn rings, then paths to containers.
     if (rcl >= PLAN.roadsFromRcl) spend(placeRoads(ctx, budget));
+    if (used()) return;
+
+    // Everything is built (nothing placed this pass, no other site waiting) and
+    // energy is to spare: cover the rest of the base too.
+    if (rcl >= PLAN.coverFromRcl && budget === startBudget && defense.spareEnergy(st) &&
+        st.sites.every(s => s.structureType === STRUCTURE_RAMPART)) {
+        spend(placeRamparts(ctx, budget, PLAN.coverTypes));
+    }
 }
 
 function placeRoads(ctx, budget) {
@@ -982,10 +992,10 @@ function placeRoads(ctx, budget) {
     return placed;
 }
 
-function placeRamparts(ctx, budget) {
+/** Rampart sites over our structures of these types. */
+function placeRamparts(ctx, budget, types) {
     let placed = 0;
     const st = ctx.st;
-    const types = [STRUCTURE_SPAWN, STRUCTURE_TOWER, STRUCTURE_STORAGE, STRUCTURE_TERMINAL];
     for (let t = 0; t < types.length && placed < budget; t++) {
         const list = st.byType[types[t]] || [];
         for (let i = 0; i < list.length && placed < budget; i++) {

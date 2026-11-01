@@ -7,6 +7,7 @@ const config = require('config');
 const util = require('util');
 const roomState = require('roomState');
 const war = require('war');
+const defense = require('defense');
 
 const heap = util.heap;
 
@@ -420,15 +421,49 @@ function doBuild(creep, st, m) {
     return true;
 }
 
+/** Freshly built ramparts start at 1 hit and decay 300 every 100 ticks: save them first. */
+const FRESH_RAMPART = 3000;
+
+function freshRamparts(st) {
+    return repairObjects(st).filter(s => s.structureType === STRUCTURE_RAMPART && s.hits < FRESH_RAMPART);
+}
+
 function doRepair(creep, st, m) {
     let s = m.t && m.tk === 'repair' ? Game.getObjectById(m.t) : null;
     if (s && s.hits >= s.hitsMax * 0.95) s = null;
+    // A rampart's hitsMax is millions: stop at the repair floor, and at the fresh
+    // threshold while other new ramparts are still decaying toward 0.
+    if (s && s.structureType === STRUCTURE_RAMPART) {
+        const floor = Math.min(config.planner.rampartTarget[st.rcl] || 0, 20000);
+        if (s.hits >= floor || (s.hits >= FRESH_RAMPART && freshRamparts(st).length)) s = null;
+    }
     if (!s) {
-        const list = repairObjects(st);
+        const fresh = freshRamparts(st);
+        const list = fresh.length ? fresh : repairObjects(st);
         s = list.length ? creep.pos.findClosestByRange(list) : null;
         if (!s) return false;
         m.t = s.id;
         m.tk = 'repair';
+    }
+    if (!creep.pos.inRangeTo(s, 3)) {
+        if (go(creep, m, s, { range: 3 }) === ERR_NO_PATH) return false;
+        return true;
+    }
+    creep.repair(s);
+    util.markIdle(creep);
+    return true;
+}
+
+/** Spare energy: thicken the most important / weakest rampart toward the RCL goal. */
+function doFortify(creep, st, m) {
+    const goal = config.planner.rampartTarget[st.rcl] || 0;
+    let s = m.t && m.tk === 'fortify' ? Game.getObjectById(m.t) : null;
+    if (s && s.hits >= goal) s = null;
+    if (!s) {
+        s = defense.fortifyTargets(st)[0] || null;
+        if (!s) return false;
+        m.t = s.id;
+        m.tk = 'fortify';
     }
     if (!creep.pos.inRangeTo(s, 3)) {
         if (go(creep, m, s, { range: 3 }) === ERR_NO_PATH) return false;
@@ -651,8 +686,9 @@ function chooseTask(creep, st) {
     if (st.refill.length && st.energy < Math.max(300, needEnergy) && (haulers === 0 || haulable(st) < 200)) return 'fill';
     if (st.downgrade) return 'upgrade';
     if (st.towersNeedy.length && haulers === 0 && st.danger) return 'fill';
-    if (st.sites.length) return 'build';
+    if (st.sites.length) return freshRamparts(st).length ? 'repair' : 'build';
     if (repairObjects(st).length) return 'repair';
+    if (defense.spareEnergy(st) && defense.fortifyTargets(st).length) return 'fortify';
     return 'upgrade';
 }
 
@@ -696,6 +732,7 @@ function worker(creep, m) {
     if (m.task === 'fill') busy = deliver(creep, st, { only: 'refill' });
     else if (m.task === 'build') busy = doBuild(creep, st, m);
     else if (m.task === 'repair') busy = doRepair(creep, st, m);
+    else if (m.task === 'fortify') busy = doFortify(creep, st, m);
     if (!busy) {
         if (m.task !== 'upgrade') {
             m.task = 'upgrade';
