@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--cheap[=FLOOR]] [--unclaim] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -19,6 +19,7 @@ const lostArg = args.find(a => a.startsWith('--lost='));       // --lost=ROOM (c
 const spawnDiag = args.includes('--spawndiag');
 const hostileArg = args.find(a => a.startsWith('--hostile=')); // --hostile=ROOM (another player's room with a guard)
 const warArg = args.find(a => a.startsWith('--war='));         // --war=TARGET:TICK (muster from tick 1, target set at TICK)
+const cheapArg = args.find(a => a === '--cheap' || a.startsWith('--cheap=')); // --cheap[=FLOOR] (low-energy muster from tick 1)
 const gclArg = args.find(a => a.startsWith('--gcl='));         // --gcl=N (Game.gcl.level)
 const gclRaiseArg = args.find(a => a.startsWith('--gclraise=')); // --gclraise=TICK (GCL level +1 at that tick)
 const releaseArg = args.find(a => a.startsWith('--release=')); // --release=ROOM:TICK (sets Memory.empire.release at that tick)
@@ -79,6 +80,8 @@ for (let i = 0; i < ticks; i++) {
     if (invadeArg) { const [, spec] = invadeArg.split('='); const [room, tick, big] = spec.split(':'); if (i + 1 === +tick) { E.spawnInvader(room, big ? ['tough','tough','tough','tough','attack','attack','attack','attack','attack','attack','heal','heal','move','move','move','move','move','move','move','move'] : null); if (big) E.spawnInvader(room, null); } }
     if (gclRaiseArg && i + 1 === +gclRaiseArg.split('=')[1]) W.gcl++;
     if (warArg) { const [room, tick] = warArg.split('=')[1].split(':'); if (i === 0) Memory.war = { muster: true }; if (i + 1 === +tick) { Memory.war = Memory.war || {}; Memory.war.target = room; } }
+    if (cheapArg && i === 0) { Memory.war = Memory.war || {}; Memory.war.muster = true; Memory.war.cheap = cheapArg.includes('=') ? +cheapArg.split('=')[1] : true; }
+    if (args.includes('--unclaim') && i === 0) { Memory.war = Memory.war || {}; Memory.war.unclaim = true; }
     if (releaseArg) { const [room, tick] = releaseArg.split('=')[1].split(':'); if (i + 1 === +tick) { Memory.empire = Memory.empire || {}; Memory.empire.release = room; } }
     if (spawnDiag && (i + 1) % 25 === 0) {
         for (const sn in W.spawns) { const sp = W.spawns[sn]; if (sp.spawning && sp.spawning.remainingTime === 0) {

@@ -181,7 +181,7 @@ function pickEnergy(creep, st, opts) {
     if (opts.ctrlContainer && st.ctrlContainer) consider(st.ctrlContainer, (st.ctrlContainer.store[RESOURCE_ENERGY] || 0), 'withdraw', 10);
     if (opts.storageLinkDrain && st.storageLink) consider(st.storageLink, (st.storageLink.store[RESOURCE_ENERGY] || 0), 'withdraw', 30);
     if (opts.storage && st.storage) consider(st.storage, (st.storage.store[RESOURCE_ENERGY] || 0), 'withdraw', -10);
-    if (opts.terminal && st.terminal) consider(st.terminal, (st.terminal.store[RESOURCE_ENERGY] || 0) - config.terminal.keep, 'withdraw', -10);
+    if (opts.terminal && st.terminal) consider(st.terminal, (st.terminal.store[RESOURCE_ENERGY] || 0) - war.terminalKeep(), 'withdraw', -10);
 
     if (best) {
         heap.reserved[best.obj.id] = (heap.reserved[best.obj.id] || 0) + Math.min(need, best.amount);
@@ -296,7 +296,7 @@ function pickDelivery(creep, st, opts, exclude) {
         return st.storage;
     }
     if (opts.terminal && st.terminal && st.terminal !== exclude &&
-        (st.terminal.store[RESOURCE_ENERGY] || 0) < config.terminal.keep && st.terminal.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        (st.terminal.store[RESOURCE_ENERGY] || 0) < war.terminalKeep() && st.terminal.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
         return st.terminal;
     }
     return null;
@@ -524,7 +524,7 @@ function hauler(creep, m) {
         return;
     }
     if (!m.working) {
-        const keep = config.terminal.keep;
+        const keep = war.terminalKeep();
         const storageEnergy = st.storage ? (st.storage.store[RESOURCE_ENERGY] || 0) : 0;
         const demand = st.refill.length > 0 || st.towersNeedy.length > 0 ||
             (st.ctrlContainer && st.count('upgrader') > 0 && (st.ctrlContainer.store[RESOURCE_ENERGY] || 0) < 800) ||
@@ -1140,7 +1140,47 @@ function soldier(creep, m) {
     idle(creep, st);
 }
 
-const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier };
+/**
+ * War: walk to the target's controller and attackController the moment its
+ * attack block (or safe mode) is over. One strike per creep; it then stays
+ * next to the controller for vision until it dies.
+ */
+function unclaimer(creep, m) {
+    const w = war.state();
+    const target = m.targetRoom;
+    if (!w || !w.unclaim || w.target !== target) {
+        recycle(creep);
+        return;
+    }
+    if (creep.room.name !== target) {
+        util.travel(creep, util.roomCenter(target), { range: 20, reusePath: 50 });
+        return;
+    }
+    const ctrl = creep.room.controller;
+    if (!war.enemyController(ctrl)) {
+        creep.suicide();
+        return;
+    }
+    if (!creep.pos.isNearTo(ctrl)) {
+        util.travel(creep, ctrl);
+        return;
+    }
+    if (m.struck || ctrl.upgradeBlocked || ctrl.safeMode) {
+        creep.say(m.struck ? '🏴' : '⏳' + (ctrl.upgradeBlocked || ctrl.safeMode), true);
+        return;
+    }
+    const res = creep.attackController(ctrl);
+    if (res === OK) {
+        m.struck = Game.time;
+        w.unclaimHits = (w.unclaimHits || 0) + 1;
+        util.log('WAR: ' + creep.name + ' hit the ' + target + ' controller with ' + util.countParts(creep, CLAIM) +
+            ' CLAIM (RCL' + ctrl.level + ', ' + ctrl.ticksToDowngrade + ' ticks to downgrade)');
+    } else if (res !== ERR_TIRED) {
+        util.warn('attackController in ' + target + ' failed with ' + res);
+    }
+}
+
+const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier, unclaimer };
 
 function run(creep) {
     if (creep.spawning) return;

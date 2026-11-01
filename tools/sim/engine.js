@@ -256,6 +256,8 @@ class Controller extends RoomObject {
         this.safeModeAvailable = o.safeModeAvailable || 0; this.safeMode = undefined; this.safeModeCooldown = undefined;
         this.sign = o.sign ? { text: o.sign.text, username: MY_NAME } : undefined;
         this.reservation = undefined; this.hits = undefined;
+        this.upgradeBlocked = o.upgradeBlocked && o.upgradeBlocked > W.time ? o.upgradeBlocked - W.time : undefined;
+        if (o.safeMode && o.safeMode > W.time) this.safeMode = o.safeMode - W.time;
     }
     get progressTotal() { return C.CONTROLLER_LEVELS[this.level]; }
     unclaim() { if (!this.my) return C.ERR_NOT_OWNER; this.my = false; this.owner = undefined; this.level = 0; this.progress = 0; W.logs.push('UNCLAIMED ' + this.pos.roomName); return C.OK; }
@@ -354,6 +356,17 @@ class Creep extends RoomObject {
         return C.OK;
     }
     signController(ctrl, text) { if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE; ctrl.sign = { text, username: MY_NAME }; return C.OK; }
+    attackController(ctrl) {
+        if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE;
+        const n = this.getActiveBodyparts('claim'); if (!n) return C.ERR_NO_BODYPART;
+        if (ctrl.my || (!ctrl.owner && !ctrl.reservation)) return C.ERR_INVALID_TARGET;
+        if (ctrl.upgradeBlocked || ctrl.safeMode) return C.ERR_TIRED;
+        if (ctrl.owner) ctrl.ticksToDowngrade -= C.CONTROLLER_CLAIM_DOWNGRADE * n; else ctrl.reservation.ticksToEnd -= n;
+        ctrl.upgradeBlocked = C.CONTROLLER_ATTACK_BLOCKED_UPGRADE;
+        W.stats.controllerAttacks = (W.stats.controllerAttacks || 0) + 1;
+        W.logs.push('CONTROLLER ATTACK ' + ctrl.pos.roomName + ' x' + n + ' at ' + W.time + ' (downgrade ' + ctrl.ticksToDowngrade + ')');
+        return C.OK;
+    }
     claimController(ctrl) { if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE; if (!this.getActiveBodyparts('claim')) return C.ERR_NO_BODYPART; ctrl.my = true; ctrl.level = 1; ctrl.owner = { username: MY_NAME }; ctrl.ticksToDowngrade = 20000; return C.OK; }
     reserveController(ctrl) { if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE; return C.OK; }
     attack(t) { if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; t.hits -= 30 * this.getActiveBodyparts('attack'); return C.OK; }
@@ -803,6 +816,18 @@ function endTick() {
         for (const t of room.tombstones.slice()) { t.ticksToDecay--; if (t.ticksToDecay <= 0) { room.tombstones = room.tombstones.filter(x => x !== t); delete W.objects[t.id]; } }
         for (const t of room.ruins.slice()) { t.ticksToDecay--; if (t.ticksToDecay <= 0) { room.ruins = room.ruins.filter(x => x !== t); delete W.objects[t.id]; } }
         const ctrl = room.controller;
+        if (ctrl && ctrl.upgradeBlocked) { ctrl.upgradeBlocked--; if (ctrl.upgradeBlocked <= 0) ctrl.upgradeBlocked = undefined; }
+        if (ctrl && !ctrl.my && ctrl.owner) {
+            // Another player's controller: no upgrades simulated, it only runs down (and drops levels).
+            if (ctrl.safeMode) { ctrl.safeMode--; if (ctrl.safeMode <= 0) ctrl.safeMode = undefined; }
+            ctrl.ticksToDowngrade--;
+            if (ctrl.ticksToDowngrade <= 0) {
+                W.logs.push(rn + ' (theirs) DOWNGRADED from RCL' + ctrl.level + ' at tick ' + W.time);
+                ctrl.level--;
+                if (ctrl.level <= 0) { ctrl.owner = undefined; ctrl.level = 0; W.logs.push(rn + ' NEUTRAL at ' + W.time); }
+                else ctrl.ticksToDowngrade = C.CONTROLLER_DOWNGRADE[ctrl.level] / 2;
+            }
+        }
         if (ctrl && ctrl.my) {
             ctrl.ticksToDowngrade--;
             if (ctrl.safeMode) { ctrl.safeMode--; if (ctrl.safeMode <= 0) ctrl.safeMode = undefined; }

@@ -41,11 +41,29 @@ function composition(st) {
     return { melee: fighters - ranged, ranged, healer: healers };
 }
 
+/**
+ * Low-energy muster (Memory.war.cheap = true, or a number for the floor):
+ * the storage gate is dropped, soldiers are built from whatever energy the
+ * room holds once it reaches the floor, and the terminal reserve is spent.
+ * Returns the energy floor for this room, or 0 when the mode is off.
+ */
+function cheapFloor(st) {
+    const w = state();
+    if (!w || !w.cheap) return 0;
+    const floor = typeof w.cheap === 'number' && w.cheap > 0 ? w.cheap : config.war.cheapMin;
+    return st ? Math.min(st.cap, floor) : floor;
+}
+
+/** Energy haulers leave in a terminal: none while a low-energy muster is on. */
+function terminalKeep() {
+    return cheapFloor() ? 0 : config.terminal.keep;
+}
+
 /** Does this room take part in the war effort right now? */
 function roomEligible(st) {
     const cfg = config.war;
     if (st.rcl < cfg.minRcl || st.bootstrap || !st.activeSpawns.length) return false;
-    if (st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) < cfg.minStorage) return false;
+    if (!cheapFloor(st) && st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) < cfg.minStorage) return false;
     return true;
 }
 
@@ -70,6 +88,111 @@ function rallyPos(w) {
     const room = w.rally && Game.rooms[w.rally];
     if (!room || !room.controller || !room.controller.my) return null;
     return roomState.get(room).anchor;
+}
+
+/* ------------------------------------------------------------------ */
+/* Controller attack (Memory.war.unclaim = true)                        */
+/* ------------------------------------------------------------------ */
+
+/** Every unclaimer alive (spawning ones included). */
+function unclaimers() {
+    return util.cache('war|unclaimers', () => {
+        const out = [];
+        for (const name in Game.creeps) if (Game.creeps[name].memory.role === 'unclaimer') out.push(Game.creeps[name]);
+        return out;
+    });
+}
+
+/** Someone other than us owns or reserves this controller. */
+function enemyController(ctrl) {
+    if (!ctrl || ctrl.my) return false;
+    if (ctrl.owner) return true;
+    return !!(ctrl.reservation && !util.isOwned(ctrl.pos.roomName) && ctrl.reservation.username !== myName());
+}
+
+function myName() {
+    for (const n in Game.spawns) return Game.spawns[n].owner.username;
+    return null;
+}
+
+/** CLAIM parts a room can put into one unclaimer (CLAIM+MOVE pairs at 650 each). */
+function unclaimParts(cap) {
+    return Math.min(25, Math.floor(cap / (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE])));
+}
+
+/** The room that spawns unclaimers: most CLAIM parts within reach of the target, nearest on ties. */
+function pickUnclaimFrom(target) {
+    const owned = util.ownedRooms();
+    let best = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < owned.length; i++) {
+        const st = roomState.get(owned[i]);
+        if (st.bootstrap || !st.activeSpawns.length) continue;
+        const d = Game.map.getRoomLinearDistance(st.name, target);
+        if (d > config.war.unclaimRange) continue;
+        const parts = unclaimParts(st.cap);
+        if (!parts) continue;
+        const score = parts * 10 - d;
+        if (score > bestScore) {
+            bestScore = score;
+            best = st.name;
+        }
+    }
+    return best;
+}
+
+/** Keep the unclaim plan current: spawn room, next attack tick, done. Runs from war.run(). */
+function planUnclaim(w) {
+    const tRoom = Game.rooms[w.target];
+    const ctrl = tRoom && tRoom.controller;
+    if (tRoom) {
+        if (!enemyController(ctrl)) {
+            if (!w.unclaimDone) {
+                w.unclaimDone = Game.time;
+                util.warn('WAR: the controller in ' + w.target + ' is no longer theirs');
+                Game.notify('War: ' + w.target + ' controller is neutral now (' + (w.unclaimHits || 0) + ' controller attacks)');
+            }
+            return;
+        }
+        delete w.unclaimDone;
+        w.unclaimAt = Game.time + Math.max(ctrl.upgradeBlocked || 0, ctrl.safeMode || 0);
+        w.unclaimLeft = ctrl.level ? ctrl.level + ':' + ctrl.ticksToDowngrade : null;
+    }
+    if (!w.unclaimFrom || Game.time % 500 === 0 || !util.isOwned(w.unclaimFrom)) {
+        const from = pickUnclaimFrom(w.target);
+        if (from !== w.unclaimFrom) {
+            w.unclaimFrom = from;
+            util.log('WAR: unclaimers for ' + w.target + ' come from ' + (from || 'nowhere (no room in range can afford CLAIM)'));
+        }
+    }
+}
+
+/** Spawn request for this room's unclaimer, or null. Timed so it reaches the controller as the block ends. */
+function unclaimWant(st) {
+    const w = state();
+    if (!w || !w.target || !w.unclaim || w.unclaimDone || w.unclaimFrom !== st.name) return null;
+    if (w.unclaimAt && w.unclaimAt - Game.time > config.war.unclaimLead) return null;
+    const list = unclaimers();
+    for (let i = 0; i < list.length; i++) {
+        const c = list[i];
+        // One that has not struck yet is still on its way (or waiting at the controller).
+        if (c.memory.targetRoom === w.target && !c.memory.struck && (c.spawning || c.ticksToLive > 50)) return null;
+    }
+    return {
+        role: 'unclaimer',
+        count: 1,
+        have: 0,
+        priority: config.war.priority + 10,
+        shrink: false,
+        memory: { targetRoom: w.target },
+        body: e => {
+            const n = Math.max(1, unclaimParts(e));
+            const body = [];
+            for (let i = 0; i < n; i++) body.push(CLAIM);
+            for (let i = 0; i < n; i++) body.push(MOVE);
+            return body;
+        },
+    };
 }
 
 /** Anything left to kill in the target room (needs vision). */
@@ -97,6 +220,10 @@ function run() {
         delete w.target;
     }
     if (!w.target) {
+        delete w.unclaimFrom;
+        delete w.unclaimAt;
+        delete w.unclaimDone;
+        delete w.unclaimLeft;
         delete w.safeUntil;
         delete w.rally;
         delete w.go;
@@ -150,6 +277,7 @@ function run() {
         util.warn('WAR: safe mode in ' + w.target + ' is over; resuming');
         Game.notify('War: safe mode in ' + w.target + ' over, squad resuming');
     }
+    if (w.unclaim) planUnclaim(w);
     const left = remainingTargets(w.target);
     if (left === 0 && !w.cleared) {
         w.cleared = Game.time;
@@ -163,7 +291,8 @@ function run() {
         for (let i = 0; i < all.length; i++) if (all[i].pos.roomName === w.target) inTarget++;
         util.log('WAR: ' + (w.safeUntil ? 'waiting (safe mode ' + (w.safeUntil - Game.time) + ')' : w.go ? 'attacking' : 'gathering') + ' ' + w.target + ' soldiers=' + all.length +
             ' inTarget=' + inTarget + (left == null ? ' (no vision)' : ' hostilesLeft=' + left) +
-            (w.muster ? '' : ' (muster off: no reinforcements)'));
+            (w.muster ? '' : ' (muster off: no reinforcements)') +
+            (w.unclaim ? ' unclaim=' + (w.unclaimDone ? 'done' : 'RCL' + (w.unclaimLeft || '?') + ' hits=' + (w.unclaimHits || 0) + ' from=' + (w.unclaimFrom || '-')) : ''));
     }
 }
 
@@ -180,4 +309,4 @@ function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, rallyPos, safeModeActive, unrestricted, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, enemyController, rallyPos, safeModeActive, unrestricted, run };

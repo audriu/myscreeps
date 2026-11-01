@@ -207,6 +207,8 @@ function wants(room, st) {
     const w = war.state();
     if (w && w.muster && war.roomEligible(st)) {
         const mix = war.composition(st);
+        // Low-energy muster: build from what is on hand once the floor is reached.
+        const floor = war.cheapFloor(st);
         const squad = st.creeps.soldier || [];
         const bodyFor = { melee: bodies.soldier, ranged: bodies.marksman, healer: bodies.healer };
         for (let k = 0; k < war.KINDS.length; k++) {
@@ -219,12 +221,17 @@ function wants(room, st) {
                 count: mix[kind],
                 have,
                 priority: config.war.priority,
-                shrink: false,
+                shrink: floor > 0,
+                minEnergy: floor,
                 memory: { kind },
                 body: e => bodyFor[kind](e),
             });
         }
     }
+
+    // Controller attack on the war target (Memory.war.unclaim).
+    const unclaim = war.unclaimWant(st);
+    if (unclaim) list.push(unclaim);
 
     // Empire requests assigned to this room.
     const empire = Memory.empire && Memory.empire.wants ? Memory.empire.wants : [];
@@ -324,6 +331,10 @@ function run(room, st) {
     for (let i = 0; i < list.length; i++) {
         const w = list[i];
         if (w.have >= w.count) continue;
+        if (w.minEnergy && st.energy < w.minEnergy) {
+            if (!rh.needEnergy) rh.needEnergy = w.minEnergy;
+            return;
+        }
 
         let budget = w.shrink ? st.energy : st.cap;
         if (w.energyCap) budget = Math.min(budget, w.energyCap);

@@ -16,7 +16,11 @@ node tools/sim/run.js default E12N34,E11N34 3000 --lost=E11N34      # reclaim a 
 node tools/sim/run.js default E13N34,E13N35,E12N36 1500 --lost=E13N35 --gcl=2 --release=E12N36:400  # GCL full, give a room up
 node tools/sim/run.js default E13N34,E13N35 1500 --lost=E13N35 --gcl=1 --gclraise=500            # GCL full, then a level up
 node tools/sim/run.js default E13N34 600 --trace=50 --map
+node tools/sim/run.js default E12N39,E12N35 1500 --cheap                   # low-energy muster (Memory.war.cheap)
+node tools/sim/run.js default E11N38,E11N35,E11N36 3000 --war=E11N36:1 --unclaim   # controller attack (needs E11N36 in data/, see below)
 ```
+
+`fetch.js` only saves your own rooms; for an enemy target copy its `room-objects` and `room-terrain` responses into `data/rooms/` and `data/terrain/` by hand.
 
 The summary line reports exceptions, average/max milliseconds per tick,
 Memory size and counters (harvested, upgraded, built, blocked moves, path

@@ -68,7 +68,12 @@ module.exports = {
     war: {
         maxPerRoom: 10,         // soldiers each room keeps while mustering
         minRcl: 4,
-        minStorage: 20000,      // rooms with less stored energy sit the war out
+        minStorage: 20000,      // rooms with less stored energy sit the war out (ignored with Memory.war.cheap)
+        // Memory.war.cheap = true: low-energy muster. No storage gate, each soldier is
+        // built from the energy on hand once the room holds this much (capped at the
+        // room's capacity), and haulers spend the terminal reserve. A number instead
+        // of true sets the floor: Memory.war.cheap = 500.
+        cheapMin: 300,
         priority: 480,          // below miners/haulers/upgraders, above builders
         healers: 0.3,           // share of the squad that heals
         ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
@@ -77,6 +82,11 @@ module.exports = {
         // Rooms where nothing is spared: walls and rampart-covered structures join the
         // closest-first pool instead of being skipped. Console: Memory.war.everything = true.
         unrestrictedRooms: ['E11N31'],
+        // Memory.war.unclaim = true: CLAIM creeps hit the target's controller every time
+        // its 1000-tick attack block runs out (-300 downgrade ticks per CLAIM part; the owner
+        // cannot upgrade or start safe mode while it is blocked) until it goes neutral.
+        unclaimRange: 3,        // linear rooms from the spawning room (a CLAIM creep lives 600 ticks)
+        unclaimLead: 500,       // spawn this many ticks before the controller can be attacked again (energy fill + travel)
         maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
         gatherShare: 0.8,       // fraction of the wave that must stand at the rally point
     },

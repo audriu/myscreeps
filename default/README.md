@@ -62,7 +62,18 @@ modules from the branch first; `main.js` only requires the modules listed below.
   closest-first targets. While the target sits in safe mode the
   squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
   brings them home; `Memory.war.muster = false` stops spawning and idle
-  soldiers recycle. Progress is logged every `logEvery` ticks and the big
+  soldiers recycle. Short on energy? `Memory.war.cheap = true` drops the
+  storage gate, builds each soldier from the energy on hand once the room
+  holds `config.war.cheapMin` (300; `Memory.war.cheap = 500` sets another
+  floor) and lets haulers spend the 40k terminal reserve; economy roles still
+  spawn first. `delete Memory.war.cheap` goes back to full-size soldiers.
+  `Memory.war.unclaim = true` also sends CLAIM creeps (unclaimers) from the
+  best-funded room within `unclaimRange` of the target: each one waits at the
+  enemy controller and `attackController`s it the moment its 1000-tick attack
+  block (or safe mode) ends, -300 downgrade ticks per CLAIM part. While it is
+  blocked the owner can neither upgrade nor start safe mode; strikes repeat
+  until the controller goes neutral (logged and emailed).
+  Progress is logged every `logEvery` ticks and the big
   steps (target set, marching, cleared) are emailed. The target may be an
   avoided room: soldiers are the only creeps allowed to path into it.
 - **Bodies**: `config.shuffleBody` randomises body part order on spawn;
@@ -84,7 +95,7 @@ modules from the branch first; `main.js` only requires the modules listed below.
 | `planner.js` | Layout, spawn un-boxing, cleanup |
 | `spawner.js` | Population targets and spawning |
 | `roles.js` | Creep behaviours |
-| `war.js` | Offensive squads: muster, rally, march, clear (Memory.war) |
+| `war.js` | Offensive squads: muster, rally, march, clear, controller attack (Memory.war) |
 | `defense.js` | Towers and safe mode |
 | `logistics.js` | Links and terminal balancing |
 | `empire.js` | Helpers, couriers, scouting, claiming |
@@ -111,6 +122,11 @@ Memory.war = { muster: false }                              // end the war: surv
 Memory.war.rally = 'E11N35'                                 // optional: pick the staging room yourself
 Memory.war.wave = 12                                        // optional: soldiers that must gather before marching
 Memory.war.everything = true                                // spare nothing in the target: walls and ramparts too
+Memory.war.cheap = true                                     // low energy: no storage gate, soldiers from energy on hand (>= 300), spend terminal reserve
+Memory.war = { muster: true, cheap: true }                  // start a low-energy muster in one line
+delete Memory.war.cheap                                     // back to full-size soldiers and the storage gate
+Memory.war.unclaim = true                                   // CLAIM creeps attack the target's controller until it is neutral
+Memory.war                                                  // unclaimFrom, unclaimAt (next strike), unclaimLeft (RCL:ticks), unclaimHits
 Memory.war                                                  // show state: rally, go, wave, safeUntil, cleared
 ```
 
