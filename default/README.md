@@ -24,7 +24,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Planner**: checkerboard layout around the first spawn, nothing non-walkable
   next to a spawn, containers at sources and controller, towers, storage,
   links, terminal, extra spawns, roads (RCL3+), ramparts on key structures.
-- **Defense**: towers focus the most dangerous hostile, heal creeps, repair
+- **Defense**: towers focus the most dangerous hostile they can actually
+  wear down (tower falloff, boosted TOUGH and nearby HEAL are counted); when
+  every hostile out-heals them they hold fire and repair the weakest rampart
+  within range 3 of a hostile instead. Otherwise they heal creeps, repair
   roads/containers and ramparts (fortify only when storage is healthy). Safe
   mode when critical structures take damage, when a tower-less room has
   hostiles at the spawn, or when the controller is attacked.

@@ -929,7 +929,7 @@ function pickHostileStructure(creep) {
             return weakest;
         });
     }
-    if (!config.war.razeAll) return null;
+    if (!config.war.razeAll || (creep.room.controller && creep.room.controller.my)) return null;
     // Nothing owned is left: flatten the neutral leftovers, quick ones first, walls last.
     const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
     best = null;
@@ -947,21 +947,20 @@ function pickHostileStructure(creep) {
 
 /**
  * Closest-first targeting: the nearest hostile creep or structure that is not
- * under a rampart (plus the neutral leftovers when razeAll is on). Soldiers
- * are short-lived, so time spent walking to a "better" target is wasted.
+ * under a rampart; the neutral leftovers (razeAll) only once none is left, so
+ * a road next to a soldier never outranks an enemy. Soldiers are short-lived,
+ * so time spent walking to a "better" target is wasted. In our own rooms
+ * (war target set to fight an intruder) only enemies count.
  */
 function pickClosestTarget(creep, hostiles) {
-    const all = war.unrestricted(creep.room.name);
+    const own = !!(creep.room.controller && creep.room.controller.my);
+    const all = !own && war.unrestricted(creep.room.name);
     const ok = o => all || !covered(o);
     const candidates = [];
     for (let i = 0; i < hostiles.length; i++) if (ok(hostiles[i])) candidates.push(hostiles[i]);
     const structs = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
         s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
     for (let i = 0; i < structs.length; i++) if (ok(structs[i])) candidates.push(structs[i]);
-    if (config.war.razeAll) {
-        const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
-        for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
-    }
     if (all) {
         // Nothing is spared here: ramparts and walls are ordinary targets.
         const extra = util.find(creep.room, FIND_STRUCTURES, 'rampartsWalls',
@@ -969,7 +968,10 @@ function pickClosestTarget(creep, hostiles) {
         for (let i = 0; i < extra.length; i++) candidates.push(extra[i]);
     }
     if (candidates.length) return creep.pos.findClosestByRange(candidates);
-    return null;
+    if (own || !config.war.razeAll) return null;
+    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
+    for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
+    return candidates.length ? creep.pos.findClosestByRange(candidates) : null;
 }
 
 /** Nothing reachable: chew through the nearest wall or rampart instead of standing still. */
