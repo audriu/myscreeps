@@ -362,7 +362,7 @@ class Creep extends RoomObject {
         if (ctrl.my || (!ctrl.owner && !ctrl.reservation)) return C.ERR_INVALID_TARGET;
         if (ctrl.upgradeBlocked || ctrl.safeMode) return C.ERR_TIRED;
         if (ctrl.owner) ctrl.ticksToDowngrade -= C.CONTROLLER_CLAIM_DOWNGRADE * n; else ctrl.reservation.ticksToEnd -= n;
-        ctrl.upgradeBlocked = C.CONTROLLER_ATTACK_BLOCKED_UPGRADE;
+        ctrl._blockNext = C.CONTROLLER_ATTACK_BLOCKED_UPGRADE; // like the engine: same-tick hits all land, the block starts next tick
         W.stats.controllerAttacks = (W.stats.controllerAttacks || 0) + 1;
         W.logs.push('CONTROLLER ATTACK ' + ctrl.pos.roomName + ' x' + n + ' at ' + W.time + ' (downgrade ' + ctrl.ticksToDowngrade + ')');
         return C.OK;
@@ -817,6 +817,7 @@ function endTick() {
         for (const t of room.ruins.slice()) { t.ticksToDecay--; if (t.ticksToDecay <= 0) { room.ruins = room.ruins.filter(x => x !== t); delete W.objects[t.id]; } }
         const ctrl = room.controller;
         if (ctrl && ctrl.upgradeBlocked) { ctrl.upgradeBlocked--; if (ctrl.upgradeBlocked <= 0) ctrl.upgradeBlocked = undefined; }
+        if (ctrl && ctrl._blockNext) { ctrl.upgradeBlocked = ctrl._blockNext; ctrl._blockNext = 0; }
         if (ctrl && !ctrl.my && ctrl.owner) {
             // Another player's controller: no upgrades simulated, it only runs down (and drops levels).
             if (ctrl.safeMode) { ctrl.safeMode--; if (ctrl.safeMode <= 0) ctrl.safeMode = undefined; }

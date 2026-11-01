@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--cheap[=FLOOR]] [--unclaim] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -81,7 +81,8 @@ for (let i = 0; i < ticks; i++) {
     if (gclRaiseArg && i + 1 === +gclRaiseArg.split('=')[1]) W.gcl++;
     if (warArg) { const [room, tick] = warArg.split('=')[1].split(':'); if (i === 0) Memory.war = { muster: true }; if (i + 1 === +tick) { Memory.war = Memory.war || {}; Memory.war.target = room; } }
     if (cheapArg && i === 0) { Memory.war = Memory.war || {}; Memory.war.muster = true; Memory.war.cheap = cheapArg.includes('=') ? +cheapArg.split('=')[1] : true; }
-    if (args.includes('--unclaim') && i === 0) { Memory.war = Memory.war || {}; Memory.war.unclaim = true; }
+    const unclaimArg = args.find(a => a === '--unclaim' || a.startsWith('--unclaim='));
+    if (unclaimArg && i === 0) { Memory.war = Memory.war || {}; Memory.war.unclaim = unclaimArg.includes('=') ? +unclaimArg.split('=')[1] : true; }
     if (releaseArg) { const [room, tick] = releaseArg.split('=')[1].split(':'); if (i + 1 === +tick) { Memory.empire = Memory.empire || {}; Memory.empire.release = room; } }
     if (spawnDiag && (i + 1) % 25 === 0) {
         for (const sn in W.spawns) { const sp = W.spawns[sn]; if (sp.spawning && sp.spawning.remainingTime === 0) {

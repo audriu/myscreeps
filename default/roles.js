@@ -1141,9 +1141,10 @@ function soldier(creep, m) {
 }
 
 /**
- * War: walk to the target's controller and attackController the moment its
- * attack block (or safe mode) is over. One strike per creep; it then stays
- * next to the controller for vision until it dies.
+ * War: walk to the target's controller and attackController once its attack
+ * block (or safe mode) is over and the whole team stands there, so all hits
+ * land in the same tick and add up. One strike per creep; it then stays next
+ * to the controller for vision until it dies.
  */
 function unclaimer(creep, m) {
     const w = war.state();
@@ -1169,12 +1170,25 @@ function unclaimer(creep, m) {
         creep.say(m.struck ? '🏴' : '⏳' + (ctrl.upgradeBlocked || ctrl.safeMode), true);
         return;
     }
+    // Hits only add up within one tick: wait for the rest of the team.
+    if (!war.unclaimGo(w, ctrl)) {
+        creep.say('🤝', true);
+        return;
+    }
+    const before = ctrl.ticksToDowngrade;
     const res = creep.attackController(ctrl);
     if (res === OK) {
         m.struck = Game.time;
-        w.unclaimHits = (w.unclaimHits || 0) + 1;
-        util.log('WAR: ' + creep.name + ' hit the ' + target + ' controller with ' + util.countParts(creep, CLAIM) +
-            ' CLAIM (RCL' + ctrl.level + ', ' + ctrl.ticksToDowngrade + ' ticks to downgrade)');
+        const parts = util.countParts(creep, CLAIM);
+        let s = w.unclaimStrike;
+        if (!s || s.t !== Game.time) {
+            s = w.unclaimStrike = { t: Game.time, before, parts: 0, creeps: 0 };
+            w.unclaimHits = (w.unclaimHits || 0) + 1;
+        }
+        s.parts += parts;
+        s.creeps++;
+        util.log('WAR: ' + creep.name + ' hit the ' + target + ' controller with ' + parts +
+            ' CLAIM (RCL' + ctrl.level + ', ' + before + ' ticks to downgrade)');
     } else if (res !== ERR_TIRED) {
         util.warn('attackController in ' + target + ' failed with ' + res);
     }

@@ -72,7 +72,11 @@ modules from the branch first; `main.js` only requires the modules listed below.
   enemy controller and `attackController`s it the moment its 1000-tick attack
   block (or safe mode) ends, -300 downgrade ticks per CLAIM part. While it is
   blocked the owner can neither upgrade nor start safe mode; strikes repeat
-  until the controller goes neutral (logged and emailed).
+  until the controller goes neutral (logged and emailed). `Memory.war.unclaim
+  = 5` sends a team of five per strike from the strongest rooms in range: hits
+  landing in the same tick all count, so the team waits at the controller
+  and strikes together (or `unclaimSync` ticks after the first one arrived,
+  or when one is about to expire). Each strike's real effect is logged.
   Progress is logged every `logEvery` ticks and the big
   steps (target set, marching, cleared) are emailed. The target may be an
   avoided room: soldiers are the only creeps allowed to path into it.
@@ -126,7 +130,9 @@ Memory.war.cheap = true                                     // low energy: no st
 Memory.war = { muster: true, cheap: true }                  // start a low-energy muster in one line
 delete Memory.war.cheap                                     // back to full-size soldiers and the storage gate
 Memory.war.unclaim = true                                   // CLAIM creeps attack the target's controller until it is neutral
-Memory.war                                                  // unclaimFrom, unclaimAt (next strike), unclaimLeft (RCL:ticks), unclaimHits
+Memory.war.unclaim = 5                                      // five unclaimers per strike, all hitting in the same tick
+Memory.war = { muster: false, cheap: true, unclaim: 5, target: 'E11N36', go: Game.time } // no new soldiers, keep fighting, 5 unclaimers
+Memory.war                                                  // unclaimFrom (spawn room per slot), unclaimAt (next strike), unclaimLeft (RCL:ticks), unclaimHits
 Memory.war                                                  // show state: rally, go, wave, safeUntil, cleared
 ```
 

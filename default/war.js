@@ -120,28 +120,37 @@ function unclaimParts(cap) {
     return Math.min(25, Math.floor(cap / (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE])));
 }
 
-/** The room that spawns unclaimers: most CLAIM parts within reach of the target, nearest on ties. */
-function pickUnclaimFrom(target) {
+/** Unclaimers per strike: Memory.war.unclaim = 4 (true means 1). */
+function unclaimCount(w) {
+    const n = typeof w.unclaim === 'number' ? Math.floor(w.unclaim) : 1;
+    return util.clamp(n, 1, 8); // 8 tiles around a controller
+}
+
+/**
+ * Spawn rooms for the unclaimers, one per slot. Rooms within reach of the
+ * target are ranked by CLAIM parts (nearest on ties); rooms with less than
+ * half the best room's parts are left out, and the strong rooms take turns
+ * when there are more slots than rooms.
+ */
+function pickUnclaimFrom(target, count) {
     const owned = util.ownedRooms();
-    let best = null;
-    let bestScore = -Infinity;
+    const cands = [];
     for (let i = 0; i < owned.length; i++) {
         const st = roomState.get(owned[i]);
         if (st.bootstrap || !st.activeSpawns.length) continue;
         const d = Game.map.getRoomLinearDistance(st.name, target);
         if (d > config.war.unclaimRange) continue;
         const parts = unclaimParts(st.cap);
-        if (!parts) continue;
-        const score = parts * 10 - d;
-        if (score > bestScore) {
-            bestScore = score;
-            best = st.name;
-        }
+        if (parts) cands.push({ name: st.name, parts, d });
     }
-    return best;
+    cands.sort((a, b) => (b.parts - a.parts) || (a.d - b.d));
+    const strong = cands.filter(c => c.parts * 2 >= cands[0].parts);
+    const out = [];
+    for (let i = 0; i < count && strong.length; i++) out.push(strong[i % strong.length].name);
+    return out;
 }
 
-/** Keep the unclaim plan current: spawn room, next attack tick, done. Runs from war.run(). */
+/** Keep the unclaim plan current: spawn rooms, when the controller opens, done. Runs from war.run(). */
 function planUnclaim(w) {
     const tRoom = Game.rooms[w.target];
     const ctrl = tRoom && tRoom.controller;
@@ -155,36 +164,78 @@ function planUnclaim(w) {
             return;
         }
         delete w.unclaimDone;
-        w.unclaimAt = Game.time + Math.max(ctrl.upgradeBlocked || 0, ctrl.safeMode || 0);
+        const wait = Math.max(ctrl.upgradeBlocked || 0, ctrl.safeMode || 0);
+        w.unclaimAt = Game.time + wait;
+        if (wait) delete w.unclaimReady;
         w.unclaimLeft = ctrl.level ? ctrl.level + ':' + ctrl.ticksToDowngrade : null;
-    }
-    if (!w.unclaimFrom || Game.time % 500 === 0 || !util.isOwned(w.unclaimFrom)) {
-        const from = pickUnclaimFrom(w.target);
-        if (from !== w.unclaimFrom) {
-            w.unclaimFrom = from;
-            util.log('WAR: unclaimers for ' + w.target + ' come from ' + (from || 'nowhere (no room in range can afford CLAIM)'));
+        // What the last strike really took off (all hits of one tick add up).
+        const s = w.unclaimStrike;
+        if (s && Game.time > s.t) {
+            const took = s.before - ctrl.ticksToDowngrade - (Game.time - s.t);
+            util.log('WAR: strike on ' + w.target + ' by ' + s.creeps + ' unclaimer(s), ' + s.parts + ' CLAIM: -' + took +
+                ' ticks (expected -' + s.parts * CONTROLLER_CLAIM_DOWNGRADE + '), ' + ctrl.ticksToDowngrade + ' left at RCL' + ctrl.level);
+            delete w.unclaimStrike;
         }
+    }
+    const count = unclaimCount(w);
+    const from = Array.isArray(w.unclaimFrom) ? w.unclaimFrom : [];
+    if (from.length !== count || Game.time % 500 === 0 || from.some(r => !util.isOwned(r))) {
+        const next = pickUnclaimFrom(w.target, count);
+        if (next.join() !== from.join()) {
+            util.log('WAR: ' + count + ' unclaimer(s) for ' + w.target + ' from ' + (next.join(', ') || 'nowhere (no room in range can afford CLAIM)'));
+        }
+        w.unclaimFrom = next;
     }
 }
 
-/** Spawn request for this room's unclaimer, or null. Timed so it reaches the controller as the block ends. */
+/** Unclaimers of this target that have not struck yet and can still make it. */
+function unclaimTeam(target) {
+    return util.cache('war|unclaimTeam|' + target, () => unclaimers().filter(c =>
+        c.memory.targetRoom === target && !c.memory.struck && (c.spawning || c.ticksToLive > 50)));
+}
+
+/**
+ * Strike now? Hits only add up within one tick (the 1000-tick block starts
+ * after it), so the team waits at the controller until all of them stand
+ * there. It strikes early when a waiting member is about to die of old age,
+ * or unclaimSync ticks after the first one got there.
+ */
+function unclaimGo(w, ctrl) {
+    if (ctrl.upgradeBlocked || ctrl.safeMode) return false;
+    const team = unclaimTeam(w.target);
+    let ready = 0;
+    let dying = false;
+    for (let i = 0; i < team.length; i++) {
+        const c = team[i];
+        if (c.spawning || !c.pos.isNearTo(ctrl)) continue;
+        ready++;
+        if (c.ticksToLive <= 60) dying = true;
+    }
+    if (!ready) return false;
+    if (!w.unclaimReady || w.unclaimReady > Game.time) w.unclaimReady = Game.time;
+    if (ready === team.length || dying) return true;
+    return Game.time - w.unclaimReady >= config.war.unclaimSync;
+}
+
+/** Spawn request for this room's unclaimers, or null. Timed so they reach the controller as the block ends. */
 function unclaimWant(st) {
     const w = state();
-    if (!w || !w.target || !w.unclaim || w.unclaimDone || w.unclaimFrom !== st.name) return null;
+    if (!w || !w.target || !w.unclaim || w.unclaimDone || !Array.isArray(w.unclaimFrom)) return null;
+    let slots = 0;
+    for (let i = 0; i < w.unclaimFrom.length; i++) if (w.unclaimFrom[i] === st.name) slots++;
+    if (!slots) return null;
     if (w.unclaimAt && w.unclaimAt - Game.time > config.war.unclaimLead) return null;
-    const list = unclaimers();
-    for (let i = 0; i < list.length; i++) {
-        const c = list[i];
-        // One that has not struck yet is still on its way (or waiting at the controller).
-        if (c.memory.targetRoom === w.target && !c.memory.struck && (c.spawning || c.ticksToLive > 50)) return null;
-    }
+    const team = unclaimTeam(w.target);
+    let have = 0;
+    for (let i = 0; i < team.length; i++) if (team[i].memory.from === st.name) have++;
+    if (have >= slots) return null;
     return {
         role: 'unclaimer',
-        count: 1,
-        have: 0,
+        count: slots,
+        have,
         priority: config.war.priority + 10,
         shrink: false,
-        memory: { targetRoom: w.target },
+        memory: { targetRoom: w.target, from: st.name },
         body: e => {
             const n = Math.max(1, unclaimParts(e));
             const body = [];
@@ -221,6 +272,8 @@ function run() {
     }
     if (!w.target) {
         delete w.unclaimFrom;
+        delete w.unclaimReady;
+        delete w.unclaimStrike;
         delete w.unclaimAt;
         delete w.unclaimDone;
         delete w.unclaimLeft;
@@ -292,7 +345,7 @@ function run() {
         util.log('WAR: ' + (w.safeUntil ? 'waiting (safe mode ' + (w.safeUntil - Game.time) + ')' : w.go ? 'attacking' : 'gathering') + ' ' + w.target + ' soldiers=' + all.length +
             ' inTarget=' + inTarget + (left == null ? ' (no vision)' : ' hostilesLeft=' + left) +
             (w.muster ? '' : ' (muster off: no reinforcements)') +
-            (w.unclaim ? ' unclaim=' + (w.unclaimDone ? 'done' : 'RCL' + (w.unclaimLeft || '?') + ' hits=' + (w.unclaimHits || 0) + ' from=' + (w.unclaimFrom || '-')) : ''));
+            (w.unclaim ? ' unclaim=' + (w.unclaimDone ? 'done' : 'RCL' + (w.unclaimLeft || '?') + ' hits=' + (w.unclaimHits || 0) + ' x' + unclaimCount(w) + ' from=' + (Array.isArray(w.unclaimFrom) ? w.unclaimFrom.join('+') : '-')) : ''));
     }
 }
 
@@ -309,4 +362,4 @@ function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, enemyController, rallyPos, safeModeActive, unrestricted, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, rallyPos, safeModeActive, unrestricted, run };

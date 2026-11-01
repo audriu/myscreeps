@@ -82,10 +82,11 @@ module.exports = {
         // Rooms where nothing is spared: walls and rampart-covered structures join the
         // closest-first pool instead of being skipped. Console: Memory.war.everything = true.
         unrestrictedRooms: ['E11N31'],
-        // Memory.war.unclaim = true: CLAIM creeps hit the target's controller every time
+        // Memory.war.unclaim = true (or a number of creeps per strike, up to 8): CLAIM creeps hit the target's controller every time
         // its 1000-tick attack block runs out (-300 downgrade ticks per CLAIM part; the owner
         // cannot upgrade or start safe mode while it is blocked) until it goes neutral.
         unclaimRange: 3,        // linear rooms from the spawning room (a CLAIM creep lives 600 ticks)
+        unclaimSync: 200,       // ticks the first unclaimer at an open controller waits for the rest of the team
         unclaimLead: 500,       // spawn this many ticks before the controller can be attacked again (energy fill + travel)
         maxGather: 600,         // ticks after the target is set before a partial squad marches anyway
         gatherShare: 0.8,       // fraction of the wave that must stand at the rally point
