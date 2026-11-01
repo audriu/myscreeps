@@ -920,6 +920,11 @@ function pickHostileStructure(creep) {
         }
     }
     if (best) return best;
+    if (!(creep.room.controller && creep.room.controller.my)) {
+        // Last stage: everything with hit points goes, closest first.
+        const sweep = war.sweepTargets(creep.room);
+        if (sweep.length) return creep.pos.findClosestByRange(sweep);
+    }
     // Only rampart-covered things remain: the whole squad focuses the weakest rampart.
     const ramparts = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'ramparts', s => s.structureType === STRUCTURE_RAMPART);
     if (ramparts.length) {
@@ -947,7 +952,8 @@ function pickHostileStructure(creep) {
 
 /**
  * Closest-first targeting: the nearest hostile creep or structure that is not
- * under a rampart; the neutral leftovers (razeAll) only once none is left, so
+ * under a rampart; once none is left, the final sweep takes everything with
+ * hit points (ramparts, walls, roads, leftovers; config.war.finalSweep), so
  * a road next to a soldier never outranks an enemy. Soldiers are short-lived,
  * so time spent walking to a "better" target is wasted. In our own rooms
  * (war target set to fight an intruder) only enemies count.
@@ -968,7 +974,11 @@ function pickClosestTarget(creep, hostiles) {
         for (let i = 0; i < extra.length; i++) candidates.push(extra[i]);
     }
     if (candidates.length) return creep.pos.findClosestByRange(candidates);
-    if (own || !config.war.razeAll) return null;
+    if (own) return null;
+    // Last stage: nothing uncovered is left, so everything with hit points goes.
+    const sweep = war.sweepTargets(creep.room);
+    if (sweep.length) return creep.pos.findClosestByRange(sweep);
+    if (!config.war.razeAll) return null;
     const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
     for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
     return candidates.length ? creep.pos.findClosestByRange(candidates) : null;
@@ -986,7 +996,8 @@ function engage(creep, target) {
     const ranged = util.countParts(creep, RANGED_ATTACK) > 0;
     const range = creep.pos.getRangeTo(target);
     if (ranged) {
-        if (range <= 1) creep.rangedMassAttack();
+        // Mass attack only hurts owned things: ownerless walls and roads need an aimed shot.
+        if (range <= 1 && target.owner) creep.rangedMassAttack();
         else if (range <= 3) creep.rangedAttack(target);
     }
     if (melee && range <= 1) creep.attack(target);

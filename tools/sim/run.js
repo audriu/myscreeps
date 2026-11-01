@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--go] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -66,7 +66,7 @@ function snapshot(tag) {
         const all = Object.values(W.creeps).filter(c => ((Memory.creeps || {})[c.name] || {}).home === rn);
         const spawns = room.structures.filter(s => s.structureType === 'spawn');
         const stor = room.storage;
-        if (!ctrl.my) { console.log(`[${tag}] ${rn} HOSTILE structures=${room.structures.filter(s => s.owner && !s.my).length} creeps=${room.creeps.filter(c => !c.my).length} ours=${room.creeps.filter(c => c.my).length}`); continue; }
+        if (!ctrl.my) { console.log(`[${tag}] ${rn} HOSTILE structures=${room.structures.filter(s => s.owner && !s.my).length} leftovers=${JSON.stringify(room.structures.filter(s => !s.my && !s.owner && s.hits != null).reduce((a, s) => (a[s.structureType] = (a[s.structureType] || 0) + 1, a), {}))} creeps=${room.creeps.filter(c => !c.my).length} ours=${room.creeps.filter(c => c.my).length}`); continue; }
         console.log(`[${tag}] ${rn} RCL${ctrl.level} prog=${ctrl.progress}/${ctrl.progressTotal || '-'} down=${ctrl.ticksToDowngrade} energy=${room.energyAvailable}/${room.energyCapacityAvailable} store=${stor ? stor.store.energy || 0 : '-'} creeps(home)=${all.length} inRoom=${JSON.stringify(byRole)} sites=${room.sites.length} spawning=[${spawns.map(s => s.name + ':' + (s.spawning ? s.spawning.name + '/' + s.spawning.remainingTime : '-')).join(' ')}] containers=${room.structures.filter(s => s.structureType === 'container').map(c => c.store.energy || 0).join(',')} dropped=${room.resources.reduce((a, r) => a + r.amount, 0)}`);
     }
 }
@@ -79,7 +79,7 @@ for (let i = 0; i < ticks; i++) {
     W.tickStart = process.hrtime.bigint();
     if (invadeArg) { const [, spec] = invadeArg.split('='); const [room, tick, big] = spec.split(':'); if (i + 1 === +tick) { E.spawnInvader(room, big ? ['tough','tough','tough','tough','attack','attack','attack','attack','attack','attack','heal','heal','move','move','move','move','move','move','move','move'] : null); if (big) E.spawnInvader(room, null); } }
     if (gclRaiseArg && i + 1 === +gclRaiseArg.split('=')[1]) W.gcl++;
-    if (warArg) { const [room, tick] = warArg.split('=')[1].split(':'); if (i === 0) Memory.war = { muster: true }; if (i + 1 === +tick) { Memory.war = Memory.war || {}; Memory.war.target = room; } }
+    if (warArg) { const [room, tick] = warArg.split('=')[1].split(':'); if (i === 0) Memory.war = { muster: true }; if (i + 1 === +tick) { Memory.war = Memory.war || {}; Memory.war.target = room; if (args.includes('--go')) Memory.war.go = W.time; } }
     if (cheapArg && i === 0) { Memory.war = Memory.war || {}; Memory.war.muster = true; Memory.war.cheap = cheapArg.includes('=') ? +cheapArg.split('=')[1] : true; }
     const unclaimArg = args.find(a => a === '--unclaim' || a.startsWith('--unclaim='));
     if (unclaimArg && i === 0) { Memory.war = Memory.war || {}; Memory.war.unclaim = unclaimArg.includes('=') ? +unclaimArg.split('=')[1] : true; }

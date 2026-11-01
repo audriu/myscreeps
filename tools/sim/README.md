@@ -16,6 +16,7 @@ node tools/sim/run.js default E12N34,E11N34 3000 --lost=E11N34      # reclaim a 
 node tools/sim/run.js default E13N34,E13N35,E12N36 1500 --lost=E13N35 --gcl=2 --release=E12N36:400  # GCL full, give a room up
 node tools/sim/run.js default E13N34,E13N35 1500 --lost=E13N35 --gcl=1 --gclraise=500            # GCL full, then a level up
 node tools/sim/run.js default E13N34 600 --trace=50 --map
+node tools/sim/run.js default E12N37,E13N36,E13N38,E12N38,E13N37 4000 --war=E13N37:1 --go --hostile=E13N37   # attack, final sweep
 node tools/sim/run.js default E12N39,E12N35 1500 --cheap                   # low-energy muster (Memory.war.cheap)
 node tools/sim/run.js default E11N38,E11N35,E11N36 3000 --war=E11N36:1 --unclaim=5   # controller attack, 5 per strike (needs E11N36 in data/, see below)
 ```

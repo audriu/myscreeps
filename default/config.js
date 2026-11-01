@@ -77,7 +77,11 @@ module.exports = {
         priority: 480,          // below miners/haulers/upgraders, above builders
         healers: 0.3,           // share of the squad that heals
         ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
-        razeAll: true,          // after the owned structures: also flatten roads and containers (walls are kept)
+        // Last stage in the target: once no uncovered enemy is left, hit the closest thing with
+        // hit points that is not ours: ramparts, walls, roads, containers, covered and ownerless
+        // structures (not the controller, portals, keeper lairs or power banks).
+        finalSweep: true,
+        razeAll: true,          // finalSweep off: after the owned structures also flatten roads and containers
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
         // Rooms where nothing is spared: walls and rampart-covered structures join the
         // closest-first pool instead of being skipped. Console: Memory.war.everything = true.

@@ -51,11 +51,16 @@ modules from the branch first; `main.js` only requires the modules listed below.
   or `Memory.war.rally`), and once most of the wave stands there (or
   `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
   public 💀 and destroy whatever enemy creep or structure is closest
-  (`closestFirst`; with `razeAll` the ownerless containers and roads count
-  too, walls are never targeted on purpose). Anything under a rampart is left for last, because hits on it
-  only dent the rampart; once nothing else is left the whole squad focuses
-  the weakest rampart. A wall is only hit when it blocks the path to a
-  target, and the squad holds the room when it is clear. `closestFirst: false` restores the
+  (`closestFirst`). Anything under a rampart is left for last, because hits
+  on it only dent the rampart. Once no uncovered enemy is left, the final
+  sweep (`config.war.finalSweep`) takes everything with hit points that is
+  not ours, closest first: ramparts, walls, roads, containers, covered and
+  ownerless structures (never the controller, portals, keeper lairs or
+  power banks, and never in our own rooms). The room counts as cleared only
+  when nothing destroyable is left; the squad then holds it. With
+  `finalSweep: false` the old ending applies: ownerless roads and
+  containers (`razeAll`), then the whole squad on the weakest rampart, walls
+  only when they block the path. `closestFirst: false` restores the
   priority order (armed creeps and loaded towers, then the rest). In rooms
   listed in `config.war.unrestrictedRooms` (or with `Memory.war.everything =
   true`) nothing is spared: walls and rampart-covered structures are ordinary

@@ -246,11 +246,30 @@ function unclaimWant(st) {
     };
 }
 
+/** Never worth hitting: the controller, portals, keeper lairs, and power banks (they hit back). */
+const SWEEP_SKIP = {
+    [STRUCTURE_CONTROLLER]: true,
+    [STRUCTURE_PORTAL]: true,
+    [STRUCTURE_KEEPER_LAIR]: true,
+    [STRUCTURE_POWER_BANK]: true,
+};
+
+/**
+ * Final sweep (config.war.finalSweep): every structure in the room with hit
+ * points that is not ours: ramparts, walls, roads, containers, covered and
+ * ownerless leftovers. Never in our own rooms.
+ */
+function sweepTargets(room) {
+    if (!config.war.finalSweep || (room.controller && room.controller.my)) return [];
+    return util.find(room, FIND_STRUCTURES, 'sweep', s => !s.my && s.hits != null && !SWEEP_SKIP[s.structureType]);
+}
+
 /** Anything left to kill in the target room (needs vision). */
 function remainingTargets(roomName) {
     const room = Game.rooms[roomName];
     if (!room) return null;
     const creeps = room.find(FIND_HOSTILE_CREEPS).length;
+    if (config.war.finalSweep && !(room.controller && room.controller.my)) return creeps + sweepTargets(room).length;
     let structs = room.find(FIND_HOSTILE_STRUCTURES, {
         filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null,
     }).length;
@@ -362,4 +381,4 @@ function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, rallyPos, safeModeActive, unrestricted, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, sweepTargets, rallyPos, safeModeActive, unrestricted, run };
