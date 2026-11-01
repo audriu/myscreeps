@@ -17,6 +17,13 @@ tools/sim/    # offline simulator that runs the script against real room snapsho
 bookmarks     # links
 ```
 
+## War
+
+Attacking another room is driven from the in-game console through
+`Memory.war`: squads, final sweep, low-energy muster, CLAIM teams on the
+enemy controller. Commands, the stop table and settings are in
+[default/README.md#war](default/README.md#war).
+
 ## Deploy
 
 Pushing to `main` deploys: the Screeps GitHub integration

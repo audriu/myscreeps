@@ -43,54 +43,168 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped.
-- **War** (`war.js`, role `soldier`): console-driven offence. `Memory.war =
-  { muster: true }` makes every room at RCL4+ with a stocked storage keep a
-  squad of `config.war.maxPerRoom` soldiers (melee, ranged and healers) and
-  replace losses; they idle at home and help defend it. `Memory.war.target =
-  'E11N36'` sends them to a rally room (the owned room nearest the target,
-  or `Memory.war.rally`), and once most of the wave stands there (or
-  `maxGather` ticks pass, or `Memory.war.go = true`) they march in showing a
-  public 💀 and destroy whatever enemy creep or structure is closest
-  (`closestFirst`). Anything under a rampart is left for last, because hits
-  on it only dent the rampart. Once no uncovered enemy is left, the final
-  sweep (`config.war.finalSweep`) takes everything with hit points that is
-  not ours, closest first: ramparts, walls, roads, containers, covered and
-  ownerless structures (never the controller, portals, keeper lairs or
-  power banks, and never in our own rooms). The room counts as cleared only
-  when nothing destroyable is left; the squad then holds it. With
-  `finalSweep: false` the old ending applies: ownerless roads and
-  containers (`razeAll`), then the whole squad on the weakest rampart, walls
-  only when they block the path. `closestFirst: false` restores the
-  priority order (armed creeps and loaded towers, then the rest). In rooms
-  listed in `config.war.unrestrictedRooms` (or with `Memory.war.everything =
-  true`) nothing is spared: walls and rampart-covered structures are ordinary
-  closest-first targets. While the target sits in safe mode the
-  squad waits at the rally room (⏳) and marches again when it ends. `delete Memory.war.target`
-  brings them home; `Memory.war.muster = false` stops spawning and idle
-  soldiers recycle. Short on energy? `Memory.war.cheap = true` drops the
-  storage gate, builds each soldier from the energy on hand once the room
-  holds `config.war.cheapMin` (300; `Memory.war.cheap = 500` sets another
-  floor) and lets haulers spend the 40k terminal reserve; economy roles still
-  spawn first. `delete Memory.war.cheap` goes back to full-size soldiers.
-  `Memory.war.unclaim = true` also sends CLAIM creeps (unclaimers) from the
-  best-funded room within `unclaimRange` of the target: each one waits at the
-  enemy controller and `attackController`s it the moment its 1000-tick attack
-  block (or safe mode) ends, -300 downgrade ticks per CLAIM part. While it is
-  blocked the owner can neither upgrade nor start safe mode; strikes repeat
-  until the controller goes neutral (logged and emailed). `Memory.war.unclaim
-  = 5` sends a team of five per strike from the strongest rooms in range: hits
-  landing in the same tick all count, so the team waits at the controller
-  and strikes together (or `unclaimSync` ticks after the first one arrived,
-  or when one is about to expire). Each strike's real effect is logged.
-  Progress is logged every `logEvery` ticks and the big
-  steps (target set, marching, cleared) are emailed. The target may be an
-  avoided room: soldiers are the only creeps allowed to path into it.
+- **War** (`war.js`, roles `soldier` and `unclaimer`): console-driven
+  offence: squads from every eligible room, a rally point, closest-first
+  destruction ending in a sweep of everything destroyable, an optional
+  low-energy muster and CLAIM teams that run the enemy controller down to
+  neutral. See [War](#war) below.
 - **Bodies**: `config.shuffleBody` randomises body part order on spawn;
   off, TOUGH goes first and MOVE last so damage eats MOVE parts last.
 - **Avoided rooms**: `config.avoidRooms` lists rooms creeps must not enter,
   path through, scout, claim or reclaim (empty by default; soldiers heading
   for `Memory.war.target` ignore it). `Memory.avoidRooms = [...]` overrides
   the list from the console; `[]` disables it.
+
+## War
+
+Everything is driven from the console through `Memory.war`; nothing happens
+while it is unset. Soldiers and unclaimers are the only creeps allowed into
+an avoided room, and only into the target.
+
+### Quick start
+
+```js
+// Attack now: build soldiers everywhere, march straight in, CLAIM teams of five on the controller
+Memory.war = { muster: true, cheap: true, unclaim: 5, target: 'E11N36', go: Game.time }
+```
+
+### Stopping (read this before typing)
+
+`Memory.war = { ... }` **replaces** the whole war state. Change one switch
+with `Memory.war.x = ...` instead.
+
+| You want | Command |
+|---|---|
+| No new soldiers, the living ones keep fighting | `Memory.war.muster = false` |
+| Call everyone home, keep building soldiers | `delete Memory.war.target` |
+| Stop the controller attack only | `delete Memory.war.unclaim` |
+| End the war: soldiers and unclaimers walk home and recycle | `Memory.war = { muster: false }` |
+
+A soldier with no target and muster off recycles itself; an unclaimer whose
+target changed or whose `unclaim` switch is off does the same.
+
+### How a war runs
+
+1. **Muster** (`Memory.war.muster = true`): every room at RCL `minRcl` (4)+
+   with an active spawn, not in bootstrap and (unless `cheap`) with at least
+   `minStorage` (20k) in storage keeps `maxPerRoom` (10) soldiers and
+   replaces losses: 30% healers, and of the fighters 30% ranged, the rest
+   melee (ATTACK/MOVE pairs, spare energy buys TOUGH). Soldiers spawn at
+   priority 480: after miners, haulers and upgraders, before workers.
+   Without a target they wait at home and fight anything that enters it.
+2. **Rally** (`Memory.war.target = 'E11N36'`): the squad gathers in the
+   owned room nearest the target (`Memory.war.rally` overrides), walking
+   around the target. The wave is the number of soldiers alive when the
+   target was set (`Memory.war.wave` overrides).
+3. **March**: once `gatherShare` (80%) of the wave stands at the rally point,
+   or `maxGather` (600) ticks have passed with at least one there, or
+   `Memory.war.go` is set, everyone marches in. Healers stick to fighters.
+4. **Destroy**, closest first (`closestFirst`):
+   1. hostile creeps and hostile structures that are **not** under a
+      rampart (hits on a covered target only dent the rampart);
+   2. **final sweep** (`finalSweep`): once none is left, everything with hit
+      points that is not ours: ramparts, walls, roads, containers, whatever
+      the ramparts covered, ownerless leftovers. Never the controller,
+      portals, keeper lairs or power banks (they hit back), never anything
+      in our own rooms.
+5. **Cleared**: when nothing destroyable is left the room is marked cleared
+   (emailed) and the squad holds its centre. If something new appears the
+   fight resumes.
+
+Safe mode in the target: the squad waits at the rally room (⏳) and marches
+again when it ends. Rooms in `unrestrictedRooms` (or `Memory.war.everything =
+true`) skip the waiting order: walls and covered structures are hit from the
+start. With `closestFirst: false` armed creeps and loaded towers go first;
+with `finalSweep: false` the old ending applies (ownerless roads and
+containers, then the whole squad on the weakest rampart, walls only when
+they block the path).
+
+### Low-energy muster (`Memory.war.cheap`)
+
+`Memory.war.cheap = true` drops the storage gate, builds each soldier from
+whatever energy the room holds once it has `cheapMin` (300; `cheap = 500`
+sets another floor) instead of waiting for full extensions, and lets haulers
+spend the 40k energy normally kept in each terminal. Economy roles still
+spawn first. Weak rooms produce small soldiers (2-part rangers and healers);
+RCL8 rooms still build full 50-part fighters.
+
+### Controller attack (`Memory.war.unclaim`)
+
+`Memory.war.unclaim = 5` (or `true` for one) sends unclaimers: CLAIM+MOVE
+creeps as large as the room can afford (14 CLAIM at 9300 energy capacity).
+
+- **Effect**: `attackController` takes 300 downgrade ticks per CLAIM part and
+  blocks the controller for 1000 ticks. While blocked the owner can neither
+  upgrade nor activate safe mode. Strikes repeat until the controller is
+  neutral (emailed). Neutral is not ours: claiming it needs a free GCL slot
+  (`Memory.empire.release` frees one).
+- **Teams**: hits landing in the same tick all count (the engine checks the
+  block from the start of the tick), so the team waits at the controller
+  (🏴🤝) and strikes together. It strikes without the stragglers
+  `unclaimSync` (200) ticks after the first one arrived, or when a waiting
+  one is about to expire. A team of four with 18 CLAIM each takes 21,600
+  ticks in one strike.
+- **Where from**: rooms within `unclaimRange` (3) of the target, ranked by
+  CLAIM parts; rooms with less than half the best room's parts are skipped
+  and the strong rooms take turns filling the slots.
+- **Timing**: a team spawns `unclaimLead` (500) ticks before the block ends
+  (energy fill and travel), at priority 490 (above soldiers). A full team
+  costs about 9k energy per member, so rooms with empty storage shrink the
+  later teams; keep `cheap` on so the terminal reserve pays for them.
+- Each creep strikes once, then stays by the controller for vision.
+
+### What you see
+
+| Bubble | Meaning |
+|---|---|
+| 💀 | soldier marching on or fighting in the target |
+| ⏳ | soldier waiting at the rally room for safe mode to end |
+| 🏴 | unclaimer on its way, or done striking |
+| 🏴⏳941 | unclaimer at the controller, block still running (ticks left) |
+| 🏴🤝 | unclaimer waiting for the rest of its team |
+
+Console, every `logEvery` (100) ticks:
+
+```
+WAR: attacking E11N36 soldiers=88 inTarget=22 hostilesLeft=97 unclaim=RCL7:128994 hits=1 x5 from=E11N38+E12N39+E11N38+E12N39+E11N38
+WAR: strike on E11N36 by 4 unclaimer(s), 72 CLAIM: -21600 ticks (expected -21600), 106260 left at RCL7
+```
+
+Emails: target set, marching, safe mode start and end, target cleared,
+controller neutral.
+
+### `Memory.war` fields
+
+| Field | Set by | Meaning |
+|---|---|---|
+| `muster` | you | rooms build and replace soldiers |
+| `target` | you | room to attack |
+| `go` | you / script | march now (tick it started) |
+| `rally`, `wave` | you (optional) / script | staging room; soldiers needed before marching |
+| `cheap` | you | low-energy muster (`true` or an energy floor) |
+| `unclaim` | you | unclaimers per strike (`true` = 1, up to 8) |
+| `everything` | you | treat the target as an unrestricted room |
+| `since`, `safeUntil`, `cleared` | script | target set at, safe mode end, cleared at |
+| `unclaimFrom` | script | spawn room for each unclaimer slot |
+| `unclaimAt`, `unclaimReady` | script | tick the block ends; first unclaimer ready at the open controller |
+| `unclaimLeft`, `unclaimHits` | script | `RCL:ticksToDowngrade` last seen; strikes so far |
+| `unclaimStrike`, `unclaimDone` | script | last strike (to log its real effect); controller went neutral at |
+
+### Settings (`config.war`)
+
+| Key | Default | |
+|---|---|---|
+| `maxPerRoom` | 10 | soldiers each eligible room keeps |
+| `minRcl`, `minStorage` | 4, 20000 | eligibility (storage gate off with `cheap`) |
+| `cheapMin` | 300 | energy floor per soldier with `cheap` |
+| `priority` | 480 | spawn priority (unclaimers +10) |
+| `healers`, `ranged` | 0.3, 0.3 | squad mix |
+| `closestFirst` | true | nearest target first |
+| `finalSweep` | true | destroy everything destroyable at the end |
+| `razeAll` | true | old ending only: roads and containers |
+| `unrestrictedRooms` | `['E11N31']` | rooms where nothing is spared from the start |
+| `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
+| `unclaimRange`, `unclaimLead`, `unclaimSync` | 3, 500, 200 | unclaimer reach, spawn lead, team wait |
 
 ## Files
 
@@ -118,28 +232,7 @@ Warnings in orange, errors and safe mode in red.
 
 ### Console commands
 
-War (see `war.js`):
-
-```js
-Memory.war = { muster: true }                               // every eligible room builds and keeps a squad
-Memory.war.target = 'E11N36'                                // gather at the rally room, then march in
-Memory.war.go = true                                        // skip the gathering wait, march now
-Memory.war = { muster: true, target: 'E11N36', go: Game.time } // all of the above in one line: attack immediately
-Memory.war.muster = false                                   // stop spawning soldiers; the living ones keep fighting
-delete Memory.war.target                                    // call the squad home (kept while muster is on)
-Memory.war = { muster: false }                              // end the war: survivors walk home and recycle
-Memory.war.rally = 'E11N35'                                 // optional: pick the staging room yourself
-Memory.war.wave = 12                                        // optional: soldiers that must gather before marching
-Memory.war.everything = true                                // spare nothing in the target: walls and ramparts too
-Memory.war.cheap = true                                     // low energy: no storage gate, soldiers from energy on hand (>= 300), spend terminal reserve
-Memory.war = { muster: true, cheap: true }                  // start a low-energy muster in one line
-delete Memory.war.cheap                                     // back to full-size soldiers and the storage gate
-Memory.war.unclaim = true                                   // CLAIM creeps attack the target's controller until it is neutral
-Memory.war.unclaim = 5                                      // five unclaimers per strike, all hitting in the same tick
-Memory.war = { muster: false, cheap: true, unclaim: 5, target: 'E11N36', go: Game.time } // no new soldiers, keep fighting, 5 unclaimers
-Memory.war                                                  // unclaimFrom (spawn room per slot), unclaimAt (next strike), unclaimLeft (RCL:ticks), unclaimHits
-Memory.war                                                  // show state: rally, go, wave, safeUntil, cleared
-```
+War: see [War](#war) above.
 
 Rooms:
 
@@ -157,6 +250,9 @@ Status:
 ```js
 Game.gcl.level                        // room slots; the 100-tick summary shows rooms=owned/GCL
 _.filter(Game.creeps, c => c.memory.role === 'soldier').length
+_.filter(Game.creeps, c => c.memory.role === 'unclaimer').map(c => c.name + ' ' + c.pos)
+JSON.stringify(Memory.war)            // full war state
+Game.rooms.E11N36.controller.ticksToDowngrade // controller attack progress (needs vision)
 Game.rooms.E11N36.controller.safeMode // ticks of safe mode left in the target (needs vision)
 ```
 
@@ -164,5 +260,4 @@ Game.rooms.E11N36.controller.safeMode // ticks of safe mode left in the target (
 
 `config.js`: population caps, courier/terminal thresholds, expansion gating,
 planner intervals, `pixels`, `signature`, path visuals (`pathStyle`,
-`pathStyleWar`) and the `war` block (squad size and mix, eligibility,
-`razeAll`, gathering).
+`pathStyleWar`) and the `war` block (see [War settings](#settings-configwar)).
