@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const username = process.argv[2];
-const shard = process.argv[3] || 'shard0';
+const shard = process.argv[3] || 'shard1';
 if (!username) {
     console.error('usage: node fetch.js <username> [shard]');
     process.exit(1);

@@ -69,7 +69,7 @@ module.exports = {
 
     // Offensive squads, driven from the console through Memory.war:
     //   Memory.war = { muster: true }        every room accumulates soldiers (up to maxPerRoom)
-    //   Memory.war.target = 'E11N36'         gather at the rally room, then march in and kill everything
+    //   Memory.war.target = 'W1N1'           gather at the rally room, then march in and kill everything
     //   Memory.war.go = true                 skip the gathering wait and march now
     //   delete Memory.war.target             soldiers return home (still kept while muster is on)
     //   Memory.war.muster = false            stop spawning; idle soldiers recycle themselves
@@ -95,7 +95,7 @@ module.exports = {
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
         // Rooms where nothing is spared: walls and rampart-covered structures join the
         // closest-first pool instead of being skipped. Console: Memory.war.everything = true.
-        unrestrictedRooms: ['E11N31'],
+        unrestrictedRooms: [],
         // Memory.war.unclaim = true (or a number of creeps per strike, up to 8): CLAIM creeps hit the target's controller every time
         // its 1000-tick attack block runs out (-300 downgrade ticks per CLAIM part; the owner
         // cannot upgrade or start safe mode while it is blocked) until it goes neutral.

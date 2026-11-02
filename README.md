@@ -7,7 +7,8 @@
                                                                |_|                         |_|            
 ```
 
-Personal [Screeps](https://screeps.com/) colony scripts.
+Personal [Screeps](https://screeps.com/) colony scripts. Played on shard1
+(home room W49N25); shard0 was abandoned on 2026-11-02.
 
 ## Layout
 
@@ -33,6 +34,6 @@ repository into the `default` code branch. Only `*.js` files are uploaded.
 ## Test before uploading
 
 ```
-node tools/sim/fetch.js <username> shard0
-node tools/sim/run.js default E12N39 2000
+node tools/sim/fetch.js <username> shard1
+node tools/sim/run.js default W49N25 2000
 ```

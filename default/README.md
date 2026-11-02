@@ -221,7 +221,7 @@ controller neutral.
 | `closestFirst` | true | nearest target first |
 | `finalSweep` | true | destroy everything destroyable at the end |
 | `razeAll` | true | old ending only: roads and containers |
-| `unrestrictedRooms` | `['E11N31']` | rooms where nothing is spared from the start |
+| `unrestrictedRooms` | `[]` | rooms where nothing is spared from the start |
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
 | `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |
 
