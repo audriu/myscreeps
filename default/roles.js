@@ -813,6 +813,18 @@ function claimer(creep, m) {
         recycle(creep);
         return;
     }
+    // Before leaving, put our signature on the controller of the room we spawned in.
+    if (!m.homeSigned && creep.room.name === m.home && creep.room.name !== target) {
+        const home = creep.room.controller;
+        if (!home || !home.my || (home.sign && home.sign.text === config.signature)) {
+            m.homeSigned = true;
+        } else if (creep.pos.isNearTo(home)) {
+            if (creep.signController(home, config.signature) === OK) m.homeSigned = true;
+        } else {
+            util.travel(creep, home);
+            return;
+        }
+    }
     if (creep.room.name !== target) {
         util.travel(creep, util.roomCenter(target), { range: 20, reusePath: 50 });
         return;
