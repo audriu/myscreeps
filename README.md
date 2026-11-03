@@ -7,7 +7,8 @@
                                                                |_|                         |_|            
 ```
 
-Personal [Screeps](https://screeps.com/) colony scripts.
+Personal [Screeps](https://screeps.com/) colony scripts. Played on shard1
+(home room W49N25); shard0 was abandoned on 2026-11-02.
 
 ## Layout
 
@@ -24,6 +25,18 @@ Attacking another room is driven from the in-game console through
 enemy controller. Commands, the stop table and settings are in
 [default/README.md#war](default/README.md#war).
 
+## Colonizing
+
+New rooms are claimed automatically once the gates pass (free GCL slot, every
+room RCL3+, an RCL5 funder), or from the console:
+
+```js
+Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
+```
+
+Gates, forcing, stopping and progress checks are in
+[default/README.md#colonizing](default/README.md#colonizing).
+
 ## Deploy
 
 Pushing to `main` deploys: the Screeps GitHub integration
@@ -33,6 +46,6 @@ repository into the `default` code branch. Only `*.js` files are uploaded.
 ## Test before uploading
 
 ```
-node tools/sim/fetch.js <username> shard0
-node tools/sim/run.js default E12N39 2000
+node tools/sim/fetch.js <username> shard1
+node tools/sim/run.js default W49N25 2000
 ```
