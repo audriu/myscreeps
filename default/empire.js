@@ -103,21 +103,29 @@ function addWant(wants, w) {
     wants.push(w);
 }
 
-/** Owned rooms without a spawn get workers from the nearest healthy room. */
+/**
+ * Owned rooms without a spawn get workers from the nearest healthy room. When
+ * no room within reach is developed enough to send the full team, any room
+ * with a working spawn sends a single worker so the new room never stalls.
+ */
 function planHelpers(wants, states) {
+    const cfg = config.expansion;
     for (let i = 0; i < states.length; i++) {
         const st = states[i];
         if (st.spawns.length || st.hostiles.length) continue;
-        const from = util.nearestOwnedRoom(st.name, r => {
-            const s = roomState.get(r);
-            return s.activeSpawns.length > 0 && s.rcl >= 4 && util.roomDistance(r.name, st.name) <= 3;
-        });
-        if (!from) continue;
+        const inReach = r => roomState.get(r).activeSpawns.length > 0 && util.roomDistance(r.name, st.name) <= 3;
+        let count = cfg.helpers;
+        let from = util.nearestOwnedRoom(st.name, r => inReach(r) && roomState.get(r).rcl >= cfg.helperMinRcl);
+        if (!from) {
+            count = cfg.minHelpers;
+            from = util.nearestOwnedRoom(st.name, inReach);
+        }
+        if (!from || !count) continue;
         addWant(wants, {
             role: 'worker',
             spawnIn: from.name,
             home: st.name,
-            count: config.expansion.helpers,
+            count,
             priority: 300,
             energyCap: 1500,
         });

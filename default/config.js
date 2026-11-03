@@ -132,6 +132,8 @@ module.exports = {
         allRoomsMinRcl: 3,      // never claim while any owned room is weaker than this
         maxLinearDistance: 2,
         helpers: 3,             // workers sent to a claimed room without a spawn
+        helperMinRcl: 4,        // the full team only comes from a room at least this developed
+        minHelpers: 1,          // otherwise any room with a working spawn sends this many
         claimTimeout: 4000,
     },
 

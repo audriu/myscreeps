@@ -46,7 +46,8 @@ modules from the branch first; `main.js` only requires the modules listed below.
   for it. It stops when the reserve drops below half the threshold.
 - **Empire**: couriers carry energy from rich storages into weak neighbours;
   terminals balance energy between RCL6+ rooms; owned rooms without a spawn get
-  helper workers; lost rooms that still hold our spawn are claimed back first;
+  helper workers (three from an RCL4+ room within 3 rooms, otherwise one from
+  any room with a working spawn); lost rooms that still hold our spawn are claimed back first;
   claiming is gated (all rooms RCL3+, a healthy RCL5+ funder, CPU bucket high)
   and picks 2-source rooms next to owned ones. When GCL is full a lost room
   cannot be reclaimed: the console warns every 1000 ticks, and
