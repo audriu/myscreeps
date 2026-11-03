@@ -117,8 +117,15 @@ function planHelpers(wants, states) {
         let count = cfg.helpers;
         let from = util.nearestOwnedRoom(st.name, r => inReach(r) && roomState.get(r).rcl >= cfg.helperMinRcl);
         if (!from) {
+            // The best developed room in reach, not merely the nearest: a fresh
+            // RCL1 neighbour never gets past its own wants to spawn helpers.
             count = cfg.minHelpers;
-            from = util.nearestOwnedRoom(st.name, inReach);
+            for (const r of util.ownedRooms()) {
+                if (!inReach(r)) continue;
+                if (!from || r.energyCapacityAvailable > from.energyCapacityAvailable ||
+                    (r.energyCapacityAvailable === from.energyCapacityAvailable &&
+                        util.roomDistance(r.name, st.name) < util.roomDistance(from.name, st.name))) from = r;
+            }
         }
         if (!from || !count) continue;
         addWant(wants, {
