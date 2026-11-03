@@ -257,11 +257,11 @@ Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
    cleared. If the controller turns out to be owned the claim is dropped.
 4. **First spawn**: the planner of the new room places a spawn site at once
    (RCL1 allows one) and plans the rest of the base around it.
-5. **Helpers**: while the room has no spawn, the nearest owned room at RCL4+
-   with a spawn and within 3 rooms sends `expansion.helpers` (3) workers
-   (bodies up to 1500 energy, priority 300) to build the spawn.
-   **No RCL4 room in range means no helpers** and the new room
-   sits with a bare controller.
+5. **Helpers**: while the room has no spawn, the nearest owned room at
+   `helperMinRcl` (4)+ with a working spawn and within 3 rooms sends
+   `expansion.helpers` (3) workers (bodies up to 1500 energy, priority 300)
+   to build the spawn. Without such a room, the best developed room in reach
+   (largest energy capacity, then nearest) sends `minHelpers` (1).
 6. **Own feet**: once the spawn stands the room runs its own economy;
    couriers bring energy from storages with 150k+ within 2 rooms until it
    holds 30k.
@@ -358,6 +358,7 @@ Email: `Claimed room …`.
 | `expansion.allRoomsMinRcl` | 3 | no claim while any owned room is below this |
 | `expansion.maxLinearDistance` | 2 | candidate reach from a funder |
 | `expansion.helpers` | 3 | workers for a claimed room without a spawn |
+| `expansion.helperMinRcl`, `minHelpers` | 4, 1 | RCL a room needs to send the full team; workers sent otherwise |
 | `expansion.claimTimeout` | 4000 | ticks before a claim is dropped and blacklisted |
 | `reclaim.minStructures` | 5 | owned structures that make a spawnless lost room worth reclaiming |
 | `reclaim.spawnerMinRcl`, `maxLinearDistance` | 3, 3 | who sends the reclaim claimer, and from how far |
