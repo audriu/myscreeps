@@ -52,7 +52,7 @@ modules from the branch first; `main.js` only requires the modules listed below.
   cannot be reclaimed: the console warns every 1000 ticks, and
   `Memory.empire.release = 'W1N1'` gives a room up (unclaimed, never retaken)
   so the slot goes to the lost room. Every new GCL level is logged and
-  emailed with the number of free slots.
+  emailed with the number of free slots. See [Colonizing](#colonizing).
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped.
@@ -225,6 +225,143 @@ controller neutral.
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
 | `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |
 
+## Colonizing
+
+New rooms are claimed by `empire.js` through `Memory.empire.claim`. With the
+defaults it happens on its own; the console can pick the room, force it or
+stop it. Room names below are examples next to W49N25.
+
+### Quick start
+
+```js
+// Free GCL slot? (owned rooms vs. slots)
+Game.gcl.level - _.filter(Game.rooms, r => r.controller && r.controller.my).length
+
+// Claim W48N25, claimer from W49N25
+Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
+```
+
+### How a claim runs
+
+1. **Target**: either yours (above) or picked automatically every 20 ticks
+   (see [Automatic expansion](#automatic-expansion)). A running claim is
+   kept until it ends; when picking a new one, lost rooms that still hold
+   our buildings come before new rooms (reclaim).
+2. **Claimer**: the `from` room spawns one CLAIM+MOVE creep (650 energy, so
+   RCL3+) at priority 320 (reclaims 450). It signs its home controller with
+   `config.signature`, walks to the target (avoided rooms are routed
+   around), claims, signs and suicides. A claimer lives 600 ticks: keep
+   `from` within 2–3 rooms of the target.
+3. **Claimed**: logged (`Claimed W48N25`), emailed, `Memory.empire.claim` is
+   cleared. If the controller turns out to be owned the claim is dropped.
+4. **First spawn**: the planner of the new room places a spawn site at once
+   (RCL1 allows one) and plans the rest of the base around it.
+5. **Helpers**: while the room has no spawn, the nearest owned room at RCL4+
+   with a spawn and within 3 rooms sends `expansion.helpers` (3) workers
+   (bodies up to 1500 energy, priority 300) to build the spawn.
+   **No RCL4 room in range means no helpers** and the new room
+   sits with a bare controller.
+6. **Own feet**: once the spawn stands the room runs its own economy;
+   couriers bring energy from storages with 150k+ within 2 rooms until it
+   holds 30k.
+
+A claim that is not done within `claimTimeout` (4000) ticks of `t` is
+dropped and the room blacklisted for 20000 ticks.
+
+### Gates
+
+| Gate | Manual claim | Automatic | Reclaim / forced |
+|---|---|---|---|
+| free GCL slot | yes | yes | yes |
+| `expansion.enabled` | yes | yes | – |
+| every owned room RCL3+ with a spawn (`allRoomsMinRcl`) | yes | yes | – |
+| CPU bucket `minBucket` (8000) | – | yes | – |
+| a funder: RCL5+, 50k storage, no hostiles | – | yes | – |
+| 2 sources, no owner, reservation, towers, keepers | – | yes | – |
+
+A manual claim that fails a gate is cleared on the next pass (`JSON.stringify(Memory.empire.claim)`
+shows `null` again).
+
+### Forcing a claim
+
+`reclaim: true` treats the target like a lost room of ours: it skips the
+`enabled` and RCL gates and spawns the claimer at priority 450 (before
+soldiers and workers). The log then says `Reclaimed W48N25` instead of
+`Expansion W48N25 claimed`.
+
+```js
+Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time, reclaim: true }
+```
+
+### Automatic expansion
+
+Every 20 ticks with no claim running, all gates passed and a free slot:
+
+- **Candidates**: rooms one or two exits from each funder
+  (`maxLinearDistance` 2), not owned, not abandoned, not blacklisted, not a
+  highway, keeper room, avoided or novice/respawn room.
+- **Scouting**: candidates without intel younger than 30000 ticks are queued
+  (`Memory.empire.scoutQueue`, up to 12) and a 1-MOVE scout from the first
+  funder visits them. Each room is queued at most once per 5000 ticks.
+- **Score**: `sources × 100 − distance × 50 + owned neighbours × 20`; only
+  2-source rooms with a free controller qualify. The best one becomes
+  `Memory.empire.claim` (`Expansion target: W48N24 (from W49N25)`).
+
+Which scouted rooms would qualify:
+
+```js
+Object.keys(Memory.empire.intel).filter(n => {
+    const i = Memory.empire.intel[n];
+    return i.ctrl && !i.owner && !i.reserved && !i.keeper && !i.towers && i.sources >= 2;
+})
+Memory.empire.intel.W48N25            // { t, sources, ctrl, owner, reserved, level, towers, keeper }
+```
+
+### Stopping and steering
+
+| You want | Command |
+|---|---|
+| Drop the current claim (a new automatic one may follow in 20 ticks) | `Memory.empire.claim = null` |
+| Also kill a claimer already on its way | `_.filter(Game.creeps, c => c.memory.role === 'claimer').forEach(c => c.suicide())` |
+| Never pick a room automatically for 20000 ticks | `Memory.empire.blacklist.W48N24 = Game.time` |
+| Never claim or reclaim a room (until deleted) | `Memory.empire.abandoned.W48N24 = Game.time` |
+| Keep creeps out of a room entirely | `Memory.avoidRooms = ['W48N24']` |
+| No automatic expansion at all | `expansion.enabled: false` in `config.js` and deploy |
+| Free a slot for a better room | `Memory.empire.release = 'W48N26'` (unclaims it, marks it abandoned) |
+
+`blacklist` and `abandoned` only steer the automatic pick; a manual
+`Memory.empire.claim` ignores them.
+
+### Watching progress
+
+```js
+JSON.stringify(Memory.empire.claim)   // { target, from, t[, reclaim] } or null
+_.filter(Game.creeps, c => c.memory.role === 'claimer').map(c => c.name + ' ' + c.pos + ' ttl=' + c.ticksToLive)
+_.filter(Game.creeps, c => c.memory.home === 'W48N25').map(c => c.name + ' ' + c.memory.role)   // helpers in the new room
+Game.rooms.W48N25.find(FIND_MY_CONSTRUCTION_SITES).map(s => s.structureType + ' ' + s.progress + '/' + s.progressTotal)
+Memory.empire.wants                   // what the empire asked rooms to spawn this pass
+```
+
+The 100-tick summary shows `claim=W48N25` while a claim runs. Log lines:
+`Expansion target: …`, `Claimed …`, `Expansion … claimed; helpers will
+build the spawn`, `Claim of … timed out`, `… is owned by …; dropping claim`.
+Email: `Claimed room …`.
+
+### Settings (`config.expansion`, `config.reclaim`)
+
+| Key | Default | |
+|---|---|---|
+| `expansion.enabled` | true | automatic and manual claims (reclaim ignores it) |
+| `expansion.minBucket` | 8000 | CPU bucket for picking a new room |
+| `expansion.funderMinRcl`, `funderMinStorage` | 5, 50000 | rooms that fund and scout an automatic expansion |
+| `expansion.allRoomsMinRcl` | 3 | no claim while any owned room is below this |
+| `expansion.maxLinearDistance` | 2 | candidate reach from a funder |
+| `expansion.helpers` | 3 | workers for a claimed room without a spawn |
+| `expansion.claimTimeout` | 4000 | ticks before a claim is dropped and blacklisted |
+| `reclaim.minStructures` | 5 | owned structures that make a spawnless lost room worth reclaiming |
+| `reclaim.spawnerMinRcl`, `maxLinearDistance` | 3, 3 | who sends the reclaim claimer, and from how far |
+| `reclaim.retry` | 20000 | ticks before a timed-out reclaim is tried again |
+
 ## Files
 
 | File | Role |
@@ -251,7 +388,7 @@ Warnings in orange, errors and safe mode in red.
 
 ### Console commands
 
-War: see [War](#war) above.
+War: see [War](#war) above. Claiming rooms: see [Colonizing](#colonizing).
 
 Rooms:
 

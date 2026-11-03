@@ -25,6 +25,18 @@ Attacking another room is driven from the in-game console through
 enemy controller. Commands, the stop table and settings are in
 [default/README.md#war](default/README.md#war).
 
+## Colonizing
+
+New rooms are claimed automatically once the gates pass (free GCL slot, every
+room RCL3+, an RCL5 funder), or from the console:
+
+```js
+Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
+```
+
+Gates, forcing, stopping and progress checks are in
+[default/README.md#colonizing](default/README.md#colonizing).
+
 ## Deploy
 
 Pushing to `main` deploys: the Screeps GitHub integration
