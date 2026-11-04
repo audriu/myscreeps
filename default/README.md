@@ -304,8 +304,12 @@ dropped and the room blacklisted for 20000 ticks.
 | a funder: RCL5+, 50k storage, no hostiles | – | yes | – |
 | 2 sources, no owner, reservation, towers, keepers | – | yes | – |
 
-A manual claim that fails a gate is cleared on the next pass (`JSON.stringify(Memory.empire.claim)`
-shows `null` again).
+Within 20 ticks the console says what became of a manual claim: `Claiming
+W48N25 -> W48N24 from W49N25` when it runs, or `Claim of W48N25 dropped:
+W48N26 is RCL2 (every room needs RCL3 and a spawn); add reclaim: true to
+force it` (or `dropped: GCL full`) when a gate stops it, after which
+`Memory.empire.claim` is `null` again. Typing the assignment itself only
+echoes `[object Object]`.
 
 ### Forcing a claim
 

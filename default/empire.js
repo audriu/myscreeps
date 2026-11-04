@@ -195,6 +195,11 @@ function myUsername() {
     return null;
 }
 
+/** 'W1N1' or 'W1N1 -> W2N1 -> W3N1' for a claim and the rest of its list. */
+function claimRooms(c) {
+    return [c.target].concat(c.next || []).join(' -> ');
+}
+
 function wantClaimer(wants, c) {
     addWant(wants, {
         role: 'claimer',
@@ -264,7 +269,7 @@ function pickReclaim(e) {
 function planReclaim(e) {
     const best = pickReclaim(e);
     if (!best) return false;
-    e.claim = { target: best.name, from: best.from, t: Game.time, reclaim: true };
+    e.claim = { target: best.name, from: best.from, t: Game.time, reclaim: true, announced: true };
     util.log('Reclaiming ' + best.name + ' (' + best.spawns + ' spawn(s), ' + best.n + ' structures) from ' + best.from);
     Game.notify('Reclaiming lost room ' + best.name + ' from ' + best.from);
     return true;
@@ -275,8 +280,8 @@ function planExpansion(wants, states) {
     const cfg = config.expansion;
     const owned = util.ownedRooms();
     if (Game.gcl.level <= owned.length) {
-        if (e.claim && e.claim.next && e.claim.next.length) {
-            util.warn('GCL full: claim list dropped with ' + [e.claim.target].concat(e.claim.next).join(', ') + ' unclaimed');
+        if (e.claim) {
+            util.warn('Claim of ' + claimRooms(e.claim) + ' dropped: GCL full (' + owned.length + '/' + Game.gcl.level + ')');
         }
         e.claim = null;
         // A lost room with our spawn in it stays lost until a slot frees up: say so.
@@ -311,17 +316,27 @@ function planExpansion(wants, states) {
 
     // Rooms the running claim list already took do not hold the rest of the list back.
     const done = (e.claim && e.claim.done) || [];
-    let expansionOk = !!cfg.enabled;
+    const weak = [];
     for (let i = 0; i < states.length; i++) {
         if (done.indexOf(states[i].name) !== -1) continue;
-        if (states[i].rcl < cfg.allRoomsMinRcl || !states[i].spawns.length) expansionOk = false;
+        if (states[i].rcl < cfg.allRoomsMinRcl) weak.push(states[i].name + ' is RCL' + states[i].rcl);
+        else if (!states[i].spawns.length) weak.push(states[i].name + ' has no spawn');
     }
+    const expansionOk = !!cfg.enabled && !weak.length;
 
     // Keep an existing claim alive.
     if (e.claim) {
-        if (!e.claim.reclaim && !expansionOk) {
+        const c = e.claim;
+        if (!c.reclaim && !expansionOk) {
+            util.warn('Claim of ' + claimRooms(c) + ' dropped: ' +
+                (cfg.enabled ? weak.join(', ') + ' (every room needs RCL' + cfg.allRoomsMinRcl + ' and a spawn)' : 'expansion.enabled is off') +
+                '; add reclaim: true to force it');
             e.claim = null;
         } else {
+            if (!c.announced) {
+                c.announced = true;
+                util.log('Claiming ' + claimRooms(c) + ' from ' + c.from + (c.reclaim ? ' (forced)' : ''));
+            }
             wantClaimer(wants, e.claim);
             return;
         }
@@ -402,7 +417,7 @@ function planExpansion(wants, states) {
     }
     if (!scored.length) return;
     scored.sort((a, b) => b.score - a.score);
-    e.claim = { target: scored[0].name, from: scored[0].from, t: Game.time };
+    e.claim = { target: scored[0].name, from: scored[0].from, t: Game.time, announced: true };
     util.log('Expansion target: ' + scored[0].name + ' (from ' + scored[0].from + ')');
 }
 
