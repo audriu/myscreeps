@@ -310,6 +310,14 @@ else covers it (those stay locked, see `roomState.findLoot`).
   and ruins in our rooms are emptied the same way. Without either, it stays
   where it is.
 
+The engine counts every owner's structures against the RCL allowance, so
+leftovers also use up our limits: a room holding three spawns of another
+player can never get a spawn of ours (under their ramparts they cannot be
+removed either). The planner then places nothing there and warns `no spawn
+can be placed`; helpers keep coming from the nearest RCL4 room and only
+upgrade with what they loot and harvest. Release such a room unless that is
+worth it.
+
 ### Gates
 
 | Gate | Manual claim | Automatic | Reclaim / forced |

@@ -813,6 +813,20 @@ function placeAll(room, st, ctx) {
     const used = () => budget <= 0 || ctx.sitesFull;
     const spend = n => { budget -= n; };
 
+    // The engine counts spawns of every owner against the RCL allowance: when
+    // another player's leftover spawns use it up, no spawn of ours can ever be
+    // placed, so no miner comes either and containers or roads are wasted work.
+    // Helpers then only upgrade with what they loot and harvest.
+    if (!st.spawns.length && !st.sites.some(s => s.structureType === STRUCTURE_SPAWN) &&
+        have(ctx, STRUCTURE_SPAWN) >= allowed(STRUCTURE_SPAWN, rcl)) {
+        if (!st.mem.noSpawnWarned || Game.time - st.mem.noSpawnWarned > 5000) {
+            st.mem.noSpawnWarned = Game.time;
+            util.warn(room.name + ': no spawn can be placed, ' + have(ctx, STRUCTURE_SPAWN) + ' spawn(s) of other players use the RCL' + rcl +
+                ' allowance; nothing is planned here (release the room or remove those spawns)');
+        }
+        return;
+    }
+
     // First spawn of a new room.
     if (!st.spawns.length && have(ctx, STRUCTURE_SPAWN) === 0 && allowed(STRUCTURE_SPAWN, rcl) > 0) {
         const a = ctx.anchor;
