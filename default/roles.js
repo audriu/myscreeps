@@ -866,7 +866,11 @@ function defender(creep, m) {
     }
     if (creep.pos.isNearTo(target)) {
         creep.attack(target);
-        if (util.countParts(creep, RANGED_ATTACK)) creep.rangedMassAttack();
+        if (util.countParts(creep, RANGED_ATTACK)) {
+            // The splash would wear down leftovers we are emptying: aim instead.
+            if (nearSpared(creep)) creep.rangedAttack(target);
+            else creep.rangedMassAttack();
+        }
     } else {
         if (util.countParts(creep, RANGED_ATTACK) && creep.pos.inRangeTo(target, 3)) creep.rangedAttack(target);
         util.travel(creep, target);
@@ -1015,15 +1019,49 @@ function covered(obj) {
     return !!rampartMap(obj.room)[obj.pos.x + ':' + obj.pos.y];
 }
 
+/**
+ * A structure of a player who does not own the room's controller: left behind
+ * by a previous owner, inactive, so a tower like that cannot fire.
+ */
+function leftover(s) {
+    const ctrl = s.room.controller;
+    // Without a controller (stronghold towers) everything stays active.
+    if (!ctrl || !s.owner) return false;
+    return !(ctrl.owner && ctrl.owner.username === s.owner.username);
+}
+
+/** Another player's leftover in a room of ours that we are still emptying (roomState loot): left standing. */
+function spared(s) {
+    const room = s.room;
+    if (!room.controller || !room.controller.my) return false;
+    const ids = util.cache(room.name + '|lootIds', () => {
+        const out = {};
+        const loot = roomState.get(room).loot;
+        for (let i = 0; i < loot.length; i++) out[loot[i].id] = true;
+        return out;
+    });
+    return !!ids[s.id];
+}
+
+/** Would a mass attack from here chip a leftover we are still emptying? */
+function nearSpared(creep) {
+    const room = creep.room;
+    if (!room.controller || !room.controller.my) return false;
+    const loot = roomState.get(room).loot;
+    for (let i = 0; i < loot.length; i++) if (loot[i].owner && creep.pos.inRangeTo(loot[i], 3)) return true;
+    return false;
+}
+
 /** Can this creep or structure hurt us (or keep others alive)? */
 function canResist(obj) {
-    if (obj.structureType) return obj.structureType === STRUCTURE_TOWER && (obj.store[RESOURCE_ENERGY] || 0) >= 10;
+    if (obj.structureType) return obj.structureType === STRUCTURE_TOWER && (obj.store[RESOURCE_ENERGY] || 0) >= 10 && !leftover(obj);
     return util.hasParts(obj, [ATTACK, RANGED_ATTACK, HEAL]);
 }
 
 /**
  * What to hit among hostile creeps and towers: the closest thing that can
  * fight back wins, healers break ties, harmless creeps come after that.
+ * Leftover towers of a previous owner cannot fire and are not counted here.
  */
 function pickHostileCreep(creep, hostiles) {
     const towers = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'towers', s => s.structureType === STRUCTURE_TOWER);
@@ -1033,7 +1071,7 @@ function pickHostileCreep(creep, hostiles) {
     for (let i = 0; i < candidates.length; i++) {
         const h = candidates[i];
         // Anything under a rampart only soaks damage into millions of rampart hits: last resort.
-        if (covered(h)) continue;
+        if (covered(h) || (h.structureType && leftover(h))) continue;
         let score = -creep.pos.getRangeTo(h) * 10;
         if (canResist(h)) score += 1000;
         if (!h.structureType && util.hasParts(h, [HEAL])) score += 15;
@@ -1046,7 +1084,10 @@ function pickHostileCreep(creep, hostiles) {
     return best;
 }
 
-/** Hostile structure to hit: towers and spawns first, then the rest, closest wins ties. */
+/**
+ * Hostile structure to hit: towers and spawns first, then the rest, closest
+ * wins ties. Leftovers in our rooms that still hold loot are never hit.
+ */
 function pickHostileStructure(creep) {
     const list = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
         s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
@@ -1054,7 +1095,7 @@ function pickHostileStructure(creep) {
     let bestScore = -Infinity;
     for (let i = 0; i < list.length; i++) {
         const s = list[i];
-        if (covered(s)) continue;
+        if (covered(s) || spared(s)) continue;
         const score = (STRUCTURE_KILL_ORDER[s.structureType] || 20) * 100 - creep.pos.getRangeTo(s);
         if (score > bestScore) {
             bestScore = score;
@@ -1098,7 +1139,8 @@ function pickHostileStructure(creep) {
  * hit points (ramparts, walls, roads, leftovers; config.war.finalSweep), so
  * a road next to a soldier never outranks an enemy. Soldiers are short-lived,
  * so time spent walking to a "better" target is wasted. In our own rooms
- * (war target set to fight an intruder) only enemies count.
+ * (war target set to fight an intruder) only enemies count, and leftovers
+ * that still hold loot are left standing.
  */
 function pickClosestTarget(creep, hostiles) {
     const own = !!(creep.room.controller && creep.room.controller.my);
@@ -1108,7 +1150,7 @@ function pickClosestTarget(creep, hostiles) {
     for (let i = 0; i < hostiles.length; i++) if (ok(hostiles[i])) candidates.push(hostiles[i]);
     const structs = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
         s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
-    for (let i = 0; i < structs.length; i++) if (ok(structs[i])) candidates.push(structs[i]);
+    for (let i = 0; i < structs.length; i++) if (ok(structs[i]) && !spared(structs[i])) candidates.push(structs[i]);
     if (all) {
         // Nothing is spared here: ramparts and walls are ordinary targets.
         const extra = util.find(creep.room, FIND_STRUCTURES, 'rampartsWalls',
@@ -1139,7 +1181,8 @@ function engage(creep, target) {
     const range = creep.pos.getRangeTo(target);
     if (ranged) {
         // Mass attack only hurts owned things: ownerless walls and roads need an aimed shot.
-        if (range <= 1 && target.owner) creep.rangedMassAttack();
+        // Never next to leftovers we are emptying: the splash would wear them down.
+        if (range <= 1 && target.owner && !nearSpared(creep)) creep.rangedMassAttack();
         else if (range <= 3) creep.rangedAttack(target);
     }
     if (melee && range <= 1) creep.attack(target);
@@ -1286,8 +1329,10 @@ function soldier(creep, m) {
         return;
     }
     if (st.hostiles.length) {
+        const target = healer ? null : pickHostileCreep(creep, st.hostiles);
         if (healer) healerFollow(creep, st.idle);
-        else engage(creep, pickHostileCreep(creep, st.hostiles));
+        else if (target) engage(creep, target);
+        else idle(creep, st);
         return;
     }
     idle(creep, st);

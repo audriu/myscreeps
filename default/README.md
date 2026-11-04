@@ -309,6 +309,13 @@ else covers it (those stay locked, see `roomState.findLoot`).
   haulers into our storage (RCL4+), else the terminal (RCL6+). Tombstones
   and ruins in our rooms are emptied the same way. Without either, it stays
   where it is.
+- **Soldiers leave them standing** while they still hold something: they
+  are inactive, so harmless, and razing them would only drop the loot into
+  a ruin that decays. Ranged soldiers and defenders aim single shots
+  instead of a mass attack when such a structure is within range 3. Empty
+  leftovers are still fair targets. A leftover tower (its owner does not own
+  the controller) never counts as one that can fire back, so it no longer
+  draws soldiers away from real intruders.
 
 The engine counts every owner's structures against the RCL allowance, so
 leftovers also use up our limits: a room holding three spawns of another

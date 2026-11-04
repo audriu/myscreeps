@@ -225,6 +225,8 @@ function build(room) {
         dropped: util.find(room, FIND_DROPPED_RESOURCES, 'e', r => r.resourceType === RESOURCE_ENERGY && r.amount >= 30),
         tombstones: util.find(room, FIND_TOMBSTONES, 'e', t => (t.store[RESOURCE_ENERGY] || 0) > 0),
         ruins: util.find(room, FIND_RUINS, 'e', r => (r.store[RESOURCE_ENERGY] || 0) > 0),
+        // Other players' leftovers we are emptying; soldiers leave them standing.
+        loot,
         lootEnergy: loot.filter(s => (s.store[RESOURCE_ENERGY] || 0) > 0),
         // Minerals and compounds to carry home: from those structures, and from
         // tombstones and ruins in our rooms (a dead hauler's load, a razed storage).
