@@ -6,6 +6,36 @@ const config = require('config');
 const util = require('util');
 
 const DANGER_PARTS = [ATTACK, RANGED_ATTACK, WORK, CLAIM, HEAL];
+// Stores the engine never lets anyone withdraw from.
+const NO_WITHDRAW = { [STRUCTURE_NUKER]: true, [STRUCTURE_POWER_BANK]: true, [STRUCTURE_INVADER_CORE]: true };
+
+function hasAny(store, skipEnergy) {
+    for (const r in store) if (store[r] > 0 && !(skipEnergy && r === RESOURCE_ENERGY)) return true;
+    return false;
+}
+
+/**
+ * In a room of ours: structures left by other players (and stray neutral
+ * containers) that still hold resources and can be withdrawn from, i.e. no
+ * hostile non-public rampart sits on top of them.
+ */
+function findLoot(room, containers, used) {
+    if (!room.controller || !room.controller.my) return [];
+    const hostile = util.find(room, FIND_HOSTILE_STRUCTURES);
+    const sealed = {};
+    for (let i = 0; i < hostile.length; i++) {
+        const s = hostile[i];
+        if (s.structureType === STRUCTURE_RAMPART && !s.isPublic) sealed[s.pos.x * 50 + s.pos.y] = true;
+    }
+    const loot = [];
+    const add = s => {
+        if (!s.store || NO_WITHDRAW[s.structureType] || sealed[s.pos.x * 50 + s.pos.y] || !hasAny(s.store)) return;
+        loot.push(s);
+    };
+    for (let i = 0; i < hostile.length; i++) add(hostile[i]);
+    for (let i = 0; i < containers.length; i++) if (!used[containers[i].id]) add(containers[i]);
+    return loot;
+}
 
 /** Names of creeps "spawning" in spawns that cannot release them (inactive or sealed). */
 function stuckSpawning() {
@@ -107,6 +137,11 @@ function build(room) {
         if (!matched && ctrl && c.pos.inRangeTo(ctrl.pos, 3)) ctrlContainer = c;
     }
 
+    const usedContainers = {};
+    for (let j = 0; j < srcInfo.length; j++) if (srcInfo[j].container) usedContainers[srcInfo[j].container.id] = true;
+    if (ctrlContainer) usedContainers[ctrlContainer.id] = true;
+    const loot = findLoot(room, containers, usedContainers);
+
     let ctrlLink = null;
     let storageLink = null;
     const sourceLinks = [];
@@ -190,6 +225,12 @@ function build(room) {
         dropped: util.find(room, FIND_DROPPED_RESOURCES, 'e', r => r.resourceType === RESOURCE_ENERGY && r.amount >= 30),
         tombstones: util.find(room, FIND_TOMBSTONES, 'e', t => (t.store[RESOURCE_ENERGY] || 0) > 0),
         ruins: util.find(room, FIND_RUINS, 'e', r => (r.store[RESOURCE_ENERGY] || 0) > 0),
+        lootEnergy: loot.filter(s => (s.store[RESOURCE_ENERGY] || 0) > 0),
+        // Minerals and compounds to carry home: from those structures, and from
+        // tombstones and ruins in our rooms (a dead hauler's load, a razed storage).
+        lootOther: loot.filter(s => hasAny(s.store, true)).concat(ctrl && ctrl.my
+            ? util.find(room, FIND_TOMBSTONES, 'o', t => hasAny(t.store, true)).concat(util.find(room, FIND_RUINS, 'o', r => hasAny(r.store, true)))
+            : []),
         sites: util.find(room, FIND_MY_CONSTRUCTION_SITES),
         creeps,
         count,

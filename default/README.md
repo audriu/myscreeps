@@ -293,6 +293,23 @@ it:
 A claim that is not done within `claimTimeout` (4000) ticks of `t` is
 dropped and the room blacklisted for 20000 ticks.
 
+### Leftovers of other players
+
+Structures another player left in a room we claim stay theirs: they can
+not be taken over, only emptied or dismantled. In every room of ours the
+script empties what it may withdraw from: everything of another player
+that has a store (storage, terminal, spawns, extensions, towers, labs,
+links, factory...; never a nuker) and neutral containers that are not
+source or controller containers, unless a non-public rampart of someone
+else covers it (those stay locked, see `roomState.findLoot`).
+
+- **Energy** counts like a ruin: workers and haulers take it for spawning,
+  building and upgrading.
+- **Everything else** (minerals, compounds, power...) is carried by idle
+  haulers into our storage (RCL4+), else the terminal (RCL6+). Tombstones
+  and ruins in our rooms are emptied the same way. Without either, it stays
+  where it is.
+
 ### Gates
 
 | Gate | Manual claim | Automatic | Reclaim / forced |

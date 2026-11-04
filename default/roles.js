@@ -172,6 +172,7 @@ function pickEnergy(creep, st, opts) {
         for (let i = 0; i < st.dropped.length; i++) consider(st.dropped[i], st.dropped[i].amount, 'pickup', 20);
         for (let i = 0; i < st.tombstones.length; i++) consider(st.tombstones[i], (st.tombstones[i].store[RESOURCE_ENERGY] || 0), 'withdraw', 20);
         for (let i = 0; i < st.ruins.length; i++) consider(st.ruins[i], (st.ruins[i].store[RESOURCE_ENERGY] || 0), 'withdraw', 20);
+        for (let i = 0; i < st.lootEnergy.length; i++) consider(st.lootEnergy[i], (st.lootEnergy[i].store[RESOURCE_ENERGY] || 0), 'withdraw', 10);
     }
     if (opts.sourceContainers) {
         for (let i = 0; i < st.sources.length; i++) {
@@ -245,6 +246,8 @@ function acquire(creep, st, opts) {
     if (m.tk === 'pickup') res = creep.pickup(tgt);
     else if (m.tk === 'harvest') res = creep.harvest(tgt);
     else res = creep.withdraw(tgt, RESOURCE_ENERGY);
+    // A store we may not touch after all (someone else's rampart, safe mode).
+    if (res === ERR_NOT_OWNER || res === ERR_INVALID_TARGET) markBad(tgt.id);
     if (m.tk !== 'harvest' || res !== OK) {
         delete m.t;
         delete m.tk;
@@ -547,6 +550,68 @@ function miner(creep, m) {
     }
 }
 
+/** First non-energy resource type in a store, or null. */
+function otherResource(store) {
+    for (const r in store) if (r !== RESOURCE_ENERGY && store[r] > 0) return r;
+    return null;
+}
+
+/** Where looted non-energy resources go: our active storage, else our terminal. */
+function lootDestination(st, type) {
+    const list = [st.storageActive ? st.storage : null, st.terminal];
+    for (let i = 0; i < list.length; i++) if (list[i] && list[i].store.getFreeCapacity(type) > 0) return list[i];
+    return null;
+}
+
+/** Carried non-energy resources (loot) go into storage or terminal first. Returns true while busy with that. */
+function stashLoot(creep, st) {
+    const type = otherResource(creep.store);
+    if (!type) return false;
+    const dest = lootDestination(st, type);
+    if (!dest) {
+        // Nowhere to keep it: do not let it block the energy work.
+        creep.drop(type);
+        return false;
+    }
+    if (creep.pos.isNearTo(dest)) creep.transfer(dest, type);
+    else util.travel(creep, dest);
+    return true;
+}
+
+/**
+ * An idle hauler empties minerals, compounds and the like out of structures
+ * other players left in our room (st.lootOther) when we have somewhere to put
+ * them. Energy from those structures already comes through pickEnergy.
+ */
+function fetchLoot(creep, st, m) {
+    if (!creep.store.getFreeCapacity()) return false;
+    let tgt = m.loot ? Game.getObjectById(m.loot) : null;
+    if (!tgt || isBad(tgt.id) || !otherResource(tgt.store)) {
+        delete m.loot;
+        tgt = null;
+        let bestD = Infinity;
+        for (let i = 0; i < st.lootOther.length; i++) {
+            const s = st.lootOther[i];
+            if (isBad(s.id) || !lootDestination(st, otherResource(s.store))) continue;
+            const d = creep.pos.getRangeTo(s);
+            if (d < bestD) {
+                bestD = d;
+                tgt = s;
+            }
+        }
+        if (!tgt) return false;
+        m.loot = tgt.id;
+    }
+    if (!creep.pos.isNearTo(tgt)) {
+        if (go(creep, m, tgt) === ERR_NO_PATH) delete m.loot;
+        return true;
+    }
+    const res = creep.withdraw(tgt, otherResource(tgt.store));
+    if (res !== OK) markBad(tgt.id);
+    delete m.loot;
+    return true;
+}
+
 function hauler(creep, m) {
     const st = homeState(creep);
     if (!st) {
@@ -558,6 +623,7 @@ function hauler(creep, m) {
         util.travel(creep, st.idle, { range: 2 });
         return;
     }
+    if (stashLoot(creep, st)) return;
     if (!m.working) {
         const keep = war.terminalKeep();
         const storageEnergy = st.storage ? (st.storage.store[RESOURCE_ENERGY] || 0) : 0;
@@ -574,7 +640,7 @@ function hauler(creep, m) {
         };
         if (!acquire(creep, st, opts)) {
             if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * 0.25) m.working = true;
-            else idle(creep, st);
+            else if (!fetchLoot(creep, st, m)) idle(creep, st);
         }
         return;
     }
