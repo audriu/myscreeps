@@ -240,7 +240,29 @@ Game.gcl.level - _.filter(Game.rooms, r => r.controller && r.controller.my).leng
 
 // Claim W48N25, claimer from W49N25
 Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
+
+// Claim several rooms one after another, all from W49N25
+Memory.empire.claim = { target: ['W48N25', 'W48N24', 'W47N25'], from: 'W49N25', t: Game.time }
 ```
+
+### Claim lists
+
+`target` may be a list. The empire unpacks it at once into `target` (the
+room being claimed now) and `next` (the rest, in order), and works through
+it:
+
+- When `target` is claimed, times out, has no controller or turns out to be
+  owned by someone else, the claim moves on to the first room of `next` that
+  is not ours or avoided (`Claim moves on to W48N24`) and `t` restarts, so
+  each room gets its own `claimTimeout`. The claim is cleared after the last
+  room.
+- The claimer does not suicide after a claim while the list has rooms left:
+  it signs the controller and walks on to the next one. If it dies on the
+  way (600 ticks), `from` spawns a new one for the room the list is at.
+- Rooms the list already claimed (`done`) do not count against the
+  `allRoomsMinRcl` gate, so the rest of the list is not stopped by the new
+  RCL1 rooms. Every room still needs a free GCL slot: when the GCL is full
+  the remaining rooms are dropped with a warning.
 
 ### How a claim runs
 
@@ -251,10 +273,12 @@ Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
 2. **Claimer**: the `from` room spawns one CLAIM+MOVE creep (650 energy, so
    RCL3+) at priority 320 (reclaims 450). It signs its home controller with
    `config.signature`, walks to the target (avoided rooms are routed
-   around), claims, signs and suicides. A claimer lives 600 ticks: keep
+   around), claims, signs and suicides (or walks on to the next room of a
+   [claim list](#claim-lists)). A claimer lives 600 ticks: keep
    `from` within 2–3 rooms of the target.
 3. **Claimed**: logged (`Claimed W48N25`), emailed, `Memory.empire.claim` is
-   cleared. If the controller turns out to be owned the claim is dropped.
+   cleared (a list moves on to its next room). If the controller turns out to
+   be owned the claim is dropped (a list skips the room).
 4. **First spawn**: the planner of the new room places a spawn site at once
    (RCL1 allows one) and plans the rest of the base around it.
 5. **Helpers**: while the room has no spawn, the nearest owned room at
@@ -323,6 +347,7 @@ Memory.empire.intel.W48N25            // { t, sources, ctrl, owner, reserved, le
 | You want | Command |
 |---|---|
 | Drop the current claim (a new automatic one may follow in 20 ticks) | `Memory.empire.claim = null` |
+| Skip the rest of a claim list, finish the current room | `Memory.empire.claim.next = []` |
 | Also kill a claimer already on its way | `_.filter(Game.creeps, c => c.memory.role === 'claimer').forEach(c => c.suicide())` |
 | Never pick a room automatically for 20000 ticks | `Memory.empire.blacklist.W48N24 = Game.time` |
 | Never claim or reclaim a room (until deleted) | `Memory.empire.abandoned.W48N24 = Game.time` |
@@ -336,7 +361,7 @@ Memory.empire.intel.W48N25            // { t, sources, ctrl, owner, reserved, le
 ### Watching progress
 
 ```js
-JSON.stringify(Memory.empire.claim)   // { target, from, t[, reclaim] } or null
+JSON.stringify(Memory.empire.claim)   // { target, from, t[, reclaim][, next, done] } or null
 _.filter(Game.creeps, c => c.memory.role === 'claimer').map(c => c.name + ' ' + c.pos + ' ttl=' + c.ticksToLive)
 _.filter(Game.creeps, c => c.memory.home === 'W48N25').map(c => c.name + ' ' + c.memory.role)   // helpers in the new room
 Game.rooms.W48N25.find(FIND_MY_CONSTRUCTION_SITES).map(s => s.structureType + ' ' + s.progress + '/' + s.progressTotal)

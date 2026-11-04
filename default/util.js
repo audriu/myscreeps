@@ -168,6 +168,42 @@ function isAvoided(roomName) {
     return avoidedRooms().indexOf(roomName) !== -1;
 }
 
+/**
+ * Memory.empire.claim.target may be one room or a list of rooms. A list is
+ * unpacked into target (the room being claimed now) and next (the rest, in
+ * order); an empty list drops the claim.
+ */
+function unpackClaim() {
+    const e = Memory.empire;
+    const c = e && e.claim;
+    if (!c || !Array.isArray(c.target)) return;
+    c.next = c.target.slice(1).concat(c.next || []);
+    c.target = c.target[0];
+    if (!c.target) e.claim = null;
+}
+
+/**
+ * The current claim target is done (claimed or given up): move on to the next
+ * room of the list, skipping owned and avoided ones, and restart the timeout.
+ * Clears the claim when no room is left. Returns the new target or null.
+ */
+function advanceClaim() {
+    unpackClaim();
+    const e = Memory.empire;
+    const c = e && e.claim;
+    if (!c) return null;
+    while (c.next && c.next.length) {
+        const name = c.next.shift();
+        if (isOwned(name) || isAvoided(name)) continue;
+        c.target = name;
+        c.t = Game.time;
+        log('Claim moves on to ' + name + (c.next.length ? ' (' + c.next.length + ' more after it)' : ''));
+        return name;
+    }
+    e.claim = null;
+    return null;
+}
+
 /** Cost matrix with every tile impassable: makes PathFinder route around a room. */
 function blockedMatrix() {
     if (heap.blockedMatrix) return heap.blockedMatrix;
@@ -365,6 +401,8 @@ module.exports = {
     exitRooms,
     avoidedRooms,
     isAvoided,
+    unpackClaim,
+    advanceClaim,
     roomCoords,
     isHighway,
     isKeeperRoom,

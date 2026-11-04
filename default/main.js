@@ -66,7 +66,8 @@ function summary(owned) {
     const avg = h.cpuAvg != null ? h.cpuAvg.toFixed(1) : '?';
     util.log('rooms=' + owned.length + '/' + Game.gcl.level + ' creeps=' + index.total +
         ' cpu~' + avg + '/' + Game.cpu.limit + ' bucket=' + Game.cpu.bucket +
-        (Memory.empire && Memory.empire.claim ? ' claim=' + Memory.empire.claim.target : '') +
+        (Memory.empire && Memory.empire.claim ? ' claim=' + Memory.empire.claim.target +
+            (Memory.empire.claim.next && Memory.empire.claim.next.length ? '+' + Memory.empire.claim.next.length : '') : '') +
         (Memory.empire && Memory.empire.wants ? ' empireWants=' + Memory.empire.wants.length : '') +
         (Memory.war && (Memory.war.muster || Memory.war.target) ? ' war=' + (Memory.war.target || 'muster') + '/' + war.soldiers().length : ''));
     if (Game.time % (config.logEvery * 5) === 0) {

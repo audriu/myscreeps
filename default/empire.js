@@ -14,6 +14,7 @@ function ensure() {
     if (!e.intel) e.intel = {};
     if (!e.blacklist) e.blacklist = {};
     if (!e.abandoned) e.abandoned = {};
+    util.unpackClaim();
     dropAvoided(e);
     return e;
 }
@@ -24,7 +25,7 @@ function dropAvoided(e) {
     if (!avoided.length) return;
     if (e.claim && util.isAvoided(e.claim.target)) {
         util.warn('Dropping claim of avoided room ' + e.claim.target);
-        e.claim = null;
+        util.advanceClaim();
     }
     e.scoutQueue = e.scoutQueue.filter(n => !util.isAvoided(n));
 }
@@ -274,6 +275,9 @@ function planExpansion(wants, states) {
     const cfg = config.expansion;
     const owned = util.ownedRooms();
     if (Game.gcl.level <= owned.length) {
+        if (e.claim && e.claim.next && e.claim.next.length) {
+            util.warn('GCL full: claim list dropped with ' + [e.claim.target].concat(e.claim.next).join(', ') + ' unclaimed');
+        }
         e.claim = null;
         // A lost room with our spawn in it stays lost until a slot frees up: say so.
         if (Game.time % 1000 === 0) {
@@ -289,27 +293,36 @@ function planExpansion(wants, states) {
         }
         return;
     }
+    // A running claim whose room is claimed or timed out moves on to the next room of its list.
+    if (e.claim) {
+        const c = e.claim;
+        if (util.isOwned(c.target)) {
+            util.log(c.reclaim
+                ? 'Reclaimed ' + c.target + '; its spawn restarts the room'
+                : 'Expansion ' + c.target + ' claimed; helpers will build the spawn');
+            c.done = (c.done || []).concat(c.target);
+            util.advanceClaim();
+        } else if (Game.time - c.t > cfg.claimTimeout) {
+            util.warn('Claim of ' + c.target + ' timed out');
+            e.blacklist[c.target] = Game.time;
+            util.advanceClaim();
+        }
+    }
+
+    // Rooms the running claim list already took do not hold the rest of the list back.
+    const done = (e.claim && e.claim.done) || [];
     let expansionOk = !!cfg.enabled;
     for (let i = 0; i < states.length; i++) {
+        if (done.indexOf(states[i].name) !== -1) continue;
         if (states[i].rcl < cfg.allRoomsMinRcl || !states[i].spawns.length) expansionOk = false;
     }
 
     // Keep an existing claim alive.
     if (e.claim) {
-        const c = e.claim;
-        if (Game.time - c.t > cfg.claimTimeout) {
-            util.warn('Claim of ' + c.target + ' timed out');
-            e.blacklist[c.target] = Game.time;
-            e.claim = null;
-        } else if (util.isOwned(c.target)) {
-            util.log(c.reclaim
-                ? 'Reclaimed ' + c.target + '; its spawn restarts the room'
-                : 'Expansion ' + c.target + ' claimed; helpers will build the spawn');
-            e.claim = null;
-        } else if (!c.reclaim && !expansionOk) {
+        if (!e.claim.reclaim && !expansionOk) {
             e.claim = null;
         } else {
-            wantClaimer(wants, c);
+            wantClaimer(wants, e.claim);
             return;
         }
     }

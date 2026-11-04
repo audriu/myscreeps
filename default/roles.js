@@ -807,6 +807,32 @@ function defender(creep, m) {
     }
 }
 
+/**
+ * Room a claimer should go on to after `done`: the first room of the claim
+ * list (Memory.empire.claim target, then next) that is not ours yet, or null.
+ */
+function nextClaimRoom(done) {
+    util.unpackClaim();
+    const c = Memory.empire && Memory.empire.claim;
+    if (!c) return null;
+    const list = [c.target].concat(c.next || []);
+    for (let i = 0; i < list.length; i++) {
+        if (list[i] !== done && !util.isOwned(list[i]) && !util.isAvoided(list[i])) return list[i];
+    }
+    return null;
+}
+
+/** Done with `target` (claimed or given up): walk on to the next room of the claim list, else suicide. */
+function claimerMoveOn(creep, m, target) {
+    const next = nextClaimRoom(target);
+    if (!next) {
+        creep.suicide();
+        return;
+    }
+    util.log(creep.name + ' moves on from ' + target + ' to ' + next);
+    m.targetRoom = next;
+}
+
 function claimer(creep, m) {
     const target = m.targetRoom;
     if (!target || util.isAvoided(target)) {
@@ -831,13 +857,14 @@ function claimer(creep, m) {
     }
     const ctrl = creep.room.controller;
     if (!ctrl) {
-        creep.suicide();
+        if (Memory.empire && Memory.empire.claim && Memory.empire.claim.target === target) util.advanceClaim();
+        claimerMoveOn(creep, m, target);
         return;
     }
     if (ctrl.my) {
         if (creep.pos.isNearTo(ctrl)) {
             if (!ctrl.sign || ctrl.sign.text !== config.signature) creep.signController(ctrl, config.signature);
-            else creep.suicide();
+            else claimerMoveOn(creep, m, target);
         } else {
             util.travel(creep, ctrl);
         }
@@ -845,8 +872,8 @@ function claimer(creep, m) {
     }
     if (ctrl.owner) {
         util.warn(target + ' is owned by ' + ctrl.owner.username + '; dropping claim');
-        if (Memory.empire && Memory.empire.claim && Memory.empire.claim.target === target) Memory.empire.claim = null;
-        creep.suicide();
+        if (Memory.empire && Memory.empire.claim && Memory.empire.claim.target === target) util.advanceClaim();
+        claimerMoveOn(creep, m, target);
         return;
     }
     if (!creep.pos.isNearTo(ctrl)) {
