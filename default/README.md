@@ -17,6 +17,13 @@ modules from the branch first; `main.js` only requires the modules listed below.
   workers for building and repairs. Bodies scale with the room's energy
   capacity; the spawn waits for energy instead of producing stubs (except in
   emergencies).
+- **Towers are rearmed first**: a tower under 70% energy outranks spawns,
+  extensions, the controller container, links, storage and terminal. Haulers
+  carrying energy drop what they are doing (topping up, stashing loot, a trip
+  elsewhere) and go to the tower, drawing on the terminal when storage is dry.
+  Workers do it before anything else, the downgrade emergency included, when
+  there is no hauler or the room is in danger. Upgraders and workers leave in
+  storage what the towers still need.
 - **Base repair**: frees spawns that were boxed in by structures (destroys the
   cheapest chain of extensions/walls), opens walled pockets, removes
   unreachable extensions, prunes RCL-inactive structures that sit off the

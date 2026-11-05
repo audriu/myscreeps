@@ -279,10 +279,22 @@ function closestWithRoom(creep, list, exclude) {
     return best;
 }
 
+/** Energy the needy towers still lack after what is already on its way to them. */
+function towerDeficit(st) {
+    let n = 0;
+    for (let i = 0; i < st.towersNeedy.length; i++) {
+        const t = st.towersNeedy[i];
+        if (isBad(t.id)) continue;
+        n += Math.max(0, t.store.getFreeCapacity(RESOURCE_ENERGY) - (heap.fill[t.id] || 0));
+    }
+    return n;
+}
+
 function pickDelivery(creep, st, opts, exclude) {
-    let t = closestWithRoom(creep, st.refill, exclude);
+    // Rearming towers comes first, ahead of spawns and extensions.
+    let t = closestWithRoom(creep, st.towersNeedy, exclude);
     if (t) return t;
-    t = closestWithRoom(creep, st.towersNeedy, exclude);
+    t = closestWithRoom(creep, st.refill, exclude);
     if (t) return t;
     if (opts.only === 'refill') return null;
 
@@ -311,6 +323,8 @@ function deliver(creep, st, opts) {
     const m = creep.memory;
     let tgt = m.t && m.tk === 'transfer' ? Game.getObjectById(m.t) : null;
     if (tgt && (!deliveryStillGood(tgt) || tgt.pos.roomName !== creep.room.name)) tgt = null;
+    // A tower ran low while we were on the way elsewhere: go there instead.
+    if (tgt && tgt.structureType !== STRUCTURE_TOWER && towerDeficit(st) > 0) tgt = null;
     if (!tgt) {
         tgt = pickDelivery(creep, st, opts, null);
         if (!tgt) {
@@ -623,7 +637,15 @@ function hauler(creep, m) {
         util.travel(creep, st.idle, { range: 2 });
         return;
     }
-    if (stashLoot(creep, st)) return;
+    // Carried energy goes to a tower that needs it before the trip is topped up
+    // or loot is stashed.
+    const rearm = towerDeficit(st) > 0;
+    if (rearm && !m.working && (creep.store[RESOURCE_ENERGY] || 0) > 0) {
+        m.working = true;
+        delete m.t;
+        delete m.tk;
+    }
+    if (!(rearm && m.working) && stashLoot(creep, st)) return;
     if (!m.working) {
         const keep = war.terminalKeep();
         const storageEnergy = st.storage ? (st.storage.store[RESOURCE_ENERGY] || 0) : 0;
@@ -636,7 +658,8 @@ function hauler(creep, m) {
             sourceContainers: true,
             storageLinkDrain: !!(st.storageLink && st.sourceLinks.length),
             storage: !!(demand && st.storage && storageEnergy > 300),
-            terminal: !!(st.terminal && (st.terminal.store[RESOURCE_ENERGY] || 0) > keep + 2000 && storageEnergy < 50000),
+            terminal: !!(st.terminal && (st.terminal.store[RESOURCE_ENERGY] || 0) > keep + 2000 && storageEnergy < 50000) ||
+                !!(rearm && st.terminal && storageEnergy <= 300),
         };
         if (!acquire(creep, st, opts)) {
             if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * 0.25) m.working = true;
@@ -720,7 +743,8 @@ function upgrader(creep, m) {
         const ok = acquire(creep, st, {
             dropped: true,
             sourceContainers: true,
-            storage: !!(st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) > 500),
+            // Leave what the towers still need in storage.
+            storage: !!(st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) > 500 + towerDeficit(st)),
             harvest: st.count('miner') < st.sources.length,
         });
         if (!ok) {
@@ -742,16 +766,22 @@ function haulable(st) {
     return n;
 }
 
+/** Workers rearm towers when no hauler can, and in danger alongside the haulers. */
+function workerRearm(st) {
+    return towerDeficit(st) > 0 && (st.count('hauler') === 0 || st.danger);
+}
+
 function chooseTask(creep, st) {
     const haulers = st.count('hauler');
     const rh = util.roomHeap(st.name);
     const needEnergy = rh.needEnergy || 0;
+    // Rearming towers outranks everything, the downgrade emergency included.
+    if (workerRearm(st)) return 'fill';
     if (st.downgrade && st.ctrl.ticksToDowngrade < 3000) return 'upgrade';
     // Keep the spawn fed for its next creep when no hauler can do it (none alive,
     // or nothing lying around for them to haul).
     if (st.refill.length && st.energy < Math.max(300, needEnergy) && (haulers === 0 || haulable(st) < 200)) return 'fill';
     if (st.downgrade) return 'upgrade';
-    if (st.towersNeedy.length && haulers === 0 && st.danger) return 'fill';
     if (st.sites.length) return freshRamparts(st).length ? 'repair' : 'build';
     if (repairObjects(st).length) return 'repair';
     if (defense.spareEnergy(st) && defense.fortifyTargets(st).length) return 'fortify';
@@ -776,17 +806,18 @@ function worker(creep, m) {
     }
     if (!m.working) {
         const haulers = st.count('hauler');
+        const reserve = workerRearm(st) ? 0 : (haulers ? 2000 : 300) + towerDeficit(st);
         const ok = acquire(creep, st, {
             dropped: true,
             sourceContainers: true,
-            storage: !!(st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) > (haulers ? 2000 : 300)),
+            storage: !!(st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) > reserve),
             // Harvest only while sources lack miners: miners own the harvest spots.
             harvest: st.count('miner') < st.sources.length,
         });
         if (!ok) idle(creep, st);
         return;
     }
-    if (!m.task || Game.time % 10 === 0) {
+    if (!m.task || Game.time % 10 === 0 || (m.task !== 'fill' && workerRearm(st))) {
         const task = chooseTask(creep, st);
         if (task !== m.task) {
             m.task = task;
