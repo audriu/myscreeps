@@ -260,9 +260,10 @@ function unclaimWant(st) {
     };
 }
 
-/** Never worth hitting: the controller, portals, keeper lairs, and power banks (they hit back). */
+/** Never worth hitting: the controller, roads, portals, keeper lairs, and power banks (they hit back). */
 const SWEEP_SKIP = {
     [STRUCTURE_CONTROLLER]: true,
+    [STRUCTURE_ROAD]: true,
     [STRUCTURE_PORTAL]: true,
     [STRUCTURE_KEEPER_LAIR]: true,
     [STRUCTURE_POWER_BANK]: true,
@@ -270,8 +271,8 @@ const SWEEP_SKIP = {
 
 /**
  * Final sweep (config.war.finalSweep): every structure in the room with hit
- * points that is not ours: ramparts, walls, roads, containers, covered and
- * ownerless leftovers. Never in our own rooms.
+ * points that is not ours: ramparts, walls, containers, covered and
+ * ownerless leftovers. Roads stay. Never in our own rooms.
  */
 function sweepTargets(room) {
     if (!config.war.finalSweep || (room.controller && room.controller.my)) return [];
@@ -289,7 +290,7 @@ function remainingTargets(roomName) {
     }).length;
     if (config.war.razeAll) {
         structs += room.find(FIND_STRUCTURES, {
-            filter: s => !s.my && (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER),
+            filter: s => !s.my && s.structureType === STRUCTURE_CONTAINER,
         }).length;
     }
     if (unrestricted(roomName)) structs += room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_WALL }).length;

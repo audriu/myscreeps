@@ -88,10 +88,10 @@ module.exports = {
         healers: 0.3,           // share of the squad that heals
         ranged: 0.3,            // share of the fighters that shoot (the rest are melee)
         // Last stage in the target: once no uncovered enemy is left, hit the closest thing with
-        // hit points that is not ours: ramparts, walls, roads, containers, covered and ownerless
-        // structures (not the controller, portals, keeper lairs or power banks).
+        // hit points that is not ours: ramparts, walls, containers, covered and ownerless
+        // structures (not the controller, roads, portals, keeper lairs or power banks).
         finalSweep: true,
-        razeAll: true,          // finalSweep off: after the owned structures also flatten roads and containers
+        razeAll: true,          // finalSweep off: after the owned structures also flatten containers
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
         // On the way (march, rally, walk home) soldiers turn on armed enemy creeps (ATTACK or
         // RANGED_ATTACK) that come within this many tiles; unarmed creeps are let go. 0: walk past.

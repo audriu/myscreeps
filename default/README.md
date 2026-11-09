@@ -128,10 +128,10 @@ target changed or whose `unclaim` switch is off does the same.
    1. hostile creeps and hostile structures that are **not** under a
       rampart (hits on a covered target only dent the rampart);
    2. **final sweep** (`finalSweep`): once none is left, everything with hit
-      points that is not ours: ramparts, walls, roads, containers, whatever
-      the ramparts covered, ownerless leftovers. Never the controller,
-      portals, keeper lairs or power banks (they hit back), never anything
-      in our own rooms.
+      points that is not ours: ramparts, walls, containers, whatever
+      the ramparts covered, ownerless leftovers. Never roads (pointless,
+      they stay), the controller, portals, keeper lairs or power banks
+      (they hit back), never anything in our own rooms.
 5. **Cleared**: when nothing destroyable is left the room is marked cleared
    (emailed) and the squad holds its centre. If something new appears the
    fight resumes.
@@ -140,9 +140,9 @@ Safe mode in the target: the squad waits at the rally room (⏳) and marches
 again when it ends. Rooms in `unrestrictedRooms` (or `Memory.war.everything =
 true`) skip the waiting order: walls and covered structures are hit from the
 start. With `closestFirst: false` armed creeps and loaded towers go first;
-with `finalSweep: false` the old ending applies (ownerless roads and
-containers, then the whole squad on the weakest rampart, walls only when
-they block the path).
+with `finalSweep: false` the old ending applies (ownerless containers, then
+the whole squad on the weakest rampart, walls only when they block the
+path). Roads are never hit.
 
 ### Low-energy muster (`Memory.war.cheap`)
 
@@ -233,8 +233,8 @@ controller neutral.
 | `healers`, `ranged` | 0.3, 0.3 | squad mix |
 | `closestFirst` | true | nearest target first |
 | `engageRange` | 5 | on the way: fight armed enemy creeps within this many tiles (0: walk past) |
-| `finalSweep` | true | destroy everything destroyable at the end |
-| `razeAll` | true | old ending only: roads and containers |
+| `finalSweep` | true | destroy everything destroyable at the end (roads excepted) |
+| `razeAll` | true | old ending only: ownerless containers |
 | `unrestrictedRooms` | `[]` | rooms where nothing is spared from the start |
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
 | `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |

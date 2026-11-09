@@ -1032,10 +1032,9 @@ const STRUCTURE_KILL_ORDER = {
     [STRUCTURE_RAMPART]: 5,
 };
 
-/** Ownerless structures razed after the hostile ones (config.war.razeAll); higher goes first. Walls are kept. */
+/** Ownerless structures razed after the hostile ones (config.war.razeAll); higher goes first. Walls and roads are kept. */
 const NEUTRAL_RAZE = {
     [STRUCTURE_CONTAINER]: 30,
-    [STRUCTURE_ROAD]: 20,
 };
 
 /** Hostile ramparts in the room keyed by position (per-tick cache). */
@@ -1170,8 +1169,8 @@ function pickHostileStructure(creep) {
 /**
  * Closest-first targeting: the nearest hostile creep or structure that is not
  * under a rampart; once none is left, the final sweep takes everything with
- * hit points (ramparts, walls, roads, leftovers; config.war.finalSweep), so
- * a road next to a soldier never outranks an enemy. Soldiers are short-lived,
+ * hit points except roads (ramparts, walls, leftovers; config.war.finalSweep),
+ * so a wall next to a soldier never outranks an enemy. Soldiers are short-lived,
  * so time spent walking to a "better" target is wasted. In our own rooms
  * (war target set to fight an intruder) only enemies count, and leftovers
  * that still hold loot are left standing.
@@ -1270,7 +1269,7 @@ function engage(creep, target, noBreach) {
     const ranged = util.countParts(creep, RANGED_ATTACK) > 0;
     const range = creep.pos.getRangeTo(target);
     if (ranged) {
-        // Mass attack only hurts owned things: ownerless walls and roads need an aimed shot.
+        // Mass attack only hurts owned things: ownerless walls and containers need an aimed shot.
         // Never next to leftovers we are emptying: the splash would wear them down.
         if (range <= 1 && target.owner && !nearSpared(creep)) creep.rangedMassAttack();
         else if (range <= 3) creep.rangedAttack(target);
