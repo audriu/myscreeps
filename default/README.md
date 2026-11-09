@@ -132,6 +132,12 @@ target changed or whose `unclaim` switch is off does the same.
       the ramparts covered, ownerless leftovers. Never roads (pointless,
       they stay), the controller, portals, keeper lairs or power banks
       (they hit back), never anything in our own rooms.
+   3. **energy is kept** (`spareEnergy`): at every stage, a harmless
+      structure that still holds energy (storage, terminal, container,
+      extension, link, lab, factory, power spawn) is left standing so the
+      energy is there when we settle the room; once it is empty it goes.
+      Towers, spawns and nukers are always destroyed. Ranged soldiers aim
+      instead of using mass attack within 3 tiles of a spared structure.
 5. **Cleared**: when nothing destroyable is left the room is marked cleared
    (emailed) and the squad holds its centre. If something new appears the
    fight resumes.
@@ -235,6 +241,7 @@ controller neutral.
 | `engageRange` | 5 | on the way: fight armed enemy creeps within this many tiles (0: walk past) |
 | `finalSweep` | true | destroy everything destroyable at the end (roads excepted) |
 | `razeAll` | true | old ending only: ownerless containers |
+| `spareEnergy` | true | outside our rooms, leave harmless structures holding energy standing (not towers, spawns, nukers) |
 | `unrestrictedRooms` | `[]` | rooms where nothing is spared from the start |
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
 | `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |

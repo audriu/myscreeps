@@ -269,14 +269,31 @@ const SWEEP_SKIP = {
     [STRUCTURE_POWER_BANK]: true,
 };
 
+/** Structures that are never spared for their energy: they shoot, make defenders, block our spawn, or nuke. */
+const ALWAYS_KILL = {
+    [STRUCTURE_TOWER]: true,
+    [STRUCTURE_SPAWN]: true,
+    [STRUCTURE_NUKER]: true,
+};
+
+/**
+ * Harmless structure (not ours) still holding energy (config.war.spareEnergy):
+ * left standing so the energy is there when we settle the room.
+ */
+function sparesEnergy(s) {
+    if (!config.war.spareEnergy || s.my || ALWAYS_KILL[s.structureType] || !s.store) return false;
+    return (s.store[RESOURCE_ENERGY] || 0) > 0;
+}
+
 /**
  * Final sweep (config.war.finalSweep): every structure in the room with hit
  * points that is not ours: ramparts, walls, containers, covered and
- * ownerless leftovers. Roads stay. Never in our own rooms.
+ * ownerless leftovers. Roads and harmless structures holding energy stay.
+ * Never in our own rooms.
  */
 function sweepTargets(room) {
     if (!config.war.finalSweep || (room.controller && room.controller.my)) return [];
-    return util.find(room, FIND_STRUCTURES, 'sweep', s => !s.my && s.hits != null && !SWEEP_SKIP[s.structureType]);
+    return util.find(room, FIND_STRUCTURES, 'sweep', s => !s.my && s.hits != null && !SWEEP_SKIP[s.structureType] && !sparesEnergy(s));
 }
 
 /** Anything left to kill in the target room (needs vision). */
@@ -286,11 +303,11 @@ function remainingTargets(roomName) {
     const creeps = room.find(FIND_HOSTILE_CREEPS).length;
     if (config.war.finalSweep && !(room.controller && room.controller.my)) return creeps + sweepTargets(room).length;
     let structs = room.find(FIND_HOSTILE_STRUCTURES, {
-        filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null,
+        filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && !sparesEnergy(s),
     }).length;
     if (config.war.razeAll) {
         structs += room.find(FIND_STRUCTURES, {
-            filter: s => !s.my && s.structureType === STRUCTURE_CONTAINER,
+            filter: s => !s.my && s.structureType === STRUCTURE_CONTAINER && !sparesEnergy(s),
         }).length;
     }
     if (unrestricted(roomName)) structs += room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_WALL }).length;
@@ -396,4 +413,4 @@ function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, sweepTargets, rallyPos, safeModeActive, unrestricted, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, sparesEnergy, sweepTargets, rallyPos, safeModeActive, unrestricted, run };

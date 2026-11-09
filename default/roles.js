@@ -1063,10 +1063,14 @@ function leftover(s) {
     return !(ctrl.owner && ctrl.owner.username === s.owner.username);
 }
 
-/** Another player's leftover in a room of ours that we are still emptying (roomState loot): left standing. */
+/**
+ * Left standing: another player's leftover in a room of ours that we are
+ * still emptying (roomState loot), or elsewhere a harmless structure holding
+ * energy for when we settle (config.war.spareEnergy).
+ */
 function spared(s) {
     const room = s.room;
-    if (!room.controller || !room.controller.my) return false;
+    if (!room.controller || !room.controller.my) return war.sparesEnergy(s);
     const ids = util.cache(room.name + '|lootIds', () => {
         const out = {};
         const loot = roomState.get(room).loot;
@@ -1076,10 +1080,12 @@ function spared(s) {
     return !!ids[s.id];
 }
 
-/** Would a mass attack from here chip a leftover we are still emptying? */
+/** Would a mass attack from here chip a structure we leave standing? */
 function nearSpared(creep) {
     const room = creep.room;
-    if (!room.controller || !room.controller.my) return false;
+    if (!room.controller || !room.controller.my) {
+        return creep.pos.findInRange(FIND_HOSTILE_STRUCTURES, 3, { filter: war.sparesEnergy }).length > 0;
+    }
     const loot = roomState.get(room).loot;
     for (let i = 0; i < loot.length; i++) if (loot[i].owner && creep.pos.inRangeTo(loot[i], 3)) return true;
     return false;
@@ -1152,7 +1158,7 @@ function pickHostileStructure(creep) {
     }
     if (!config.war.razeAll || (creep.room.controller && creep.room.controller.my)) return null;
     // Nothing owned is left: flatten the neutral leftovers, quick ones first, walls last.
-    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
+    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my && !war.sparesEnergy(s));
     best = null;
     bestScore = -Infinity;
     for (let i = 0; i < neutral.length; i++) {
@@ -1196,7 +1202,7 @@ function pickClosestTarget(creep, hostiles) {
     const sweep = war.sweepTargets(creep.room);
     if (sweep.length) return creep.pos.findClosestByRange(sweep);
     if (!config.war.razeAll) return null;
-    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my);
+    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my && !war.sparesEnergy(s));
     for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
     return candidates.length ? creep.pos.findClosestByRange(candidates) : null;
 }
