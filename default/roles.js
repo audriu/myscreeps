@@ -1018,6 +1018,9 @@ function scout(creep, m) {
 /* War: soldiers (melee / ranged / healer)                             */
 /* ------------------------------------------------------------------ */
 
+const ARMED_PARTS = [ATTACK, RANGED_ATTACK];
+const KEEPER = 'Source Keeper';
+
 const STRUCTURE_KILL_ORDER = {
     [STRUCTURE_TOWER]: 100,
     [STRUCTURE_SPAWN]: 90,
@@ -1206,7 +1209,63 @@ function breachTarget(creep) {
     return walls.length ? creep.pos.findClosestByRange(walls) : null;
 }
 
-function engage(creep, target) {
+/** Can this creep hurt ours (live ATTACK or RANGED_ATTACK parts)? Peaceful creeps are let go on the way. */
+function armed(c) {
+    return util.hasParts(c, ARMED_PARTS);
+}
+
+/**
+ * Armed enemy met outside the target room: the nearest one within
+ * config.war.engageRange tiles that can be hurt (not under a rampart, not in
+ * a room under someone's safe mode). Source keepers only count once they are
+ * in their own shooting range.
+ */
+function armedInReach(creep) {
+    const reach = config.war.engageRange;
+    if (!reach) return null;
+    const ctrl = creep.room.controller;
+    if (ctrl && !ctrl.my && ctrl.safeMode) return null;
+    const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < hostiles.length; i++) {
+        const h = hostiles[i];
+        const d = creep.pos.getRangeTo(h);
+        if (d >= bestD || d > (h.owner && h.owner.username === KEEPER ? Math.min(reach, 3) : reach)) continue;
+        if (!armed(h) || covered(h)) continue;
+        bestD = d;
+        best = h;
+    }
+    return best;
+}
+
+/**
+ * On the road (march, rally, way home): fight an armed enemy within reach
+ * instead of walking past it. Healers stay with the fighters meanwhile.
+ * False when there is nobody to fight (or no way to get at them): walk on.
+ */
+function fightOnTheWay(creep, healer) {
+    const foe = armedInReach(creep);
+    if (!foe) return false;
+    if (healer) {
+        const fighters = util.find(creep.room, FIND_MY_CREEPS, 'fighters',
+            c => c.memory.role === 'soldier' && c.memory.kind !== 'healer');
+        if (!fighters.length) return false;
+        healerFollow(creep);
+        return true;
+    }
+    if (!engage(creep, foe, true)) return false;
+    creep.say('⚔️', true);
+    return true;
+}
+
+/**
+ * Hit the target, closing in first. While it is still out of weapon reach an
+ * armed enemy that is within reach gets the hit instead. noBreach: never chew
+ * through walls to get there; false is returned when the target cannot be
+ * reached or hit.
+ */
+function engage(creep, target, noBreach) {
     const melee = util.countParts(creep, ATTACK) > 0;
     const ranged = util.countParts(creep, RANGED_ATTACK) > 0;
     const range = creep.pos.getRangeTo(target);
@@ -1217,6 +1276,22 @@ function engage(creep, target) {
         else if (range <= 3) creep.rangedAttack(target);
     }
     if (melee && range <= 1) creep.attack(target);
+    if ((melee && range > 1) || (ranged && range > 3)) {
+        const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
+        for (let i = 0; i < hostiles.length; i++) {
+            const h = hostiles[i];
+            if (h === target || !armed(h) || covered(h)) continue;
+            const d = creep.pos.getRangeTo(h);
+            if (melee && range > 1 && d <= 1) {
+                creep.attack(h);
+                break;
+            }
+            if (ranged && range > 3 && d <= 3) {
+                creep.rangedAttack(h);
+                break;
+            }
+        }
+    }
     let res = OK;
     if (melee || range > 3) {
         if (range > 1 || melee) res = util.travel(creep, target, { range: melee ? 1 : 3, reusePath: 5 });
@@ -1226,6 +1301,7 @@ function engage(creep, target) {
         if (dir) creep.move(dir);
     }
     if (res === ERR_NO_PATH) {
+        if (noBreach) return range <= (ranged ? 3 : 1);
         const wall = breachTarget(creep);
         if (wall) {
             if (creep.pos.isNearTo(wall)) {
@@ -1234,6 +1310,7 @@ function engage(creep, target) {
             } else util.travel(creep, wall, { range: 1, reusePath: 5 });
         }
     }
+    return true;
 }
 
 function healAround(creep) {
@@ -1292,6 +1369,8 @@ function soldier(creep, m) {
     // Target set: gather at the rally room, then march in and clear it.
     if (w.target) {
         const inTarget = creep.room.name === w.target;
+        // Armed enemies met on the way are fought, not walked past.
+        if (!inTarget && fightOnTheWay(creep, healer)) return;
         if (war.safeModeActive(w)) {
             // Nothing can be hit while the target is in safe mode: pull back and wait.
             creep.say('⏳', true);
@@ -1356,6 +1435,7 @@ function soldier(creep, m) {
         return;
     }
     if (creep.room.name !== st.name) {
+        if (fightOnTheWay(creep, healer)) return;
         util.travel(creep, st.anchor, { range: 4, reusePath: 50 });
         return;
     }

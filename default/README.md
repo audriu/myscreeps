@@ -120,6 +120,10 @@ target changed or whose `unclaim` switch is off does the same.
 3. **March**: once `gatherShare` (80%) of the wave stands at the rally point,
    or `maxGather` (600) ticks have passed with at least one there, or
    `Memory.war.go` is set, everyone marches in. Healers stick to fighters.
+   Armed enemy creeps (ATTACK or RANGED_ATTACK) that come within
+   `engageRange` (5) tiles on the way are fought (⚔️) before the march goes
+   on; unarmed creeps are let go. The same holds on the way to the rally
+   point and back home.
 4. **Destroy**, closest first (`closestFirst`):
    1. hostile creeps and hostile structures that are **not** under a
       rampart (hits on a covered target only dent the rampart);
@@ -185,6 +189,7 @@ creeps as large as the room can afford (14 CLAIM at 9300 energy capacity).
 | Bubble | Meaning |
 |---|---|
 | 💀 | soldier marching on or fighting in the target |
+| ⚔️ | soldier fighting an armed enemy it met on the way |
 | ⏳ | soldier waiting at the rally room for safe mode to end |
 | 🏴 | unclaimer on its way, or done striking |
 | 🏴⏳941 | unclaimer at the controller, block still running (ticks left) |
@@ -227,6 +232,7 @@ controller neutral.
 | `priority` | 480 | spawn priority (unclaimers +10) |
 | `healers`, `ranged` | 0.3, 0.3 | squad mix |
 | `closestFirst` | true | nearest target first |
+| `engageRange` | 5 | on the way: fight armed enemy creeps within this many tiles (0: walk past) |
 | `finalSweep` | true | destroy everything destroyable at the end |
 | `razeAll` | true | old ending only: roads and containers |
 | `unrestrictedRooms` | `[]` | rooms where nothing is spared from the start |

@@ -93,6 +93,9 @@ module.exports = {
         finalSweep: true,
         razeAll: true,          // finalSweep off: after the owned structures also flatten roads and containers
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
+        // On the way (march, rally, walk home) soldiers turn on armed enemy creeps (ATTACK or
+        // RANGED_ATTACK) that come within this many tiles; unarmed creeps are let go. 0: walk past.
+        engageRange: 5,
         // Rooms where nothing is spared: walls and rampart-covered structures join the
         // closest-first pool instead of being skipped. Console: Memory.war.everything = true.
         unrestrictedRooms: [],
