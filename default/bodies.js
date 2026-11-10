@@ -82,11 +82,15 @@ function ranger(energy) {
     return assemble({ ranged_attack: units, move: units });
 }
 
-/** Melee soldier: ATTACK/MOVE pairs, leftover energy buys TOUGH (max 50 parts). */
+/**
+ * Melee soldier: ATTACK/MOVE pairs, leftover energy buys TOUGH/MOVE pairs (max 50 parts).
+ * One MOVE per other part: a TOUGH without its MOVE halves the pace on plains and makes a
+ * swamp tile take four times as long, so the soldier arrives late or not at all.
+ */
 function soldier(energy) {
     const units = util.clamp(Math.floor(Math.max(130, energy) / 130), 1, 22);
-    const tough = util.clamp(Math.floor((energy - units * 130) / 10), 0, Math.min(6, 50 - units * 2));
-    return assemble({ tough, attack: units, move: units });
+    const tough = util.clamp(Math.floor((energy - units * 130) / 60), 0, Math.min(6, Math.floor((50 - units * 2) / 2)));
+    return assemble({ tough, attack: units, move: units + tough });
 }
 
 /** Ranged soldier: RANGED_ATTACK/MOVE pairs (max 50 parts). */

@@ -114,7 +114,8 @@ target changed or whose `unclaim` switch is off does the same.
    with an active spawn, not in bootstrap and (unless `cheap`) with at least
    `minStorage` (20k) in storage keeps `maxPerRoom` (10) soldiers and
    replaces losses: 30% healers, and of the fighters 30% ranged, the rest
-   melee (ATTACK/MOVE pairs, spare energy buys TOUGH). Soldiers spawn at
+   melee (ATTACK/MOVE pairs, spare energy buys TOUGH/MOVE pairs, so every
+   part has its MOVE). Soldiers spawn at
    priority 480: after miners, haulers and upgraders, before workers.
    Without a target they wait at home and fight anything that enters it.
 2. **Rally** (`Memory.war.target = 'E11N36'`): the squad gathers in the
