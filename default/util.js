@@ -302,7 +302,8 @@ function travel(creep, target, opts) {
         swampCost: opts.swampCost,
         visualizePathStyle: config.visuals ? (opts.pathStyle || (creep.memory.role === 'soldier' ? config.pathStyleWar : config.pathStyle)) : undefined,
     });
-    if (stuck) shoveIdleNeighbours(creep);
+    // Blocked last tick already: idle neighbours (parked creeps, healers shadowing this one) step aside.
+    if (stuckFor >= 1) shoveIdleNeighbours(creep);
     if (!bouncing && stuckFor >= 6 && stuckFor % 3 === 0) {
         // Still jammed: step somewhere random to break the deadlock.
         creep.move(((stuckFor * 7 + Game.time) % 8) + 1);

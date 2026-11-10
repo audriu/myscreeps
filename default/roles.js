@@ -1357,6 +1357,8 @@ function healerFollow(creep, fallbackPos) {
             best = c;
         }
     }
+    // Already beside it: a fighter boxed in by its healers may push this one aside.
+    if (creep.pos.isNearTo(best)) util.markIdle(creep);
     util.travel(creep, best, { range: 1, reusePath: 3 });
 }
 
@@ -1417,6 +1419,8 @@ function soldier(creep, m) {
                     filter: c => c.memory.role === 'soldier' && c.memory.kind !== 'healer' && !util.onEdge(c.pos),
                 });
                 if (near.length && creep.pos.roomName !== w.target) {
+                    // Already beside it: a fighter boxed in by its healers may push this one aside.
+                    if (creep.pos.isNearTo(near[0])) util.markIdle(creep);
                     util.travel(creep, near[0], { range: 1, reusePath: 3 });
                     return;
                 }

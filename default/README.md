@@ -66,7 +66,8 @@ modules from the branch first; `main.js` only requires the modules listed below.
   dropped. A creep that cannot step off an exit tile (the engine throws it
   back and forth between the two rooms) counts as jammed and paths around
   the creeps in its way; marching healers do not wait next to a fighter that
-  stands on an exit tile.
+  stands on an exit tile, and healers standing around a blocked fighter are
+  pushed aside like any idle creep.
 - **War** (`war.js`, roles `soldier` and `unclaimer`): console-driven
   offence: squads from every eligible room, a rally point, closest-first
   destruction ending in a sweep of everything destroyable, an optional
