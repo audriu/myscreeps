@@ -92,8 +92,9 @@ module.exports = {
         // structures (not the controller, roads, portals, keeper lairs or power banks).
         finalSweep: true,
         razeAll: true,          // finalSweep off: after the owned structures also flatten containers
-        // Outside our rooms, harmless structures (not towers, spawns or nukers) that still hold
-        // energy are left standing so the energy is there when we settle the room.
+        // Outside our rooms, harmless structures (not towers, spawns, extensions or nukers) that
+        // still hold energy or other resources are left standing so it is all there when we
+        // settle the room.
         spareEnergy: true,
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
         // On the way (march, rally, walk home) soldiers turn on armed enemy creeps (ATTACK or

@@ -1066,7 +1066,7 @@ function leftover(s) {
 /**
  * Left standing: another player's leftover in a room of ours that we are
  * still emptying (roomState loot), or elsewhere a harmless structure holding
- * energy for when we settle (config.war.spareEnergy).
+ * energy or resources for when we settle (config.war.spareEnergy).
  */
 function spared(s) {
     const room = s.room;

@@ -269,26 +269,28 @@ const SWEEP_SKIP = {
     [STRUCTURE_POWER_BANK]: true,
 };
 
-/** Structures that are never spared for their energy: they shoot, make defenders, block our spawn, or nuke. */
+/** Structures that are never spared for what they hold: they shoot, make defenders (spawns and the extensions feeding them), block our spawn, or nuke. */
 const ALWAYS_KILL = {
     [STRUCTURE_TOWER]: true,
     [STRUCTURE_SPAWN]: true,
+    [STRUCTURE_EXTENSION]: true,
     [STRUCTURE_NUKER]: true,
 };
 
 /**
- * Harmless structure (not ours) still holding energy (config.war.spareEnergy):
- * left standing so the energy is there when we settle the room.
+ * Harmless structure (not ours) still holding energy or any other resource
+ * (config.war.spareEnergy): left standing so it is there when we settle the room.
  */
 function sparesEnergy(s) {
     if (!config.war.spareEnergy || s.my || ALWAYS_KILL[s.structureType] || !s.store) return false;
-    return (s.store[RESOURCE_ENERGY] || 0) > 0;
+    for (const r in s.store) if (s.store[r] > 0) return true;
+    return false;
 }
 
 /**
  * Final sweep (config.war.finalSweep): every structure in the room with hit
  * points that is not ours: ramparts, walls, containers, covered and
- * ownerless leftovers. Roads and harmless structures holding energy stay.
+ * ownerless leftovers. Roads and harmless structures holding energy or resources stay.
  * Never in our own rooms.
  */
 function sweepTargets(room) {
