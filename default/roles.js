@@ -1412,7 +1412,10 @@ function soldier(creep, m) {
         if (w.go) {
             if (healer) {
                 // Travel with the pack: stick to a fighter heading the same way if one is near.
-                const near = creep.pos.findInRange(FIND_MY_CREEPS, 3, { filter: c => c.memory.role === 'soldier' && c.memory.kind !== 'healer' });
+                // Not to one on an exit tile: waiting next to it would block its way into the room.
+                const near = creep.pos.findInRange(FIND_MY_CREEPS, 3, {
+                    filter: c => c.memory.role === 'soldier' && c.memory.kind !== 'healer' && !util.onEdge(c.pos),
+                });
                 if (near.length && creep.pos.roomName !== w.target) {
                     util.travel(creep, near[0], { range: 1, reusePath: 3 });
                     return;

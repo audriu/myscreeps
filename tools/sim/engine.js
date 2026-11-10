@@ -767,7 +767,21 @@ function endTick() {
             const dest = W.rooms[roomNameFromWorld(nx, ny)];
             if (dest) { room.creeps = room.creeps.filter(o => o !== c); dest.creeps.push(c); c.pos = new RoomPosition(px, py, dest.name); c._path = null; }
         }
+        c._moved = W.time;
         W.stats.moves = (W.stats.moves || 0) + 1;
+    }
+    // Like the engine: a creep left standing on an exit tile is thrown back to the other room.
+    for (const name in W.creeps) {
+        const c = W.creeps[name];
+        if (c.spawning || c._moved === W.time) continue;
+        const x = c.pos.x, y = c.pos.y;
+        if (x !== 0 && x !== 49 && y !== 0 && y !== 49) continue;
+        const w = worldXY(c.pos.roomName); let nx = w.x, ny = w.y, px = x, py = y;
+        if (x === 0) { nx--; px = 49; } else if (x === 49) { nx++; px = 0; } else if (y === 0) { ny++; py = 49; } else { ny--; py = 0; }
+        const dest = W.rooms[roomNameFromWorld(nx, ny)];
+        const from = W.rooms[c.pos.roomName];
+        if (!dest || !from) continue;
+        from.creeps = from.creeps.filter(o => o !== c); dest.creeps.push(c); c.pos = new RoomPosition(px, py, dest.name); c._path = null;
     }
     for (const name in W.creeps) {
         const c = W.creeps[name];

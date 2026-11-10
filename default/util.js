@@ -8,6 +8,7 @@ const config = require('config');
 const heap = global.__heap = global.__heap || {
     cache: { time: -1, data: {} },
     lastPos: {},
+    prevPos: {},
     stuck: {},
     noPath: {},
     idleAt: {},
@@ -271,15 +272,21 @@ function travel(creep, target, opts) {
 
     const key = creep.name;
     const here = creep.pos.x + ':' + creep.pos.y + ':' + creep.pos.roomName;
-    if (heap.lastPos[key] === here) heap.stuck[key] = (heap.stuck[key] || 0) + 1;
+    const prevPos = heap.prevPos || (heap.prevPos = {});
+    // A creep that cannot step off an exit tile is thrown back and forth between the two
+    // rooms every tick: its position changes, yet it is jammed all the same.
+    const bouncing = prevPos[key] === here && heap.lastPos[key] !== here && onEdge(creep.pos);
+    if (heap.lastPos[key] === here || bouncing) heap.stuck[key] = (heap.stuck[key] || 0) + 1;
     else heap.stuck[key] = 0;
+    prevPos[key] = heap.lastPos[key];
     heap.lastPos[key] = here;
 
     const stuckFor = heap.stuck[key];
     const stuck = stuckFor >= 2;
     const sameRoom = pos.roomName === creep.pos.roomName;
-    // While jammed alternate between creep-aware and creep-blind pathing.
-    const ignoreCreeps = !stuck || stuckFor % 2 === 1;
+    // While jammed alternate between creep-aware and creep-blind pathing. A bouncing creep
+    // is only on each side every other tick, so there it is creep-aware every time.
+    const ignoreCreeps = !stuck || (!bouncing && stuckFor % 2 === 1);
 
     heap.pathingFrom = creep.pos.roomName;
     heap.pathingTo = pos.roomName;
@@ -296,7 +303,7 @@ function travel(creep, target, opts) {
         visualizePathStyle: config.visuals ? (opts.pathStyle || (creep.memory.role === 'soldier' ? config.pathStyleWar : config.pathStyle)) : undefined,
     });
     if (stuck) shoveIdleNeighbours(creep);
-    if (stuckFor >= 6 && stuckFor % 3 === 0) {
+    if (!bouncing && stuckFor >= 6 && stuckFor % 3 === 0) {
         // Still jammed: step somewhere random to break the deadlock.
         creep.move(((stuckFor * 7 + Game.time) % 8) + 1);
     }
@@ -310,6 +317,10 @@ function travel(creep, target, opts) {
         heap.noPath[key] = 0;
     }
     return res;
+}
+
+function onEdge(pos) {
+    return pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49;
 }
 
 /** Mark a creep as idle this tick so others may push it out of the way. */
@@ -362,6 +373,7 @@ function stepAwayFrom(creep, from) {
 
 function forgetCreep(name) {
     delete heap.lastPos[name];
+    if (heap.prevPos) delete heap.prevPos[name];
     delete heap.stuck[name];
     delete heap.noPath[name];
     delete heap.idleAt[name];
@@ -409,6 +421,7 @@ module.exports = {
     travel,
     park,
     markIdle,
+    onEdge,
     isIdle,
     stepAwayFrom,
     forgetCreep,

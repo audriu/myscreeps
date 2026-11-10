@@ -63,7 +63,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
   emailed with the number of free slots. See [Colonizing](#colonizing).
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
-  dropped.
+  dropped. A creep that cannot step off an exit tile (the engine throws it
+  back and forth between the two rooms) counts as jammed and paths around
+  the creeps in its way; marching healers do not wait next to a fighter that
+  stands on an exit tile.
 - **War** (`war.js`, roles `soldier` and `unclaimer`): console-driven
   offence: squads from every eligible room, a rally point, closest-first
   destruction ending in a sweep of everything destroyable, an optional
