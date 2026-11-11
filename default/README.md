@@ -40,8 +40,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
   every hostile out-heals them they hold fire and repair the weakest rampart
   within range 3 of a hostile instead. Otherwise they heal creeps, repair
   roads/containers and ramparts (fortify only when storage is healthy). Safe
-  mode when critical structures take damage, when a tower-less room has
-  hostiles at the spawn, or when the controller is attacked.
+  mode only once a hostile has actually hit something of ours in the room:
+  one of our creeps, one of our structures or the controller (read from the
+  room's event log of the previous tick; nukes do not count). Hostiles that
+  merely walk in, however many, do not trigger it.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
   20k at least. When there is nothing to build or repair and the room holds

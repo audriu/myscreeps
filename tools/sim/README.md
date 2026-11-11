@@ -2,7 +2,7 @@
 
 Offline simulator for the `default` script. It mocks enough of the Screeps API
 (rooms, structures, creeps, spawning, movement with fatigue, exit-tile bouncing, harvesting,
-building, upgrading, links, towers, simple invaders) to run the script against
+building, upgrading, links, towers, simple invaders whose hits land in `Room.getEventLog()`) to run the script against
 snapshots of real rooms and catch runtime errors and logic problems before
 uploading. It is an approximation, not the engine.
 

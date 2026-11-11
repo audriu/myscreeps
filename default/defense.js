@@ -187,32 +187,34 @@ function repairList(st) {
     return out;
 }
 
+/**
+ * What a hostile actually damaged in this room last tick (from the event
+ * log), or null. Counts hits on our creeps, our structures and our
+ * controller; nukes are left out (safe mode does not stop them).
+ */
+function hostileDamage(st) {
+    const log = st.room.getEventLog();
+    for (let i = 0; i < log.length; i++) {
+        const ev = log[i];
+        const attacker = Game.getObjectById(ev.objectId);
+        // Our towers and creeps never hit our own things; an attacker that died since is not ours either.
+        if (attacker && attacker.my) continue;
+        if (ev.event === EVENT_ATTACK_CONTROLLER) return 'controller attacked';
+        if (ev.event !== EVENT_ATTACK || !ev.data || ev.data.attackType === EVENT_ATTACK_TYPE_NUKE) continue;
+        const target = Game.getObjectById(ev.data.targetId);
+        if (!target || !target.my) continue;
+        const who = attacker && attacker.owner ? attacker.owner.username : 'hostile';
+        const what = target instanceof Creep ? 'creep ' + target.name : target.structureType;
+        return who + ' hit ' + what + ' for ' + ev.data.damage;
+    }
+    return null;
+}
+
+/** Safe mode only once a hostile has actually damaged our creeps, structures or controller here. */
 function maybeSafeMode(st) {
     const ctrl = st.ctrl;
-    if (!st.danger || !ctrl.safeModeAvailable || ctrl.safeMode || ctrl.safeModeCooldown) return;
-    const rh = util.roomHeap(st.name);
-    rh.dangerSince = rh.dangerSince || Game.time;
-
-    let reason = null;
-    const critical = st.spawns.concat(st.towers);
-    if (st.storage) critical.push(st.storage);
-    if (st.terminal) critical.push(st.terminal);
-    for (let i = 0; i < critical.length && !reason; i++) {
-        if (critical[i].hits < critical[i].hitsMax - 500) reason = critical[i].structureType + ' damaged';
-    }
-    if (!reason && !st.towers.length && Game.time - rh.dangerSince > 3) {
-        for (let i = 0; i < st.hostiles.length && !reason; i++) {
-            for (let s = 0; s < st.spawns.length; s++) {
-                if (st.hostiles[i].pos.inRangeTo(st.spawns[s], 5)) reason = 'hostiles at spawn, no towers';
-            }
-        }
-    }
-    if (!reason) {
-        for (let i = 0; i < st.hostiles.length && !reason; i++) {
-            if (util.hasParts(st.hostiles[i], [CLAIM]) && st.hostiles[i].pos.inRangeTo(ctrl, 2)) reason = 'controller attack';
-        }
-    }
-    if (!reason && st.hostiles.length >= 4 && st.towers.length <= 1) reason = 'outnumbered';
+    if (!st.danger || !ctrl.safeModeAvailable || ctrl.safeMode || ctrl.safeModeCooldown || ctrl.upgradeBlocked) return;
+    const reason = hostileDamage(st);
     if (!reason) return;
 
     if (ctrl.activateSafeMode() === OK) {
@@ -223,7 +225,6 @@ function maybeSafeMode(st) {
 
 function run(room, st) {
     const rh = util.roomHeap(st.name);
-    if (!st.hostiles.length) rh.dangerSince = null;
 
     const targets = st.hostiles.length && st.towers.length ? hittable(st) : [];
     if (targets.length) {

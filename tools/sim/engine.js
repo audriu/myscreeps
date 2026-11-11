@@ -436,6 +436,7 @@ class Room {
     get energyAvailable() { let n = 0; for (const s of this.structures) if ((s.structureType === 'spawn' || s.structureType === 'extension') && s.my && s.isActive()) n += s.store.energy || 0; return n; }
     get energyCapacityAvailable() { let n = 0; for (const s of this.structures) if ((s.structureType === 'spawn' || s.structureType === 'extension') && s.my && s.isActive()) n += s.store.getCapacity('energy'); return n; }
     getTerrain() { return this.terrain; }
+    getEventLog() { return (W.events && W.events[this.name]) || []; }
     find(type, opts) {
         let list;
         switch (type) {
@@ -711,6 +712,8 @@ function loadRoom(name, dir) {
 
 /* ---------------- tick processing ---------------- */
 function endTick() {
+    // Events of this tick: the script reads them next tick through Room.getEventLog().
+    W.events = {};
     runInvaders();
     // combat damage: anything shot to zero disappears
     for (const rn in W.rooms) {
@@ -882,7 +885,9 @@ function runInvaders() {
         const victimCreep = room.creeps.find(o => o.my && !o.spawning && c.pos.isNearTo(o));
         const victimStruct = room.structures.find(o => o.my && c.pos.isNearTo(o) && o.structureType !== 'rampart');
         const target = victimCreep || victimStruct;
-        if (target) { target.hits -= 90; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
+        if (target) {
+            (W.events[room.name] = W.events[room.name] || []).push({ event: C.EVENT_ATTACK, objectId: c.id, data: { targetId: target.id, damage: 90, attackType: C.EVENT_ATTACK_TYPE_MELEE } });
+            target.hits -= 90; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
         const spawn = room.structures.find(o => o.structureType === 'spawn');
         if (!spawn) continue;
         const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10 });
