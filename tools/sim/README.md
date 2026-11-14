@@ -39,15 +39,37 @@ down, lose levels and go neutral; same-tick `attackController` hits stack like
 in the engine. Hostile rooms report `structures=` (owned) and `leftovers=`
 (ownerless) so the final sweep can be checked.
 
-`fetch.js` only saves your own rooms; for an enemy target copy its
-`room-objects` and `room-terrain` responses into `data/rooms/` and
-`data/terrain/` by hand. Creeps cannot leave the loaded rooms: load every room
-on the way (rally room, transit rooms), or they stall at an exit.
+`fetch.js` only saves your own rooms. For any other room (an enemy target,
+neutral and highway rooms on the way) save two responses of the public API by
+hand; both work without a token for every room:
 
-`--data=DIR` runs against another snapshot set (`rooms/`, `terrain/`,
-`time.json`), e.g. a block of neutral and highway rooms around a route. Rooms
-without a controller, or with an unowned one, are listed as `transit` with the
-creeps standing in them. `--trace=N` prints every creep's room and position.
+```
+https://screeps.com/api/game/room-objects?room=ROOM&shard=shard1             -> rooms/ROOM.json
+https://screeps.com/api/game/room-terrain?room=ROOM&shard=shard1&encoded=1   -> terrain/ROOM.json
+```
+
+Creeps cannot leave the loaded rooms: load every room on the way (rally room,
+transit rooms), or they stall at an exit.
+
+`--data=DIR` runs against another snapshot set laid out like `data/`:
+`rooms/`, `terrain/` and a `time.json` holding
+`{"time": <tick>, "user": "<your user id>", "username": "<your name>"}`, e.g. a
+block of neutral and highway rooms around a route. Rooms without a controller,
+or with an unowned one, are listed as `transit` with the creeps standing in
+them. `--trace=N` prints every creep's room and position.
+
+To reproduce a movement problem seen in the live game, snapshot the rooms
+around it while the creeps are still there, then run the script from before
+the fix and the current one on the same set (anything under `data/` stays out
+of git):
+
+```
+D=tools/sim/data/trap
+ROOMS=$(ls $D/rooms | sed 's/.json//' | paste -sd,)
+mkdir -p /tmp/old-ai && git archive COMMIT_BEFORE_THE_FIX default | tar -x -C /tmp/old-ai
+node tools/sim/run.js /tmp/old-ai/default $ROOMS 600 --data=$D --war=W50N21:1 --go --quiet
+node tools/sim/run.js default $ROOMS 600 --data=$D --war=W50N21:1 --go --quiet
+```
 
 The summary line reports exceptions, average/max milliseconds per tick,
 Memory size and counters (harvested, upgraded, built, blocked moves, path

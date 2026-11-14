@@ -48,7 +48,18 @@ node tools/sim/fetch.js Dzioba shard1
 node tools/sim/run.js default W49N25 2000
 ```
 
-Additional scenario flags (`--quiet`, `--invade`, `--unowned`, `--lost`, `--gcl`, `--release`, `--war`, `--go`, `--hostile`, `--cheap`, `--unclaim`, `--nomuster`, `--trace`, `--map`) are documented in [tools/sim/README.md](tools/sim/README.md).
+Additional scenario flags (`--quiet`, `--invade`, `--unowned`, `--lost`, `--gcl`, `--release`, `--war`, `--go`, `--hostile`, `--cheap`, `--unclaim`, `--nomuster`, `--trace`, `--map`, `--data`) are documented in [tools/sim/README.md](tools/sim/README.md).
+
+## Lessons From Live Incidents
+
+Found the hard way on 2026-11-14 (a raid on the home room, then a war party stranded in a dead-end room). Read them before diagnosing something that happened in the live game.
+
+- **Check the cause in live data before fixing it**: the public web API returns the objects of any room without a token (`https://screeps.com/api/game/room-objects?room=ROOM&shard=shard1`; also `game/room-terrain`, `game/time`, `user/find`, `user/rooms`): creeps with bodies and boosts, tombstones, ruins, stores, the controller's `safeMode` and `safeModeAvailable`, nukes. It works for other players' rooms too. `Memory` and the console need an auth token, which this repository does not have, so ask the user for those. The first explanation of the raid, made from the code alone, was wrong; the attackers' tombstones and our controllers showed the real cause.
+- **Safe mode is one room at a time**: `activateSafeMode()` returns `ERR_BUSY` (-4) while any other room of ours is in safe mode (20,000 ticks), so a poke at a minor room can leave the home room without it. When safe mode "did not fire", look at every owned controller first; the script logs `safe mode failed (<code>) after <reason>`.
+- **The event log names targets that may be gone**: a hit that destroys its target cannot be looked up with `Game.getObjectById` a tick later, which is why `defense.js` remembers our ids while hostiles are in the room. `EVENT_ATTACK_TYPE_DISMANTLE` is 4 (5 is hit-back, 6 is nuke).
+- **`moveTo` does not cross the map**: its path search opens 16 rooms at most and, when it runs out, returns the path to the tile nearest the target, so the creep walks into a corner of a dead-end room and stays there. All movement goes through `util.travel`, which follows a room route one exit tile at a time; do not call `creep.moveTo` anywhere else.
+- **Never recycle a creep for being stuck outside our rooms**: abroad, "no path" means the route is wrong, not that the creep is walled in.
+- **A live bug the simulator does not show is a simulator bug first**: its `moveTo` used to route room by room, which hid the stranding above. Make `tools/sim/engine.js` behave like the game, reproduce the problem with the old script on snapshots of the real rooms (`--data=DIR`), then fix the AI and compare old and new on the same snapshot.
 
 ## Commit & Deploy Workflow
 
