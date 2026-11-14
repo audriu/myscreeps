@@ -13,7 +13,7 @@ Instructions for coding agents working in this repository.
 - `default/` — self-contained Screeps colony AI (CommonJS modules, no external runtime dependencies). See [default/README.md](default/README.md) for full behaviour, console commands, and configuration tables.
   - `main.js` — game loop (`module.exports.loop`), per-stage `guard()` error isolation, periodic console summaries, pixel generation.
   - `config.js` — all tunables (population caps, planner, defense, links, war, courier, terminal, expansion, reclaim, CPU thresholds).
-  - `util.js` — caches, movement/traffic, room helpers, logging.
+  - `util.js` — caches, movement/traffic (`travel`: room routes and exit waypoints for trips to other rooms), room helpers, logging.
   - `bodies.js` — body plans scaled to room energy budget.
   - `roomState.js` — per-tick room snapshot, structure index, creep index, and loot discovery (`findLoot`).
   - `planner.js` — checkerboard layout around the first spawn, spawn un-boxing, road/rampart placement (key structures and the min-cut perimeter), cleanup of off-grid inactive structures.

@@ -16,6 +16,12 @@ const heap = global.__heap = global.__heap || {
     terrain: {},
     rooms: {},
 };
+// Route planning (see travel): room routes, per-creep exit tiles, room edges that
+// turned out to be walled off, walkability matrices.
+heap.routes = heap.routes || {};
+heap.way = heap.way || {};
+heap.badEdges = heap.badEdges || {};
+heap.routeMatrix = heap.routeMatrix || {};
 
 function cache(key, fn) {
     const c = heap.cache;
@@ -257,9 +263,162 @@ function parkedCallback(roomName, matrix) {
     }
 }
 
+const ROUTE_TTL = 100;      // ticks a room route is shared by every creep making the trip
+const WAY_TTL = 150;        // ticks a creep keeps the exit tile it was given
+const BAD_EDGE_TTL = 300;   // ticks a walled-off room edge stays out of the routes
+const LOOKAHEAD = 3;        // rooms of the route planned through to pick the exit tile
+const PLANS_PER_TICK = 20;  // exit-tile plans (one path search each) allowed per tick
+
+/**
+ * Rooms to cross from one room to another (Game.map.findRoute), or null.
+ * Highways and our own rooms are preferred, keeper rooms cost extra; avoided
+ * rooms (other than the two ends) and edges found walled off are left out.
+ */
+function roomRoute(from, to, avoid) {
+    const key = from + '>' + to + '|' + (avoid || '');
+    const hit = heap.routes[key];
+    if (hit && Game.time - hit.t < ROUTE_TTL) return hit.route;
+    const res = Game.map.findRoute(from, to, {
+        routeCallback: (name, fromName) => {
+            if (name !== to && name !== from && (name === avoid || isAvoided(name))) return Infinity;
+            const bad = heap.badEdges[fromName + '>' + name];
+            if (bad != null && Game.time - bad < BAD_EDGE_TTL) return Infinity;
+            if (isHighway(name) || isOwned(name)) return 1;
+            return isKeeperRoom(name) ? 5 : 2.5;
+        },
+    });
+    const route = Array.isArray(res) && res.length ? res : null;
+    // The caches only grow: start over now and then.
+    if ((heap.routesN = (heap.routesN || 0) + 1) > 2000) {
+        heap.routes = {};
+        heap.badEdges = {};
+        heap.routesN = 0;
+    }
+    heap.routes[key] = { t: Game.time, route };
+    return route;
+}
+
+/**
+ * Walkability for route planning: roads cheap, structures that block walking
+ * impassable; with `self`, every other creep is an obstacle too. Rooms without
+ * vision are planned on terrain alone (undefined).
+ */
+function routeMatrix(roomName, self) {
+    const room = Game.rooms[roomName];
+    if (!room) return undefined;
+    let hit = heap.routeMatrix[roomName];
+    if (!hit || Game.time - hit.t >= 50) {
+        const m = new PathFinder.CostMatrix();
+        const structs = room.find(FIND_STRUCTURES);
+        for (let i = 0; i < structs.length; i++) {
+            const st = structs[i];
+            if (isBlockingStructure(st)) m.set(st.pos.x, st.pos.y, 255);
+            else if (st.structureType === STRUCTURE_ROAD && m.get(st.pos.x, st.pos.y) !== 255) m.set(st.pos.x, st.pos.y, 1);
+        }
+        hit = heap.routeMatrix[roomName] = { t: Game.time, m };
+    }
+    if (!self) return hit.m;
+    const m = hit.m.clone();
+    const creeps = room.find(FIND_CREEPS);
+    for (let i = 0; i < creeps.length; i++) {
+        if (creeps[i].id !== self.id) m.set(creeps[i].pos.x, creeps[i].pos.y, 255);
+    }
+    return m;
+}
+
+/**
+ * Plan through the first `look` rooms of a route. Returns { exit, ops }: exit is
+ * the tile where that path leaves the origin room (the origin itself when it
+ * already stands on it), or null when no way out toward the route was found;
+ * ops is how much ground the search covered.
+ */
+function planExit(origin, pos, range, route, look, self) {
+    const from = origin.roomName;
+    const n = Math.min(route.length, look);
+    const allowed = {};
+    allowed[from] = true;
+    for (let i = 0; i < n; i++) allowed[route[i].room] = true;
+    const last = route[n - 1].room;
+    // Mid-route the goal is simply "well inside that room".
+    const goal = last === pos.roomName ? { pos, range: Math.max(1, range) } : { pos: roomCenter(last), range: 22 };
+    const res = PathFinder.search(origin, goal, {
+        roomCallback: name => (allowed[name] ? routeMatrix(name, name === from ? self : null) : false),
+        plainCost: 2,
+        swampCost: 10,
+        maxRooms: n + 1,
+        maxOps: 4000 * (n + 1),
+    });
+    let prev = origin;
+    for (let i = 0; i < res.path.length; i++) {
+        if (res.path[i].roomName !== from) return { exit: prev, ops: res.ops };
+        prev = res.path[i];
+    }
+    return { exit: null, ops: res.ops };
+}
+
+/**
+ * The exit tile of the creep's room to walk to on the way to `pos` in another
+ * room; null when there is no route (the caller falls back to plain moveTo),
+ * undefined when the plan has to wait for the next tick.
+ *
+ * The game's own path search covers 16 rooms at most and, when it runs out,
+ * walks the creep to the tile nearest the target: on a long trip that is the
+ * corner of a dead-end room, where the creep then sits. So trips are planned
+ * on the room map first and walked one exit at a time. An edge the route
+ * crosses but no path does is remembered and routed around.
+ */
+function exitWaypoint(creep, pos, range, avoid, replan) {
+    const from = creep.pos.roomName;
+    const dest = pos.roomName + '|' + (avoid || '');
+    let way = heap.way[creep.name];
+    if (!way || way.dest !== dest) way = heap.way[creep.name] = { dest, at: {} };
+    const hit = way.at[from];
+    const fresh = hit && Game.time - hit.t < (hit.x == null ? 20 : WAY_TTL);
+    const known = fresh ? (hit.x == null ? null : new RoomPosition(hit.x, hit.y, from)) : undefined;
+    if (fresh && !replan) return known;
+    // A plan costs a path search: only so many per tick (a deploy or a whole squad
+    // changing rooms at once would spike the CPU); the rest wait a tick.
+    const budget = cache('travelPlans', () => ({ n: 0 }));
+    if (budget.n >= PLANS_PER_TICK || Game.cpu.getUsed() > Game.cpu.tickLimit * 0.7) return known;
+    budget.n++;
+    let exit = null;
+    for (let attempt = 0; attempt < 3 && !exit; attempt++) {
+        const route = roomRoute(from, pos.roomName, avoid);
+        if (!route) break;
+        // Jammed: first try around the creeps in the way, then the plain plan again.
+        if (replan) exit = planExit(creep.pos, pos, range, route, LOOKAHEAD, creep).exit;
+        if (exit) break;
+        exit = planExit(creep.pos, pos, range, route, LOOKAHEAD, null).exit;
+        if (exit) break;
+        // Which edge has no way through? The first one the plan cannot get past.
+        let bad = 0;
+        for (let k = 1; k < Math.min(route.length, LOOKAHEAD); k++) {
+            if (planExit(creep.pos, pos, range, route, k, null).exit) bad = k;
+            else break;
+        }
+        // No way out of one of our own rooms: the creep is boxed in by our buildings
+        // where it stands; the exits themselves are fine for everybody else.
+        if (!bad && isOwned(from)) break;
+        const a = bad ? route[bad - 1].room : from;
+        heap.badEdges[a + '>' + route[bad].room] = Game.time;
+        delete heap.routes[from + '>' + pos.roomName + '|' + (avoid || '')];
+        log('Route: no way from ' + a + ' into ' + route[bad].room + ' (' + creep.name + ' at ' + creep.pos.x + ',' + creep.pos.y + ' ' + from + ' bound for ' + pos.roomName + '); going around');
+    }
+    // Keep this room and the one before it (a creep may be thrown back across the edge).
+    let keep = null;
+    for (const name in way.at) if (name !== from && (!keep || way.at[name].t > way.at[keep].t)) keep = name;
+    const at = {};
+    if (keep) at[keep] = way.at[keep];
+    at[from] = exit ? { x: exit.x, y: exit.y, t: Game.time } : { t: Game.time };
+    way.at = at;
+    return exit;
+}
+
 /**
  * Move toward target (object or RoomPosition) until within `range`.
  * Reuses paths, routes around parked creeps and recovers from traffic jams.
+ * A target in another room is reached along a room route, one exit tile at
+ * a time (see exitWaypoint).
  * opts.avoidRoom: a room name the path must not cross (e.g. the war target
  * while the squad is still gathering).
  */
@@ -284,6 +443,16 @@ function travel(creep, target, opts) {
     const stuckFor = heap.stuck[key];
     const stuck = stuckFor >= 2;
     const sameRoom = pos.roomName === creep.pos.roomName;
+    // Another room: head for the exit tile the room route leads through. Jammed for
+    // a while: plan again around the creeps in the way (another exit tile may be free).
+    const exit = sameRoom ? null : exitWaypoint(creep, pos, range, opts.avoidRoom, !bouncing && stuckFor >= 6 && stuckFor % 6 === 0);
+    if (exit === undefined) {
+        heap.stuck[key] = 0;
+        return ERR_TIRED;
+    }
+    const local = sameRoom || !!exit;
+    // Standing on the exit tile: the game carries the creep across by itself.
+    if (exit && creep.pos.isEqualTo(exit)) return OK;
     // While jammed alternate between creep-aware and creep-blind pathing. A bouncing creep
     // is only on each side every other tick, so there it is creep-aware every time.
     const ignoreCreeps = !stuck || (!bouncing && stuckFor % 2 === 1);
@@ -291,13 +460,13 @@ function travel(creep, target, opts) {
     heap.pathingFrom = creep.pos.roomName;
     heap.pathingTo = pos.roomName;
     heap.pathingAvoid = opts.avoidRoom || null;
-    const res = creep.moveTo(pos, {
-        range,
+    const res = creep.moveTo(exit || pos, {
+        range: exit ? 0 : range,
         reusePath: stuck ? 4 : (opts.reusePath || (sameRoom ? 15 : 40)),
         ignoreCreeps,
         costCallback: parkedCallback,
-        maxRooms: sameRoom ? 1 : 16,
-        maxOps: sameRoom ? 2000 : 10000,
+        maxRooms: local ? 1 : 16,
+        maxOps: local ? 2000 : 10000,
         plainCost: opts.plainCost,
         swampCost: opts.swampCost,
         visualizePathStyle: config.visuals ? (opts.pathStyle || (creep.memory.role === 'soldier' ? config.pathStyleWar : config.pathStyle)) : undefined,
@@ -308,9 +477,16 @@ function travel(creep, target, opts) {
         // Still jammed: step somewhere random to break the deadlock.
         creep.move(((stuckFor * 7 + Game.time) % 8) + 1);
     }
+    if (res === ERR_NO_PATH && exit) {
+        // The exit tile cannot be reached right now: plan again in a few ticks.
+        const at = heap.way[key] && heap.way[key].at[creep.pos.roomName];
+        if (at) at.t = Math.min(at.t, Game.time - WAY_TTL + 5);
+    }
     if (res === ERR_NO_PATH && ignoreCreeps) {
         heap.noPath[key] = (heap.noPath[key] || 0) + 1;
-        if (heap.noPath[key] > 60) {
+        // Walled in by our own construction at home. Abroad it is a routing dead end:
+        // the creep keeps trying instead of being thrown away.
+        if (heap.noPath[key] > 60 && isOwned(creep.pos.roomName)) {
             warn(creep.name + ' is walled in at ' + creep.pos + '; recycling it');
             creep.suicide();
         }
@@ -378,6 +554,7 @@ function forgetCreep(name) {
     delete heap.stuck[name];
     delete heap.noPath[name];
     delete heap.idleAt[name];
+    delete heap.way[name];
 }
 
 /** Centre-ish position used when travelling to a room without a specific target. */

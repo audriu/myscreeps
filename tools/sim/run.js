@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big|:dis]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--nomuster] [--go] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big|:dis]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--nomuster] [--go] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag] [--data=DIR]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -23,9 +23,10 @@ const cheapArg = args.find(a => a === '--cheap' || a.startsWith('--cheap=')); //
 const gclArg = args.find(a => a.startsWith('--gcl='));         // --gcl=N (Game.gcl.level)
 const gclRaiseArg = args.find(a => a.startsWith('--gclraise=')); // --gclraise=TICK (GCL level +1 at that tick)
 const releaseArg = args.find(a => a.startsWith('--release=')); // --release=ROOM:TICK (sets Memory.empire.release at that tick)
-const meta = fs.existsSync(path.join(path.resolve(__dirname, 'data'), 'time.json')) ? JSON.parse(fs.readFileSync(path.join(path.resolve(__dirname, 'data'), 'time.json'))) : { time: 78296030 };
+const dataArg = args.find(a => a.startsWith('--data='));       // --data=DIR (another snapshot set: rooms/, terrain/, time.json)
+const dataDir = dataArg ? path.resolve(dataArg.split('=')[1]) : path.resolve(__dirname, 'data');
+const meta = fs.existsSync(path.join(dataDir, 'time.json')) ? JSON.parse(fs.readFileSync(path.join(dataDir, 'time.json'))) : { time: 78296030 };
 const startTime = meta.time;
-const dataDir = path.resolve(__dirname, 'data');
 
 E.installGlobals();
 W.time = startTime;
@@ -69,6 +70,8 @@ function snapshot(tag) {
         const ctrl = room.controller;
         const byRole = {};
         for (const c of room.creeps) { if (c.spawning) continue; const r = ((Memory.creeps || {})[c.name] || {}).role || '?'; byRole[r] = (byRole[r] || 0) + 1; }
+        // Transit rooms (highways, unclaimed rooms): only who is standing in them.
+        if (!ctrl || (!ctrl.my && !ctrl.owner)) { if (Object.keys(byRole).length) console.log(`[${tag}] ${rn} transit inRoom=${JSON.stringify(byRole)}`); continue; }
         const all = Object.values(W.creeps).filter(c => ((Memory.creeps || {})[c.name] || {}).home === rn);
         const spawns = room.structures.filter(s => s.structureType === 'spawn');
         const stor = room.storage;
@@ -104,7 +107,7 @@ for (let i = 0; i < ticks; i++) {
     if (traceEvery && (i + 1) % traceEvery === 0) {
         for (const n in W.creeps) {
             const c = W.creeps[n]; const m = (Memory.creeps || {})[n] || {};
-            console.log(`   T${W.time} ${n.padEnd(30)} ${m.role || '?'} @${c.pos.x},${c.pos.y} e=${c.store.energy || 0}/${c.store.getCapacity()} fat=${c.fatigue} ttl=${c.ticksToLive} work=${m.working} task=${m.task || ''} tk=${m.tk || ''} t=${m.t ? (W.objects[m.t] ? (W.objects[m.t].structureType || W.objects[m.t].constructor.name) + '@' + W.objects[m.t].pos.x + ',' + W.objects[m.t].pos.y : 'gone') : ''} spawning=${c.spawning} mv=${c._moveIntent ? c._moveIntent.x + ',' + c._moveIntent.y : '-'}`);
+            console.log(`   T${W.time} ${n.padEnd(30)} ${m.role || '?'} @${c.pos.roomName}:${c.pos.x},${c.pos.y} e=${c.store.energy || 0}/${c.store.getCapacity()} fat=${c.fatigue} ttl=${c.ticksToLive} work=${m.working} task=${m.task || ''} tk=${m.tk || ''} t=${m.t ? (W.objects[m.t] ? (W.objects[m.t].structureType || W.objects[m.t].constructor.name) + '@' + W.objects[m.t].pos.x + ',' + W.objects[m.t].pos.y : 'gone') : ''} spawning=${c.spawning} mv=${c._moveIntent ? c._moveIntent.x + ',' + c._moveIntent.y : '-'}`);
         }
     }
     E.endTick();

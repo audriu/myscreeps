@@ -6,6 +6,13 @@ building, upgrading, links, towers, simple invaders whose hits land in `Room.get
 snapshots of real rooms and catch runtime errors and logic problems before
 uploading. It is an approximation, not the engine.
 
+Path finding follows the game where it matters for getting stuck:
+`PathFinder.search` crosses room edges, opens 16 rooms at most, stops after
+`maxOps` and then returns the way to the tile nearest the goal; `moveTo` to
+another room is one such search (not a room-by-room route), so a creep sent
+far away with a bare `moveTo` ends up in a dead-end corner like in the game.
+`Game.map.findRoute` honours `routeCallback` costs.
+
 ```
 node tools/sim/fetch.js <username> [shard]        # snapshots into tools/sim/data (ignored by git), shard1 by default
 node tools/sim/run.js default W49N25 2000          # one room, 2000 ticks
@@ -36,6 +43,11 @@ in the engine. Hostile rooms report `structures=` (owned) and `leftovers=`
 `room-objects` and `room-terrain` responses into `data/rooms/` and
 `data/terrain/` by hand. Creeps cannot leave the loaded rooms: load every room
 on the way (rally room, transit rooms), or they stall at an exit.
+
+`--data=DIR` runs against another snapshot set (`rooms/`, `terrain/`,
+`time.json`), e.g. a block of neutral and highway rooms around a route. Rooms
+without a controller, or with an unowned one, are listed as `transit` with the
+creeps standing in them. `--trace=N` prints every creep's room and position.
 
 The summary line reports exceptions, average/max milliseconds per tick,
 Memory size and counters (harvested, upgraded, built, blocked moves, path

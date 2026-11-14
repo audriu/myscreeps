@@ -84,6 +84,16 @@ modules from the branch first; `main.js` only requires the modules listed below.
   the creeps in its way; marching healers do not wait next to a fighter that
   stands on an exit tile, and healers standing around a blocked fighter are
   pushed aside like any idle creep.
+- **Long trips**: a creep bound for another room walks a room route
+  (`Game.map.findRoute`; highways and our rooms preferred, keeper rooms
+  costly, avoided rooms left out) one exit tile at a time. The exit tile
+  comes from a path search limited to the next three rooms of that route.
+  The game's own `moveTo` searches 16 rooms at most and, when it gives up,
+  walks the creep to the tile nearest the target, which on a long trip is
+  the corner of a dead-end room. A room edge the route crosses but no path
+  does is logged (`Route: no way from A into B`) and routed around for 300
+  ticks. With no route at all the old direct `moveTo` is used. The
+  "walled in, recycling it" suicide only applies in our own rooms now.
 - **War** (`war.js`, roles `soldier` and `unclaimer`): console-driven
   offence: squads from every eligible room, a rally point, closest-first
   destruction ending in a sweep of everything destroyable, an optional

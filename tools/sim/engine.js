@@ -391,30 +391,29 @@ class Creep extends RoomObject {
         if (target.roomName === this.pos.roomName && this.pos.inRangeTo(target, range)) return C.OK;
         if (this.fatigue > 0) return C.ERR_TIRED;
         W.stats.moveToCalls = (W.stats.moveToCalls || 0) + 1;
-        let goal = target;
-        let goals = null;
-        if (target.roomName !== this.pos.roomName) {
-            // Route room by room like the real engine, then walk to any exit tile facing the next room.
-            // A costCallback that blanks a whole room (all 255) makes that room impassable for routing too.
-            const blocked = name => { if (!opts.costCallback) return false; const m = opts.costCallback(name, new CostMatrix()); return m instanceof CostMatrix && m.get(25, 25) === 255 && m.get(1, 1) === 255 && m.get(48, 48) === 255; };
-            const route = global.Game.map.findRoute(this.pos.roomName, target.roomName, { routeCallback: name => (name !== target.roomName && blocked(name) ? Infinity : 1) });
-            if (route === C.ERR_NO_PATH || !route.length) return C.ERR_NO_PATH;
-            const nextRoom = route[0].room;
-            goals = exitTilesToward(this.pos.roomName, nextRoom);
-            if (!goals.length) return C.ERR_NO_PATH;
-            goal = exitToward(this.pos.roomName, nextRoom, this.pos);
-        }
-        const key = goal.x + ',' + goal.y + ',' + goal.roomName + ',' + range;
+        // Like the game: one search to the target, across rooms when it lies in another one (16 rooms at
+        // most, opts.maxOps); when the search gives up, the creep walks to the tile nearest the target.
+        const cross = target.roomName !== this.pos.roomName;
+        const key = target.x + ',' + target.y + ',' + target.roomName + ',' + range;
         const reuse = opts.reusePath != null ? opts.reusePath : 5;
         let cached = this._path;
         if (!cached || cached.key !== key || cached.until < W.time || !cached.path.length) {
-            const res = PathFinder.search(this.pos, goals ? goals.map(g => ({ pos: g, range: 0 })) : { pos: goal, range }, {
-                roomCallback: () => { let m = roomMatrix(this.room, opts.ignoreCreeps !== false ? null : this); if (opts.costCallback) { m = m.clone(); const r = opts.costCallback(this.room.name, m); if (r instanceof CostMatrix) m = r; } return m; },
-                plainCost: opts.plainCost || 2, swampCost: opts.swampCost || 10, maxOps: opts.maxOps || 2000,
+            const res = PathFinder.search(this.pos, { pos: target, range: cross ? Math.max(1, range) : range }, {
+                roomCallback: (name) => {
+                    const room = W.rooms[name]; if (!room) return false;
+                    let m = roomMatrix(room, opts.ignoreCreeps !== false ? null : this);
+                    if (opts.costCallback) { m = m.clone(); const r = opts.costCallback(name, m); if (r instanceof CostMatrix) m = r; }
+                    return m;
+                },
+                plainCost: opts.plainCost || 2, swampCost: opts.swampCost || 10,
+                maxOps: opts.maxOps || (cross ? 20000 : 2000), maxRooms: cross ? (opts.maxRooms || 16) : 1,
             });
             W.stats.pathSearches = (W.stats.pathSearches || 0) + 1;
-            cached = this._path = { key, path: res.path, until: W.time + reuse, incomplete: res.incomplete };
-            if (!res.path.length) return res.incomplete ? C.ERR_NO_PATH : C.OK;
+            // Only the part inside this room is kept.
+            const path = [];
+            for (const p of res.path) { if (p.roomName !== this.pos.roomName) break; path.push(p); }
+            cached = this._path = { key, path, until: W.time + reuse, incomplete: res.incomplete };
+            if (!path.length) return (res.incomplete || cross) ? C.ERR_NO_PATH : C.OK;
         }
         const next = cached.path[0];
         this._moveIntent = { x: next.x, y: next.y, fromPath: true };
@@ -564,36 +563,6 @@ function roomMatrix(room, creepAware) {
     room._mx = room._mx || {}; room._mx[key] = { t: W.time, m };
     return m;
 }
-/** Every walkable exit tile on the edge facing `to` (the real engine routes to whichever is reachable). */
-function exitTilesToward(from, to) {
-    const a = worldXY(from); const b = worldXY(to);
-    const dx = Math.sign(b.x - a.x); const dy = Math.sign(b.y - a.y);
-    const room = W.rooms[from];
-    const horiz = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) && dx !== 0;
-    const out = [];
-    for (let i = 1; i < 49; i++) {
-        const x = horiz ? (dx > 0 ? 49 : 0) : i; const y = horiz ? i : (dy > 0 ? 0 : 49);
-        if (room.terrain.get(x, y) === 1) continue;
-        out.push(new RoomPosition(x, y, from));
-    }
-    return out;
-}
-function exitToward(from, to, pos) {
-    const a = worldXY(from); const b = worldXY(to);
-    const dx = Math.sign(b.x - a.x); const dy = Math.sign(b.y - a.y);
-    const room = W.rooms[from];
-    // choose horizontal or vertical exit: prefer the axis with larger distance
-    const horiz = Math.abs(b.x - a.x) >= Math.abs(b.y - a.y) && dx !== 0;
-    let best = null, bestD = Infinity;
-    for (let i = 1; i < 49; i++) {
-        const x = horiz ? (dx > 0 ? 49 : 0) : i; const y = horiz ? i : (dy > 0 ? 0 : 49);
-        if (room.terrain.get(x, y) === 1) continue;
-        const d = Math.max(Math.abs(x - pos.x), Math.abs(y - pos.y));
-        if (d < bestD) { bestD = d; best = new RoomPosition(x, y, from); }
-    }
-    return best;
-}
-
 /* ---------------- PathFinder ---------------- */
 class CostMatrix {
     constructor() { this._bits = new Uint8Array(2500); }
@@ -601,58 +570,85 @@ class CostMatrix {
     get(x, y) { return this._bits[y * 50 + x]; }
     clone() { const m = new CostMatrix(); m._bits = new Uint8Array(this._bits); return m; }
 }
+/**
+ * A* over world coordinates, like the game's PathFinder: it crosses room edges
+ * (straight only, never along an edge), opens at most opts.maxRooms rooms (16)
+ * and gives up after opts.maxOps expansions, returning the way to the tile
+ * nearest the goal with incomplete = true. Rooms that are not loaded, and rooms
+ * the roomCallback returns false for, are closed and do not count.
+ */
 function search(origin, goalsIn, opts) {
     opts = opts || {};
-    const goals = (Array.isArray(goalsIn) ? goalsIn : [goalsIn]).map(g => g.pos ? { pos: g.pos, range: g.range || 0 } : { pos: g, range: 0 });
-    const roomName = origin.roomName;
-    const room = W.rooms[roomName];
-    let matrix = null;
-    if (opts.roomCallback) { const r = opts.roomCallback(roomName); if (r === false) return { path: [], incomplete: true, ops: 0, cost: 0 }; if (r instanceof CostMatrix) matrix = r; }
     const plain = opts.plainCost || 1, swamp = opts.swampCost || 5;
-    const cost = (x, y) => {
-        if (x < 0 || x > 49 || y < 0 || y > 49) return 255;
-        const v = matrix ? matrix.get(x, y) : 0;
+    const maxOps = opts.maxOps || 2000;
+    const maxRooms = Math.min(16, opts.maxRooms || 16);
+    const weight = opts.heuristicWeight || 1.2;
+    const base = name => { const w = worldXY(name); return { x: w.x * 50, y: -w.y * 50 }; };
+    const goals = (Array.isArray(goalsIn) ? goalsIn : [goalsIn]).map(g => {
+        const pos = g.pos || g; const b = base(pos.roomName);
+        return { x: b.x + pos.x, y: b.y + pos.y, range: g.pos ? (g.range || 0) : 0 };
+    });
+    const table = {}; const list = [];
+    const open = name => {
+        if (name in table) return table[name];
+        const room = W.rooms[name];
+        if (!room || list.length >= maxRooms) return (table[name] = null);
+        let matrix = null;
+        if (opts.roomCallback) { const r = opts.roomCallback(name); if (r === false) return (table[name] = null); if (r instanceof CostMatrix) matrix = r; }
+        const e = { i: list.length, name, room, matrix, base: base(name), g: new Float64Array(2500).fill(Infinity), closed: new Uint8Array(2500), came: new Int32Array(2500).fill(-1) };
+        list.push(e);
+        return (table[name] = e);
+    };
+    const cost = (e, x, y) => {
+        const v = e.matrix ? e.matrix.get(x, y) : 0;
         if (v === 255) return 255;
         if (v > 0) return v;
-        const t = room.terrain.get(x, y);
+        const t = e.room.terrain.get(x, y);
         if (t === 1) return 255;
         return t === 2 ? swamp : plain;
     };
-    const goalDist = (x, y) => { let d = Infinity; for (const g of goals) d = Math.min(d, Math.max(Math.abs(g.pos.x - x), Math.abs(g.pos.y - y)) - g.range); return Math.max(0, d); };
+    const goalDist = (e, x, y) => { let d = Infinity; for (const g of goals) d = Math.min(d, Math.max(Math.abs(g.x - e.base.x - x), Math.abs(g.y - e.base.y - y)) - g.range); return Math.max(0, d); };
+    const first = open(origin.roomName);
+    if (!first) return { path: [], incomplete: true, ops: 0, cost: 0 };
     const start = origin.y * 50 + origin.x;
-    const gScore = new Float64Array(2500).fill(Infinity); gScore[start] = 0;
-    const came = new Int32Array(2500).fill(-1);
-    const closed = new Uint8Array(2500);
-    const heap = [[goalDist(origin.x, origin.y), start]];
-    let ops = 0; const maxOps = opts.maxOps || 2000;
-    let bestNode = start, bestH = goalDist(origin.x, origin.y);
+    first.g[start] = 0;
+    const heap = [[weight * goalDist(first, origin.x, origin.y), start]];
     const push = (item) => { heap.push(item); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
     const pop = () => { const top = heap[0]; const last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { let l = 2 * i + 1, r = l + 1, m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
-    let found = -1;
+    let ops = 0, found = -1, bestNode = start, bestH = goalDist(first, origin.x, origin.y);
     while (heap.length) {
         const [, cur] = pop();
-        if (closed[cur]) continue; closed[cur] = 1; ops++;
-        const cx = cur % 50, cy = (cur - cx) / 50;
-        const h = goalDist(cx, cy);
+        const e = list[Math.floor(cur / 2500)]; const k = cur % 2500;
+        if (e.closed[k]) continue; e.closed[k] = 1; ops++;
+        const cx = k % 50, cy = (k - cx) / 50;
+        const h = goalDist(e, cx, cy);
         if (h < bestH) { bestH = h; bestNode = cur; }
         if (h === 0) { found = cur; break; }
         if (ops > maxOps) break;
+        const edge = cx === 0 || cx === 49 || cy === 0 || cy === 49;
         for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
             if (!dx && !dy) continue;
-            const nx = cx + dx, ny = cy + dy;
-            if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
-            const c = cost(nx, ny); if (c === 255) continue;
-            const ni = ny * 50 + nx; if (closed[ni]) continue;
-            const g = gScore[cur] + c;
-            if (g < gScore[ni]) { gScore[ni] = g; came[ni] = cur; push([g + goalDist(nx, ny), ni]); }
+            let nx = cx + dx, ny = cy + dy, ne = e;
+            if (nx < 0 || nx > 49 || ny < 0 || ny > 49) {
+                if (dx && dy) continue;                       // an edge is crossed straight
+                const w = worldXY(e.name);
+                ne = open(roomNameFromWorld(w.x + dx, w.y - dy));
+                if (!ne) continue;
+                nx = (nx + 50) % 50; ny = (ny + 50) % 50;
+            } else if (edge && (nx === 0 || nx === 49 || ny === 0 || ny === 49)) continue;   // no walking along an edge
+            const c = cost(ne, nx, ny); if (c === 255) continue;
+            const nk = ny * 50 + nx; if (ne.closed[nk]) continue;
+            const g = e.g[k] + c;
+            if (g < ne.g[nk]) { ne.g[nk] = g; ne.came[nk] = cur; push([g + weight * goalDist(ne, nx, ny), ne.i * 2500 + nk]); }
         }
     }
     const end = found >= 0 ? found : bestNode;
     const path = [];
     let n = end;
-    while (n !== start && n >= 0) { path.push(new RoomPosition(n % 50, Math.floor(n / 50), roomName)); n = came[n]; }
+    while (n !== start && n >= 0) { const e = list[Math.floor(n / 2500)]; const k = n % 2500; path.push(new RoomPosition(k % 50, Math.floor(k / 50), e.name)); n = e.came[k]; }
     path.reverse();
-    return { path, incomplete: found < 0, ops, cost: gScore[end] };
+    const ee = list[Math.floor(end / 2500)];
+    return { path, incomplete: found < 0, ops, cost: ee.g[end % 2500] };
 }
 const PathFinder = { search, CostMatrix };
 
@@ -893,7 +889,7 @@ function runInvaders() {
             target.hits -= dmg; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
         const spawn = room.structures.find(o => o.structureType === 'spawn');
         if (!spawn) continue;
-        const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10 });
+        const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10, maxRooms: 1 });
         if (res.path.length) { const n = res.path[0]; if (!room.creeps.some(o => o.pos.x === n.x && o.pos.y === n.y)) c.pos = new RoomPosition(n.x, n.y, room.name); }
     }
 }
@@ -948,21 +944,24 @@ function makeGame() {
                 return out;
             },
             findRoute(from, to, opts) {
-                // BFS over room exits; unloaded rooms count as open plains.
+                // Cheapest route over room exits by routeCallback cost (default 1, Infinity closes a room);
+                // unloaded rooms count as open plains.
                 if (from === to) return [];
                 const cb = opts && opts.routeCallback;
-                const prev = { [from]: null }; const queue = [from];
+                const dist = { [from]: 0 }; const prev = {}; const done = {}; const queue = [from];
                 while (queue.length) {
-                    const cur = queue.shift();
+                    let bi = 0; for (let i = 1; i < queue.length; i++) if (dist[queue[i]] < dist[queue[bi]]) bi = i;
+                    const cur = queue.splice(bi, 1)[0];
+                    if (done[cur]) continue; done[cur] = true;
+                    if (cur === to) { const out = []; let x = cur; while (prev[x]) { out.unshift({ exit: prev[x].exit, room: x }); x = prev[x].room; } return out; }
+                    if (Object.keys(done).length > 400) return C.ERR_NO_PATH;
                     const exits = this.describeExits(cur);
                     for (const dir in exits) {
                         const n = exits[dir];
-                        if (n in prev) continue;
-                        if (cb && cb(n, cur) === Infinity) continue;
-                        prev[n] = { room: cur, exit: +dir };
-                        if (n === to) { const out = []; let x = n; while (prev[x]) { out.unshift({ exit: prev[x].exit, room: x }); x = prev[x].room; } return out; }
-                        if (Object.keys(prev).length > 400) return C.ERR_NO_PATH;
-                        queue.push(n);
+                        if (done[n]) continue;
+                        let c = cb ? cb(n, cur) : 1; if (c === undefined) c = 1;
+                        if (c === Infinity) continue;
+                        if (!(n in dist) || dist[cur] + c < dist[n]) { dist[n] = dist[cur] + c; prev[n] = { room: cur, exit: +dir }; queue.push(n); }
                     }
                 }
                 return C.ERR_NO_PATH;
