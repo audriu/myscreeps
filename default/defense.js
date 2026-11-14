@@ -192,7 +192,7 @@ function repairList(st) {
  * log), or null. Counts hits on our creeps, our structures and our
  * controller; nukes are left out (safe mode does not stop them).
  */
-function hostileDamage(st) {
+function hostileDamage(st, mine) {
     const log = st.room.getEventLog();
     for (let i = 0; i < log.length; i++) {
         const ev = log[i];
@@ -202,24 +202,49 @@ function hostileDamage(st) {
         if (ev.event === EVENT_ATTACK_CONTROLLER) return 'controller attacked';
         if (ev.event !== EVENT_ATTACK || !ev.data || ev.data.attackType === EVENT_ATTACK_TYPE_NUKE) continue;
         const target = Game.getObjectById(ev.data.targetId);
-        if (!target || !target.my) continue;
+        // A hit that destroyed its target (a dismantler one-shots an extension)
+        // leaves nothing to look up: last tick's list of our things knows it.
+        const what = target ? (target.my ? label(target) : null) : (mine && mine[ev.data.targetId]);
+        if (!what) continue;
         const who = attacker && attacker.owner ? attacker.owner.username : 'hostile';
-        const what = target instanceof Creep ? 'creep ' + target.name : target.structureType;
-        return who + ' hit ' + what + ' for ' + ev.data.damage;
+        return who + ' hit ' + what + ' for ' + ev.data.damage + (target ? '' : ' (destroyed)');
     }
     return null;
 }
 
+function label(o) {
+    return o instanceof Creep ? 'creep ' + o.name : o.structureType;
+}
+
+/** Our structures and creeps in the room by id, kept while hostiles are around. */
+function rememberMine(st) {
+    const mine = {};
+    for (const type in st.byType) {
+        const list = st.byType[type];
+        for (let i = 0; i < list.length; i++) if (list[i].my) mine[list[i].id] = type;
+    }
+    const creeps = util.find(st.room, FIND_MY_CREEPS);
+    for (let i = 0; i < creeps.length; i++) mine[creeps[i].id] = label(creeps[i]);
+    return mine;
+}
+
 /** Safe mode only once a hostile has actually damaged our creeps, structures or controller here. */
-function maybeSafeMode(st) {
+function maybeSafeMode(st, mine) {
     const ctrl = st.ctrl;
     if (!st.danger || !ctrl.safeModeAvailable || ctrl.safeMode || ctrl.safeModeCooldown || ctrl.upgradeBlocked) return;
-    const reason = hostileDamage(st);
+    const reason = hostileDamage(st, mine);
     if (!reason) return;
 
-    if (ctrl.activateSafeMode() === OK) {
+    const res = ctrl.activateSafeMode();
+    if (res === OK) {
         util.error(st.name + ': SAFE MODE (' + reason + ')');
         Game.notify('Safe mode activated in ' + st.name + ': ' + reason);
+    } else {
+        const rh = util.roomHeap(st.name);
+        if (!rh.safeFailAt || Game.time - rh.safeFailAt > 100) {
+            rh.safeFailAt = Game.time;
+            util.error(st.name + ': safe mode failed (' + res + ') after ' + reason);
+        }
     }
 }
 
@@ -259,8 +284,10 @@ function run(room, st) {
             if (target && target.hits < target.hitsMax) tower.repair(target);
         }
     }
+    const mine = rh.mine;
+    rh.mine = st.hostiles.length ? rememberMine(st) : null;
     if (st.danger) {
-        maybeSafeMode(st);
+        maybeSafeMode(st, mine);
         if (!rh.alertAt || Game.time - rh.alertAt > 500) {
             rh.alertAt = Game.time;
             const owners = {};

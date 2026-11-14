@@ -1,4 +1,4 @@
-/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--nomuster] [--go] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
+/* Runner: node run.js <scriptDir> <rooms,comma> <ticks> [--quiet] [--map] [--trace=N] [--invade=ROOM:TICK[:big|:dis]] [--unowned=ROOM] [--lost=ROOM] [--gcl=N] [--gclraise=TICK] [--release=ROOM:TICK] [--hostile=ROOM] [--war=TARGET:TICK] [--nomuster] [--go] [--cheap[=FLOOR]] [--unclaim[=N]] [--spawndiag]
  * Room data comes from tools/sim/data (see fetch.js). */
 const fs = require('fs');
 const path = require('path');
@@ -13,7 +13,7 @@ const quiet = args.includes('--quiet');
 const showMap = args.includes('--map');
 const traceArg = args.find(a => a.startsWith('--trace='));
 const traceEvery = traceArg ? +traceArg.split('=')[1] : 0;
-const invadeArg = args.find(a => a.startsWith('--invade='));   // --invade=ROOM:TICK[:big]
+const invadeArg = args.find(a => a.startsWith('--invade='));   // --invade=ROOM:TICK[:big|:dis]
 const unownedArg = args.find(a => a.startsWith('--unowned=')); // --unowned=ROOM
 const lostArg = args.find(a => a.startsWith('--lost='));       // --lost=ROOM (controller lost, buildings remain)
 const spawnDiag = args.includes('--spawndiag');
@@ -83,7 +83,7 @@ for (let i = 0; i < ticks; i++) {
     global.Game = E.makeGame();
     global.Memory = JSON.parse(memoryJson);
     W.tickStart = process.hrtime.bigint();
-    if (invadeArg) { const [, spec] = invadeArg.split('='); const [room, tick, big] = spec.split(':'); if (i + 1 === +tick) { E.spawnInvader(room, big ? ['tough','tough','tough','tough','attack','attack','attack','attack','attack','attack','heal','heal','move','move','move','move','move','move','move','move'] : null); if (big) E.spawnInvader(room, null); } }
+    if (invadeArg) { const [, spec] = invadeArg.split('='); const [room, tick, big] = spec.split(':'); if (i + 1 === +tick) { const dis = big === 'dis'; E.spawnInvader(room, dis ? Array(25).fill('work').concat(Array(25).fill('move')) : big ? ['tough','tough','tough','tough','attack','attack','attack','attack','attack','attack','heal','heal','move','move','move','move','move','move','move','move'] : null); if (big && !dis) E.spawnInvader(room, null); if (dis) for (let n = 0; n < 2; n++) E.spawnInvader(room, Array(25).fill('work').concat(Array(25).fill('move'))); } }
     if (gclRaiseArg && i + 1 === +gclRaiseArg.split('=')[1]) W.gcl++;
     if (warArg) { const [room, tick] = warArg.split('=')[1].split(':'); if (i === 0) Memory.war = { muster: !args.includes('--nomuster') }; if (i + 1 === +tick) { Memory.war = Memory.war || {}; Memory.war.target = room; if (args.includes('--go')) Memory.war.go = W.time; } }
     if (cheapArg && i === 0) { Memory.war = Memory.war || {}; if (!args.includes('--nomuster')) Memory.war.muster = true; Memory.war.cheap = cheapArg.includes('=') ? +cheapArg.split('=')[1] : true; }

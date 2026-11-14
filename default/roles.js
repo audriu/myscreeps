@@ -471,16 +471,21 @@ function doRepair(creep, st, m) {
     return true;
 }
 
-/** Spare energy: thicken the most important / weakest rampart toward the RCL goal. */
+/**
+ * Spare energy: thicken the most important / weakest rampart toward the RCL
+ * goal, one step (config.defense.fortifyStep) at a time, then pick the
+ * weakest again so the whole line rises evenly.
+ */
 function doFortify(creep, st, m) {
     const goal = config.planner.rampartTarget[st.rcl] || 0;
     let s = m.t && m.tk === 'fortify' ? Game.getObjectById(m.t) : null;
-    if (s && s.hits >= goal) s = null;
+    if (s && s.hits >= Math.min(goal, m.fg || goal)) s = null;
     if (!s) {
         s = defense.fortifyTargets(st)[0] || null;
         if (!s) return false;
         m.t = s.id;
         m.tk = 'fortify';
+        m.fg = s.hits + config.defense.fortifyStep;
     }
     if (!creep.pos.inRangeTo(s, 3)) {
         if (go(creep, m, s, { range: 3 }) === ERR_NO_PATH) return false;

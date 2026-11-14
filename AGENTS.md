@@ -16,7 +16,8 @@ Instructions for coding agents working in this repository.
   - `util.js` — caches, movement/traffic, room helpers, logging.
   - `bodies.js` — body plans scaled to room energy budget.
   - `roomState.js` — per-tick room snapshot, structure index, creep index, and loot discovery (`findLoot`).
-  - `planner.js` — checkerboard layout around the first spawn, spawn un-boxing, road/rampart placement, cleanup of off-grid inactive structures.
+  - `planner.js` — checkerboard layout around the first spawn, spawn un-boxing, road/rampart placement (key structures and the min-cut perimeter), cleanup of off-grid inactive structures.
+  - `mincut.js` — max-flow minimum cut between room exits and the base: the perimeter rampart tiles.
   - `spawner.js` — population targets and priority-ordered spawning.
   - `roles.js` — creep behaviours (`miner`, `hauler`, `upgrader`, `worker`, `defender`, `claimer`, `courier`, `scout`, plus war roles).
   - `war.js` — console-driven offence via `Memory.war` (`soldier` and `unclaimer` roles, muster, rally, march, closest-first clearing, final sweep, controller strikes).

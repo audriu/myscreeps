@@ -11,6 +11,7 @@ node tools/sim/fetch.js <username> [shard]        # snapshots into tools/sim/dat
 node tools/sim/run.js default W49N25 2000          # one room, 2000 ticks
 node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
+node tools/sim/run.js default W48N25 800 --invade=W48N25:300:dis   # 3 dismantlers (25 WORK) one-shotting extensions
 node tools/sim/run.js default E15N38,E16N38 5000 --unowned=E16N38   # claim + settle test
 node tools/sim/run.js default E12N34,E11N34 3000 --lost=E11N34      # reclaim a room whose controller was lost
 node tools/sim/run.js default E13N34,E13N35,E12N36 1500 --lost=E13N35 --gcl=2 --release=E12N36:400  # GCL full, give a room up

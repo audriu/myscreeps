@@ -39,6 +39,11 @@ module.exports = {
         coverFromRcl: 5,
         coverTypes: ['lab', 'factory', 'powerSpawn', 'nuker', 'observer', 'link', 'extension'],
         rampartTarget: { 4: 20000, 5: 50000, 6: 100000, 7: 300000, 8: 1000000 },
+        // Perimeter: a rampart line on the fewest tiles that cut every exit off
+        // from the base (min-cut), keeping this many tiles of room around our
+        // structures where the terrain allows. Recomputed when the base grows.
+        wallFromRcl: 4,
+        wallMargin: 3,
     },
 
     population: {
@@ -63,6 +68,9 @@ module.exports = {
         // when it falls below half. Ramparts over spawns, towers, storage and terminal
         // go first, then the rest; the room gets one extra worker for it.
         workerFortify: { storage: 20000, containers: 1500 },
+        // A fortifying worker raises the weakest rampart by this many hits, then
+        // moves on to whichever is weakest now, so the whole line rises evenly.
+        fortifyStep: 10000,
     },
 
     links: { minSend: 400 },

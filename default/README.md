@@ -31,7 +31,15 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Planner**: checkerboard layout around the first spawn, nothing non-walkable
   next to a spawn, containers at sources and controller, towers, storage,
   links, terminal, extra spawns, roads (RCL3+), ramparts on key structures
-  (spawns, towers, storage, terminal) from RCL4. From RCL5, once nothing else
+  (spawns, towers, storage, terminal) from RCL4, then a perimeter of ramparts
+  (`planner.wallFromRcl`): the minimum cut between every exit and the base
+  (our structures plus `planner.wallMargin` = 3 tiles where the terrain
+  allows, sources and controller plus 1), found with max-flow in
+  `mincut.js`. The fewest tiles that seal the base; our creeps walk through
+  ramparts, hostiles have to break one. The tiles are kept in
+  `Memory.rooms[r].plan.wall` and recomputed (one room per tick, ~15 CPU)
+  after an RCL change or once the base has more structures than at the last
+  cut, never because some were destroyed. From RCL5, once nothing else
   is left to build and the room has spare energy, it also covers labs,
   factory, power spawn, nuker, observer, links and extensions
   (`planner.coverTypes`).
@@ -42,8 +50,12 @@ modules from the branch first; `main.js` only requires the modules listed below.
   roads/containers and ramparts (fortify only when storage is healthy). Safe
   mode only once a hostile has actually hit something of ours in the room:
   one of our creeps, one of our structures or the controller (read from the
-  room's event log of the previous tick; nukes do not count). Hostiles that
-  merely walk in, however many, do not trigger it.
+  room's event log of the previous tick; nukes do not count). A hit that
+  destroyed its target outright (a dismantler one-shots an extension or a
+  link) counts too: while hostiles are in the room the ids of our structures
+  and creeps are remembered for a tick. Hostiles that merely walk in, however
+  many, do not trigger it. A failed activation (e.g. another room already in
+  safe mode) is logged.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
   20k at least. When there is nothing to build or repair and the room holds
@@ -51,7 +63,9 @@ modules from the branch first; `main.js` only requires the modules listed below.
   without storage; `defense.workerFortify`), the worker thickens ramparts
   toward `planner.rampartTarget` (RCL5 50k, RCL6 100k, RCL7 300k, RCL8 1M)
   instead of upgrading: ramparts over spawns, towers, storage and terminal
-  first, weakest first, then the rest. The room spawns one extra worker
+  first, weakest first, then the rest (perimeter included). A worker raises
+  the rampart it picked by `defense.fortifyStep` (10k) and then picks the
+  weakest again, so the whole line rises evenly. The room spawns one extra worker
   for it. It stops when the reserve drops below half the threshold.
 - **Empire**: couriers carry energy from rich storages into weak neighbours;
   terminals balance energy between RCL6+ rooms; owned rooms without a spawn get
@@ -462,7 +476,8 @@ Email: `Claimed room …`.
 | `util.js` | Caches, movement, room helpers, logging |
 | `bodies.js` | Body plans by energy budget |
 | `roomState.js` | Per-tick room snapshot and creep index |
-| `planner.js` | Layout, spawn un-boxing, cleanup |
+| `planner.js` | Layout, spawn un-boxing, cleanup, perimeter ramparts |
+| `mincut.js` | Minimum cut between exits and the base (perimeter tiles) |
 | `spawner.js` | Population targets and spawning |
 | `roles.js` | Creep behaviours |
 | `war.js` | Offensive squads: muster, rally, march, clear, controller attack (Memory.war) |

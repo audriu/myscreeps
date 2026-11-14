@@ -11,6 +11,7 @@
 const config = require('config');
 const util = require('util');
 const defense = require('defense');
+const mincut = require('mincut');
 
 const PLAN = config.planner;
 
@@ -857,6 +858,10 @@ function placeAll(room, st, ctx) {
     if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget, defense.KEY_STRUCTURES));
     if (used()) return;
 
+    // Perimeter ramparts sealing the base off from every exit.
+    if (rcl >= PLAN.wallFromRcl) spend(placeWall(ctx, budget));
+    if (used()) return;
+
     // Storage.
     if (allowed(STRUCTURE_STORAGE, rcl) > have(ctx, STRUCTURE_STORAGE)) {
         if (placeNear(ctx, STRUCTURE_STORAGE, ctx.anchor, 2, 5)) spend(1);
@@ -1020,6 +1025,81 @@ function placeRamparts(ctx, budget, types) {
             if (place(ctx, STRUCTURE_RAMPART, s.pos.x, s.pos.y)) placed++;
             if (ctx.sitesFull) return placed;
         }
+    }
+    return placed;
+}
+
+/** Our structures the perimeter keeps inside (roads, ramparts and walls do not count). */
+const WALL_SKIP = { [STRUCTURE_ROAD]: true, [STRUCTURE_RAMPART]: true, [STRUCTURE_WALL]: true };
+
+function wallStructureCount(st) {
+    let n = 0;
+    for (const type in st.byType) {
+        if (WALL_SKIP[type]) continue;
+        const list = st.byType[type];
+        for (let i = 0; i < list.length; i++) if (list[i].my || type === STRUCTURE_CONTAINER) n++;
+    }
+    return n;
+}
+
+/**
+ * Perimeter tiles (y * 50 + x) from the min-cut between the exits and the
+ * base: our structures plus wallMargin tiles, sources and the controller plus
+ * one. Kept in plan.wall; recomputed after an RCL change or once the base has
+ * more structures than at the last cut (never because some were destroyed).
+ */
+function wallPlan(ctx) {
+    const st = ctx.st;
+    const plan = st.mem.plan;
+    const n = wallStructureCount(st);
+    if (plan.wall && plan.wallRcl === st.rcl && n <= (plan.wallN || 0)) return plan.wall;
+    if (plan.wall && Game.time - (plan.wallAt || 0) < 1000) return plan.wall;
+    // One cut per tick empire-wide (~15 CPU each); the others wait for their next pass.
+    const runs = util.cache('wallCuts', () => ({ n: 0 }));
+    if (runs.n++ > 0) {
+        plan.dirty = true;
+        return plan.wall || [];
+    }
+    const protect = new Uint8Array(2500);
+    const mark = (px, py, m) => {
+        for (let x = Math.max(1, px - m); x <= Math.min(48, px + m); x++) {
+            for (let y = Math.max(1, py - m); y <= Math.min(48, py + m); y++) protect[idx(x, y)] = 1;
+        }
+    };
+    for (const type in st.byType) {
+        if (WALL_SKIP[type]) continue;
+        const list = st.byType[type];
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].my || type === STRUCTURE_CONTAINER) mark(list[i].pos.x, list[i].pos.y, PLAN.wallMargin);
+        }
+    }
+    for (let i = 0; i < st.sources.length; i++) mark(st.sources[i].pos.x, st.sources[i].pos.y, 1);
+    if (st.ctrl) mark(st.ctrl.pos.x, st.ctrl.pos.y, 1);
+    const terrain = ctx.terrain;
+    const cpu = Game.cpu.getUsed();
+    const tiles = mincut.cut((x, y) => terrain.get(x, y), protect);
+    const old = plan.wall ? plan.wall.length : 0;
+    plan.wall = tiles || [];
+    plan.wallRcl = st.rcl;
+    plan.wallN = n;
+    plan.wallAt = Game.time;
+    util.log(st.name + ': perimeter ' + plan.wall.length + ' rampart tiles (was ' + old + ', ' +
+        (Game.cpu.getUsed() - cpu).toFixed(1) + ' CPU)');
+    return plan.wall;
+}
+
+/** Rampart sites on the perimeter tiles. */
+function placeWall(ctx, budget) {
+    const wall = wallPlan(ctx);
+    let placed = 0;
+    for (let i = 0; i < wall.length && placed < budget; i++) {
+        const k = wall[i];
+        if (ctx.rampart[k]) continue;
+        const x = k % 50;
+        const y = (k / 50) | 0;
+        if (ctx.terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+        if (place(ctx, STRUCTURE_RAMPART, x, y)) placed++;
+        if (ctx.sitesFull) return placed;
     }
     return placed;
 }

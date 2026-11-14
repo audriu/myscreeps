@@ -882,12 +882,15 @@ function runInvaders() {
         const room = W.rooms[c.pos.roomName];
         if (room.controller && room.controller.safeMode) continue;
         // attack adjacent my creep/structure
-        const victimCreep = room.creeps.find(o => o.my && !o.spawning && c.pos.isNearTo(o));
+        // WORK bodies dismantle (50 per part, structures only), the rest hit for 90.
+        const works = c.body.filter(p => p.type === 'work' && p.hits > 0).length;
+        const victimCreep = works ? null : room.creeps.find(o => o.my && !o.spawning && c.pos.isNearTo(o));
         const victimStruct = room.structures.find(o => o.my && c.pos.isNearTo(o) && o.structureType !== 'rampart');
         const target = victimCreep || victimStruct;
         if (target) {
-            (W.events[room.name] = W.events[room.name] || []).push({ event: C.EVENT_ATTACK, objectId: c.id, data: { targetId: target.id, damage: 90, attackType: C.EVENT_ATTACK_TYPE_MELEE } });
-            target.hits -= 90; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
+            const dmg = works ? works * 50 : 90;
+            (W.events[room.name] = W.events[room.name] || []).push({ event: C.EVENT_ATTACK, objectId: c.id, data: { targetId: target.id, damage: dmg, attackType: works ? C.EVENT_ATTACK_TYPE_DISMANTLE : C.EVENT_ATTACK_TYPE_MELEE } });
+            target.hits -= dmg; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
         const spawn = room.structures.find(o => o.structureType === 'spawn');
         if (!spawn) continue;
         const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10 });
