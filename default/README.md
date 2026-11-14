@@ -15,8 +15,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Economy per room**: static miners parked on source containers, haulers
   sized by haul distance, upgraders fed from a controller container or link,
   workers for building and repairs. Bodies scale with the room's energy
-  capacity; the spawn waits for energy instead of producing stubs (except in
-  emergencies).
+  capacity; the spawn waits for energy instead of producing stubs, except in
+  emergencies: nobody left who can carry, no hauler, or no miner at all (the
+  first miner is then built from whatever is on hand, 250 energy at least,
+  even while a hauler is still alive; a full-size one follows).
 - **Towers are rearmed first**: a tower under 70% energy outranks spawns,
   extensions, the controller container, links, storage and terminal. Haulers
   carrying energy drop what they are doing (topping up, stashing loot, a trip

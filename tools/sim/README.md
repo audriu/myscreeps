@@ -13,6 +13,13 @@ another room is one such search (not a room-by-room route), so a creep sent
 far away with a bare `moveTo` ends up in a dead-end corner like in the game.
 `Game.map.findRoute` honours `routeCallback` costs.
 
+Known differences that matter when reading the numbers: towers do a flat 300
+damage, 200 healing and 400 repair whatever the range (the game: 600, 400 and
+800 up to range 5, falling to a quarter at range 20), and containers lose 5000
+hits every 100 ticks even in owned rooms (the game: every 500 there). Towers
+therefore burn several times more energy on container repairs than they do
+live, and a room short of energy looks poorer than it is.
+
 ```
 node tools/sim/fetch.js <username> [shard]        # snapshots into tools/sim/data (ignored by git), shard1 by default
 node tools/sim/run.js default W49N25 2000          # one room, 2000 ticks

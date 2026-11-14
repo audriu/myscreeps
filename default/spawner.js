@@ -101,6 +101,7 @@ function wants(room, st) {
     // Static miners: one per source. Miners without an assignment yet count
     // against whichever source is still free.
     const haulersAlive = alive(haulers, 0);
+    const minersAlive = alive(miners, 0);
     const fullWork = util.countParts({ body: bodies.miner(st.cap).map(p => ({ type: p })) }, WORK);
     let spare = 0;
     for (let j = 0; j < miners.length; j++) {
@@ -130,15 +131,16 @@ function wants(room, st) {
             count: 1,
             have: 0,
             priority: count ? 650 : 820,
-            // Economy down: any miner now beats a perfect one later.
-            shrink: st.bootstrap && st.energy >= 250,
+            // Economy down, or nobody mining at all (a hauler alone brings no
+            // income, and with empty extensions the spawn never holds more than
+            // 300): any miner now beats a perfect one later.
+            shrink: (st.bootstrap || minersAlive === 0) && st.energy >= 250,
             memory: { sourceId: src.id },
             body: e => bodies.miner(e),
         });
     }
 
     // Haulers sized by carry parts needed for the room's haul distances.
-    const minersAlive = alive(miners, 0);
     let containerEnergy = 0;
     for (let i = 0; i < st.sources.length; i++) {
         if (st.sources[i].container) containerEnergy += (st.sources[i].container.store[RESOURCE_ENERGY] || 0);
