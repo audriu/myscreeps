@@ -313,6 +313,17 @@ function clearExits(room, spawn) {
     }
 }
 
+/**
+ * The room cannot pay for a creep it cannot do without (miner, hauler or an
+ * emergency creep, priority 650 and up): until it can, towers stop peacetime
+ * repairs (defense.js) and haulers empty the links (roles.js).
+ */
+const CORE_PRIORITY = 650;
+
+function markStarved(rh, w) {
+    if (w.priority >= CORE_PRIORITY) rh.starvedAt = Game.time;
+}
+
 function run(room, st) {
     util.roomHeap(room.name).needEnergy = 0;
     for (let i = 0; i < st.activeSpawns.length; i++) {
@@ -353,7 +364,10 @@ function run(room, st) {
             if (w.shrink) {
                 body = w.body(st.energy);
                 cost = util.bodyCost(body);
-                if (cost > st.energy) return;
+                if (cost > st.energy) {
+                    markStarved(rh, w);
+                    return;
+                }
             } else {
                 if (rh.waitRole !== w.role) {
                     rh.waitRole = w.role;
@@ -363,8 +377,12 @@ function run(room, st) {
                 if (Game.time - rh.waitSince > 250 && st.energy >= Math.max(300, Math.min(cost, st.cap) * 0.4)) {
                     body = w.body(st.energy);
                     cost = util.bodyCost(body);
-                    if (cost > st.energy) return;
+                    if (cost > st.energy) {
+                        markStarved(rh, w);
+                        return;
+                    }
                 } else {
+                    markStarved(rh, w);
                     return;
                 }
             }

@@ -182,6 +182,9 @@ function pickEnergy(creep, st, opts) {
     }
     if (opts.ctrlContainer && st.ctrlContainer) consider(st.ctrlContainer, (st.ctrlContainer.store[RESOURCE_ENERGY] || 0), 'withdraw', 10);
     if (opts.storageLinkDrain && st.storageLink) consider(st.storageLink, (st.storageLink.store[RESOURCE_ENERGY] || 0), 'withdraw', 30);
+    if (opts.links) {
+        for (let i = 0; i < st.links.length; i++) consider(st.links[i], (st.links[i].store[RESOURCE_ENERGY] || 0), 'withdraw', 0);
+    }
     if (opts.storage && st.storage) consider(st.storage, (st.storage.store[RESOURCE_ENERGY] || 0), 'withdraw', -10);
     if (opts.terminal && st.terminal) consider(st.terminal, (st.terminal.store[RESOURCE_ENERGY] || 0) - war.terminalKeep(), 'withdraw', -10);
 
@@ -662,6 +665,8 @@ function hauler(creep, m) {
             dropped: true,
             sourceContainers: true,
             storageLinkDrain: !!(st.storageLink && st.sourceLinks.length),
+            // Spawn starved of a miner or hauler: what sits in the links is spent on that.
+            links: defense.starved(st),
             storage: !!(demand && st.storage && storageEnergy > 300),
             terminal: !!(st.terminal && (st.terminal.store[RESOURCE_ENERGY] || 0) > keep + 2000 && storageEnergy < 50000) ||
                 !!(rearm && st.terminal && storageEnergy <= 300),

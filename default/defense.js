@@ -140,6 +140,17 @@ function fortifyTargets(st) {
     return out;
 }
 
+/**
+ * The spawn is waiting for energy to build a miner, a hauler or an emergency
+ * creep (set by spawner.js). Peacetime tower repairs wait meanwhile: a tower
+ * that repairs stays below the level at which it outranks the spawn, so a poor
+ * room's whole income would go into roads and ramparts and nothing would spawn.
+ */
+function starved(st) {
+    const at = util.roomHeap(st.name).starvedAt;
+    return at != null && Game.time - at <= 1;
+}
+
 function pickTarget(st, hostiles) {
     let best = null;
     let bestScore = -Infinity;
@@ -271,13 +282,14 @@ function run(room, st) {
     } else if (st.towers.length) {
         const hurt = util.find(room, FIND_MY_CREEPS, 'hurt', c => c.hits < c.hitsMax);
         let list = null;
+        const hold = starved(st);
         for (let i = 0; i < st.towers.length; i++) {
             const tower = st.towers[i];
             if (hurt.length) {
                 tower.heal(tower.pos.findClosestByRange(hurt));
                 continue;
             }
-            if ((tower.store[RESOURCE_ENERGY] || 0) < config.defense.towerRepairMinEnergy) continue;
+            if (hold || (tower.store[RESOURCE_ENERGY] || 0) < config.defense.towerRepairMinEnergy) continue;
             if (!list) list = repairList(st);
             if (!list.length) continue;
             const target = Game.getObjectById(list[i % list.length]);
@@ -297,4 +309,4 @@ function run(room, st) {
     }
 }
 
-module.exports = { run, spareEnergy, fortifyTargets, KEY_STRUCTURES };
+module.exports = { run, spareEnergy, fortifyTargets, starved, KEY_STRUCTURES };

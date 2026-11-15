@@ -26,6 +26,13 @@ modules from the branch first; `main.js` only requires the modules listed below.
   Workers do it before anything else, the downgrade emergency included, when
   there is no hauler or the room is in danger. Upgraders and workers leave in
   storage what the towers still need.
+- **Spawn before peacetime repairs**: while the spawn lacks the energy for a
+  miner, a hauler or an emergency creep, towers stop repairing roads,
+  containers and ramparts (they still shoot, heal and hold ramparts under
+  fire) and haulers also empty the links. A tower that repairs from 600 energy
+  never reaches the 70% at which it stops outranking the spawn, so a room down
+  to a stub miner used to feed its whole income to the ramparts and spawn
+  nothing.
 - **Base repair**: frees spawns that were boxed in by structures (destroys the
   cheapest chain of extensions/walls), opens walled pockets, removes
   unreachable extensions, prunes RCL-inactive structures that sit off the
