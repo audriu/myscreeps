@@ -79,6 +79,7 @@ const C = {
     SPAWN_ENERGY_CAPACITY: 300, SPAWN_HITS: 5000, SOURCE_ENERGY_CAPACITY: 3000, ENERGY_REGEN_TIME: 300, ENERGY_DECAY: 1000,
     TOWER_CAPACITY: 1000, TOWER_ENERGY_COST: 10, TOWER_POWER_REPAIR: 800, TOWER_POWER_ATTACK: 600,
     TOWER_OPTIMAL_RANGE: 5, TOWER_FALLOFF_RANGE: 20, TOWER_FALLOFF: 0.75, HEAL_POWER: 12, RANGED_HEAL_POWER: 4,
+    ATTACK_POWER: 30, RANGED_ATTACK_POWER: 10,
     BOOSTS: {
         work: { UO: { harvest: 3 }, UHO2: { harvest: 5 }, XUHO2: { harvest: 7 }, LH: { build: 1.5, repair: 1.5 }, LH2O: { build: 1.8, repair: 1.8 }, XLH2O: { build: 2, repair: 2 },
             ZH: { dismantle: 2 }, ZH2O: { dismantle: 3 }, XZH2O: { dismantle: 4 }, GH: { upgradeController: 1.5 }, GH2O: { upgradeController: 1.8 }, XGH2O: { upgradeController: 2 } },

@@ -354,6 +354,13 @@ class Creep extends RoomObject {
     }
     get memory() { Memory.creeps = Memory.creeps || {}; return Memory.creeps[this.name] || (Memory.creeps[this.name] = {}); }
     set memory(v) { Memory.creeps[this.name] = v; }
+    get hits() { return this._hits; }
+    /** Like the engine: damage empties the body from its first part on, healing fills it back from the last. */
+    set hits(v) {
+        this._hits = v;
+        let left = Math.max(0, v);
+        for (let i = this.body.length - 1; i >= 0; i--) { const h = Math.min(100, left); this.body[i].hits = h; left -= h; }
+    }
     getActiveBodyparts(type) { return this.body.filter(p => p.type === type && p.hits > 0).length; }
     /** Live parts of a type, boosted ones counted by their multiplier for `effect`. */
     _power(type, effect) {
@@ -498,9 +505,20 @@ class Creep extends RoomObject {
         ctrl.reservation.ticksToEnd = Math.min(C.CONTROLLER_RESERVE_MAX, ctrl.reservation.ticksToEnd + n * C.CONTROLLER_RESERVE);
         return C.OK;
     }
-    attack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; t.hits -= 30 * this._power('attack', 'attack'); return C.OK; }
-    rangedAttack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits -= 10 * this._power('ranged_attack', 'rangedAttack'); return C.OK; }
-    rangedMassAttack() { return C.OK; }
+    attack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; strike(this, t, 30 * this._power('attack', 'attack')); return C.OK; }
+    rangedAttack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; if (this._acts.ranged === W.time) return C.ERR_BUSY; this._acts.ranged = W.time; strike(this, t, 10 * this._power('ranged_attack', 'rangedAttack')); return C.OK; }
+    /** Every hostile creep and owned hostile structure within 3 tiles: 10, 4 and 1 per part at range 1, 2 and 3. */
+    rangedMassAttack() {
+        if (this._acts.ranged === W.time) return C.ERR_BUSY; this._acts.ranged = W.time;
+        const power = this._power('ranged_attack', 'rangedMassAttack'); if (!power) return C.ERR_NO_BODYPART;
+        const room = this.room; const hit = new Set();
+        for (const o of room.creeps.filter(c => !c.my && !c.spawning).concat(room.structures.filter(s => s.owner && !s.my && s.hits != null))) {
+            const d = this.pos.getRangeTo(o); if (d > 3) continue;
+            const t = coverOf(o) || o; if (hit.has(t)) continue; hit.add(t);
+            strike(this, t, power * (d <= 1 ? 10 : d === 2 ? 4 : 1), true);
+        }
+        return C.OK;
+    }
     heal(t) { if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; this._acts.work = W.time; t.hits = Math.min(t.hitsMax, t.hits + 12 * this._power('heal', 'heal')); return C.OK; }
     rangedHeal(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits = Math.min(t.hitsMax, t.hits + 4 * this._power('heal', 'rangedHeal')); return C.OK; }
     move(dir) {
@@ -522,30 +540,40 @@ class Creep extends RoomObject {
         W.stats.moveToCalls = (W.stats.moveToCalls || 0) + 1;
         // Like the game: one search to the target, across rooms when it lies in another one (16 rooms at
         // most, opts.maxOps); when the search gives up, the creep walks to the tile nearest the target.
+        // The path is kept for reusePath ticks from the search (creep.memory._move in the game) and
+        // not looked for again in between, even when it has run out short of the target: then the
+        // answer is ERR_NO_PATH until the time is up. A creep pushed off its path searches again.
         const cross = target.roomName !== this.pos.roomName;
-        const key = target.x + ',' + target.y + ',' + target.roomName + ',' + range;
+        const key = target.x + ',' + target.y + ',' + target.roomName;
         const reuse = opts.reusePath != null ? opts.reusePath : 5;
         let cached = this._path;
-        if (!cached || cached.key !== key || cached.until < W.time || !cached.path.length) {
-            const res = PathFinder.search(this.pos, { pos: target, range: cross ? Math.max(1, range) : range }, {
-                roomCallback: (name) => {
-                    const room = W.rooms[name]; if (!room) return false;
-                    let m = roomMatrix(room, opts.ignoreCreeps !== false ? null : this);
-                    if (opts.costCallback) { m = m.clone(); const r = opts.costCallback(name, m); if (r instanceof CostMatrix) m = r; }
-                    return m;
-                },
-                plainCost: opts.plainCost || 2, swampCost: opts.swampCost || 10,
-                maxOps: opts.maxOps || (cross ? 20000 : 2000), maxRooms: cross ? (opts.maxRooms || 16) : 1,
-            });
-            W.stats.pathSearches = (W.stats.pathSearches || 0) + 1;
-            // Only the part inside this room is kept.
-            const path = [];
-            for (const p of res.path) { if (p.roomName !== this.pos.roomName) break; path.push(p); }
-            cached = this._path = { key, path, until: W.time + reuse, incomplete: res.incomplete };
-            if (!path.length) return (res.incomplete || cross) ? C.ERR_NO_PATH : C.OK;
+        if (cached && (cached.key !== key || W.time > cached.time + reuse || cached.room !== this.pos.roomName)) cached = this._path = null;
+        if (cached) {
+            const idx = cached.path.findIndex(p => p.x === this.pos.x && p.y === this.pos.y);
+            if (idx !== -1) { cached.path.splice(0, idx + 1); cached.at = { x: this.pos.x, y: this.pos.y }; }
+            if (!cached.path.length) return this.pos.isNearTo(target) ? C.OK : C.ERR_NO_PATH;
+            if (cached.at.x === this.pos.x && cached.at.y === this.pos.y) {
+                this._moveIntent = { x: cached.path[0].x, y: cached.path[0].y, fromPath: true };
+                return C.OK;
+            }
         }
-        const next = cached.path[0];
-        this._moveIntent = { x: next.x, y: next.y, fromPath: true };
+        const res = PathFinder.search(this.pos, { pos: target, range: cross ? Math.max(1, range) : range }, {
+            roomCallback: (name) => {
+                const room = W.rooms[name]; if (!room) return false;
+                let m = roomMatrix(room, opts.ignoreCreeps !== false ? null : this);
+                if (opts.costCallback) { m = m.clone(); const r = opts.costCallback(name, m); if (r instanceof CostMatrix) m = r; }
+                return m;
+            },
+            plainCost: opts.plainCost || 2, swampCost: opts.swampCost || 10,
+            maxOps: opts.maxOps || (cross ? 20000 : 2000), maxRooms: cross ? (opts.maxRooms || 16) : 1,
+        });
+        W.stats.pathSearches = (W.stats.pathSearches || 0) + 1;
+        // Only the part inside this room is kept.
+        const path = [];
+        for (const p of res.path) { if (p.roomName !== this.pos.roomName) break; path.push(p); }
+        this._path = { key, path, time: W.time, room: this.pos.roomName, at: { x: this.pos.x, y: this.pos.y }, incomplete: res.incomplete };
+        if (!path.length) return C.ERR_NO_PATH;
+        this._moveIntent = { x: path[0].x, y: path[0].y, fromPath: true };
         return C.OK;
     }
 }
@@ -636,6 +664,22 @@ class Room {
 }
 
 /* ---------------- helpers ---------------- */
+/** Somebody else's rampart standing over this object: hits land on the rampart instead. */
+function coverOf(o) {
+    if (!o || !o.pos || o.structureType === 'rampart') return null;
+    const room = W.rooms[o.pos.roomName]; if (!room) return null;
+    return room.structures.find(s => s.structureType === 'rampart' && s.owner && !s.my && s.pos.x === o.pos.x && s.pos.y === o.pos.y) || null;
+}
+/** One of our creeps hits something: damage goes to the covering rampart when there is one; counted per kind of target. */
+function strike(creep, t, dmg, direct) {
+    if (!(dmg > 0)) return;
+    const target = direct ? t : (coverOf(t) || t);
+    target.hits -= dmg;
+    if (creep.my) {
+        const kind = target.structureType || (target instanceof Creep ? 'creep' : 'other');
+        W.stats.hit = W.stats.hit || {}; W.stats.hit[kind] = (W.stats.hit[kind] || 0) + dmg;
+    }
+}
 function dropResource(pos, type, amount) {
     const room = W.rooms[pos.roomName];
     const cont = room.structures.find(s => s.structureType === 'container' && s.pos.x === pos.x && s.pos.y === pos.y);
@@ -798,6 +842,7 @@ function loadRoom(name, dir) {
     const spawnsByName = {};
     const users = data.users || {};
     const uname = id => (users[id] && users[id].username) || 'other';
+    const foreign = [];
     for (const o of data.objects) {
         let obj = null;
         switch (o.type) {
@@ -813,7 +858,8 @@ function loadRoom(name, dir) {
             case 'ruin': obj = new Ruin(o.x, o.y, name, o.store || {}); room.ruins.push(obj); break;
             case 'constructionSite': if (o.user !== ME) break; obj = new ConstructionSite(o.x, o.y, name, o.structureType); obj.progress = o.progress || 0; room.sites.push(obj); W.sites[obj.id] = obj; break;
             case 'creep': {
-                if (o.user !== ME) break;
+                // Somebody else's creep: kept aside, it only joins the room when its owner holds the controller (see below).
+                if (o.user !== ME) { if (o.ageTime && o.body && !o.spawning) foreign.push(o); break; }
                 obj = new Creep(o.x, o.y, name, o.name, o.body.map(b => ({ type: b.type, hits: b.hits })));
                 for (const k in (o.store || {})) if (o.store[k] > 0) obj.store[k] = o.store[k];
                 obj.hits = o.hits;
@@ -849,6 +895,21 @@ function loadRoom(name, dir) {
     }
     room.creeps = room.creeps.filter(c => !c.spawning || Object.values(spawnsByName).some(s => s.obj.spawning && s.obj.spawning.name === c.name));
     for (const n in W.creeps) if (W.creeps[n].spawning && !Object.values(W.spawns).some(s => s.spawning && s.spawning.name === n)) { delete W.creeps[n]; }
+    // An enemy base: the creeps of the player who owns the controller stand where the snapshot has them and
+    // defend the room (runEnemies). Other players' creeps anywhere else are still left out.
+    const ctrl = room.controller;
+    if (ctrl && ctrl.owner && !ctrl.my) {
+        for (const o of foreign) {
+            if (uname(o.user) !== ctrl.owner.username) continue;
+            const c = new Creep(o.x, o.y, name, o.name, o.body.map(b => ({ type: b.type, hits: b.hits, boost: b.boost })));
+            c.my = false; c.owner = { username: ctrl.owner.username }; c.hits = o.hits; c.ticksToLive = o.ageTime - W.time;
+            for (const k in (o.store || {})) if (o.store[k] > 0) c.store[k] = o.store[k];
+            if (o._id) c.id = o._id;
+            room.creeps.push(c); W.objects[c.id] = c; W.enemies = W.enemies || []; W.enemies.push(c);
+        }
+        // What the walls and ramparts had when the snapshot was taken: the level their menders keep them at.
+        for (const st of room.structures) if (st.structureType === 'rampart' || st.structureType === 'constructedWall') st._hits0 = st.hits;
+    }
     return room;
 }
 
@@ -857,6 +918,7 @@ function endTick() {
     // Events of this tick: the script reads them next tick through Room.getEventLog().
     W.events = {};
     runInvaders();
+    runEnemies();
     // combat damage: anything shot to zero disappears
     for (const rn in W.rooms) {
         const room = W.rooms[rn];
@@ -871,6 +933,8 @@ function endTick() {
         if (c.spawning) continue;
         occupant[c.pos.roomName + ':' + c.pos.x + ':' + c.pos.y] = c;
     }
+    // Creeps of other players stand in the way (they have moved already this tick).
+    for (const c of (W.enemies || []).concat(W.hostiles || [])) occupant[c.pos.roomName + ':' + c.pos.x + ':' + c.pos.y] = c;
     for (const name in W.creeps) {
         const c = W.creeps[name];
         if (!c._moveIntent || c.spawning) { c._moveIntent = null; continue; }
@@ -882,7 +946,7 @@ function endTick() {
     }
     const claimed = {};
     const byCreep = new Map(); for (const p of pending) byCreep.set(p.c, p);
-    for (let pass = 0; pass < 6; pass++) {
+    for (;;) {
         let progress = false;
         for (const p of pending) {
             if (p.state !== 'pending') continue;
@@ -893,9 +957,15 @@ function endTick() {
             if (!op || op.state === 'rejected') { p.state = 'rejected'; progress = true; continue; }
             if (op.state === 'ok') { p.state = 'ok'; claimed[p.key] = true; progress = true; continue; }
         }
-        if (!progress) break;
+        if (progress) continue;
+        // What is left waits on itself: a ring of creeps changing places (two swapping, or more in a
+        // circle), with others queued behind it. The ring moves; one creep per tile, the rest stay.
+        const first = pending.find(p => p.state === 'pending');
+        if (!first) break;
+        const seen = []; let cur = first;
+        while (!seen.includes(cur)) { seen.push(cur); cur = byCreep.get(occupant[cur.key]); }
+        for (const p of seen.slice(seen.indexOf(cur))) { p.state = 'ok'; claimed[p.key] = true; }
     }
-    for (const p of pending) if (p.state === 'pending') p.state = 'ok';
     for (const p of pending) {
         const c = p.c; const room = p.room; const x = p.x; const y = p.y;
         if (p.state !== 'ok') { W.stats.blockedMoves = (W.stats.blockedMoves || 0) + 1; continue; }
@@ -904,7 +974,6 @@ function endTick() {
         const weight = c.body.filter(p => p.type !== 'move' && !(p.type === 'carry' && !(c.store.getUsedCapacity() > 0))).length;
         c.fatigue += weight * (road ? 1 : t === 2 ? 10 : 2);
         c.pos = new RoomPosition(x, y, room.name);
-        if (c._path && c._path.path.length && c._path.path[0].x === x && c._path.path[0].y === y) c._path.path.shift();
         // room transition
         if (x === 0 || x === 49 || y === 0 || y === 49) {
             const w = worldXY(room.name); let nx = w.x, ny = w.y, px = x, py = y;
@@ -1055,6 +1124,127 @@ function runInvaders() {
         if (!spawn) continue;
         const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10, maxRooms: 1 });
         if (res.path.length) { const n = res.path[0]; if (!room.creeps.some(o => o.pos.x === n.x && o.pos.y === n.y)) c.pos = new RoomPosition(n.x, n.y, room.name); }
+    }
+}
+/* ---------------- enemy rooms ---------------- */
+// A room another player owns, loaded with that player's creeps (W.enemies). It is no opponent AI, only what
+// a walled base does to attackers: its towers fire at our creeps (600 damage up to range 5, falling to 150
+// at range 20, 10 energy a shot, one target until it is dead) and get 20 energy a tick while the room has a
+// hauler and stored energy; armed creeps come up behind their own walls and shoot or hit what gets in reach; up to
+// two workers mend the walls and ramparts we damage, back to what they had in the snapshot. They never
+// step on a tile our creeps can walk to. Nobody harvests, upgrades or spawns.
+function towerPower(base, range) { return Math.floor(range <= 5 ? base : range >= 20 ? base / 4 : base - base * 0.75 * (range - 5) / 15); }
+/** Tiles our creeps in this room can walk to without breaking anything (creeps ignored). */
+function ourReach(room, mine) {
+    const m = roomMatrix(room, null);
+    const seen = new Uint8Array(2500); const queue = [];
+    for (const c of mine) { const i = c.pos.y * 50 + c.pos.x; if (!seen[i]) { seen[i] = 1; queue.push(i); } }
+    for (let q = 0; q < queue.length; q++) {
+        const x = queue[q] % 50, y = (queue[q] - x) / 50;
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+            const nx = x + dx, ny = y + dy; if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+            const i = ny * 50 + nx; if (seen[i] || m.get(nx, ny) === 255) continue;
+            seen[i] = 1; queue.push(i);
+        }
+    }
+    return seen;
+}
+/** Where an enemy creep may walk this tick: its own ramparts are open, our side of the walls and every creep are not. */
+function enemyGrid(room, mine) {
+    if (room._eg && room._eg.t === W.time) return room._eg.m;
+    const m = new CostMatrix();
+    for (let y = 0; y < 50; y++) for (let x = 0; x < 50; x++) if (room.terrain.get(x, y) === 1) m.set(x, y, 255);
+    for (const s of room.structures) if (s.structureType === 'road' && m.get(s.pos.x, s.pos.y) !== 255) m.set(s.pos.x, s.pos.y, 1);
+    for (const s of room.structures) if (C.OBSTACLE_OBJECT_TYPES.includes(s.structureType) || (s.structureType === 'rampart' && s.my)) m.set(s.pos.x, s.pos.y, 255);
+    for (const o of room.sources.concat(room.minerals, room.controller ? [room.controller] : [])) m.set(o.pos.x, o.pos.y, 255);
+    const reach = ourReach(room, mine);
+    for (let i = 0; i < 2500; i++) if (reach[i]) m._bits[i] = 255;
+    for (const c of room.creeps) m.set(c.pos.x, c.pos.y, 255);
+    room._eg = { t: W.time, m };
+    return m;
+}
+/** One step toward a place; false when there is no way to get within range of it. */
+function enemyStep(c, room, mine, pos, range) {
+    const m = enemyGrid(room, mine);
+    const res = search(c.pos, { pos, range }, { roomCallback: () => m, plainCost: 2, swampCost: 10, maxRooms: 1, maxOps: 2000 });
+    if (res.path.length) { const n = res.path[0]; c.pos = new RoomPosition(n.x, n.y, room.name); m.set(n.x, n.y, 255); }
+    return !res.incomplete;
+}
+function runEnemies() {
+    if (!W.enemies || !W.enemies.length) return;
+    const parts = (c, type) => c.body.filter(p => p.type === type && p.hits > 0).length;
+    for (const c of W.enemies.slice()) {
+        if (--c.ticksToLive <= 0) c.hits = 0;
+        if (c.hits > 0) continue;
+        const room = W.rooms[c.pos.roomName];
+        room.creeps = room.creeps.filter(o => o !== c); delete W.objects[c.id]; W.enemies = W.enemies.filter(o => o !== c);
+        const t = new Tombstone(c.pos.x, c.pos.y, room.name, storeCopy(c.store), c.body.length * 5); room.tombstones.push(t); W.objects[t.id] = t;
+        W.stats.enemyKilled = (W.stats.enemyKilled || 0) + 1;
+        W.logs.push('enemy ' + c.name + ' died in ' + room.name + ' at tick ' + W.time);
+    }
+    const byRoom = {};
+    for (const c of W.enemies) (byRoom[c.pos.roomName] = byRoom[c.pos.roomName] || []).push(c);
+    for (const rn in W.rooms) {
+        const room = W.rooms[rn]; const ctrl = room.controller;
+        if (!ctrl || !ctrl.owner || ctrl.my || ctrl.safeMode) continue;
+        const theirs = byRoom[rn] || [];
+        const mine = room.creeps.filter(o => o.my && !o.spawning);
+        const hurt = (victim, dmg) => { victim.hits -= dmg; W.stats.enemyDamage = (W.stats.enemyDamage || 0) + dmg; };
+        // Towers: refilled by the haulers out of the storage, one target each until it is dead.
+        const towers = room.structures.filter(s => s.structureType === 'tower' && !s.my && s.isActive());
+        const haulers = theirs.filter(c => parts(c, 'carry') && !parts(c, 'work') && !parts(c, 'attack') && !parts(c, 'ranged_attack')).length;
+        const stock = room.structures.find(s => s.structureType === 'storage' && !s.my && s.owner && (s.store.energy || 0) > 0);
+        if (haulers && stock && towers.length) {
+            const low = towers.slice().sort((a, b) => (a.store.energy || 0) - (b.store.energy || 0))[0];
+            const n = Math.min(20, 1000 - (low.store.energy || 0), stock.store.energy);
+            if (n > 0) { low.store.energy = (low.store.energy || 0) + n; stock.store.energy -= n; }
+        }
+        for (const tw of towers) {
+            if (!mine.length || (tw.store.energy || 0) < 10) continue;
+            let t = tw._focus && W.objects[tw._focus];
+            if (!t || !t.my || t.hits <= 0 || t.pos.roomName !== rn) {
+                t = null;
+                for (const o of mine) { if (o.hits <= 0) continue; if (!t || tw.pos.getRangeTo(o) < tw.pos.getRangeTo(t) || (tw.pos.getRangeTo(o) === tw.pos.getRangeTo(t) && o.hits < t.hits)) t = o; }
+            }
+            if (!t) continue;
+            tw._focus = t.id; tw.store.energy -= 10;
+            hurt(t, towerPower(600, tw.pos.getRangeTo(t)));
+            W.stats.towerShots = (W.stats.towerShots || 0) + 1;
+        }
+        // Armed creeps: shoot or hit what is in reach, otherwise close in from behind the walls.
+        for (const c of theirs) {
+            const ra = parts(c, 'ranged_attack'), at = parts(c, 'attack');
+            if (!ra && !at) continue;
+            let victim = null;
+            for (const o of mine) { if (o.hits <= 0) continue; const d = c.pos.getRangeTo(o); if (d > (ra ? 3 : 1)) continue; if (!victim || o.hits < victim.hits) victim = o; }
+            if (victim) { const d = c.pos.getRangeTo(victim); hurt(victim, (ra ? 10 * ra : 0) + (at && d <= 1 ? 30 * at : 0)); continue; }
+            let near = null;
+            for (const o of mine) if (!near || c.pos.getRangeTo(o) < c.pos.getRangeTo(near)) near = o;
+            if (near) enemyStep(c, room, mine, near.pos, ra ? 3 : 1);
+        }
+        // Menders: mobile workers, those named after walls or repairs first, two at most.
+        const menders = theirs.filter(c => parts(c, 'work') && parts(c, 'carry') && parts(c, 'move') >= parts(c, 'work'))
+            .sort((a, b) => (/wall|repair|mason|fort/i.test(b.name) ? 1 : 0) - (/wall|repair|mason|fort/i.test(a.name) ? 1 : 0)).slice(0, 2);
+        if (!menders.length) continue;
+        const damaged = room.structures.filter(s => s._hits0 != null && s.hits > 0 && s.hits < s._hits0 && !(s._skip > W.time));
+        if (!damaged.length) continue;
+        for (const c of menders) {
+            if (!(c.store.energy > 0)) {
+                if (!stock) continue;
+                if (c.pos.isNearTo(stock)) { const n = Math.min(c.store.getCapacity(), stock.store.energy); c.store.energy = n; stock.store.energy -= n; }
+                else enemyStep(c, room, mine, stock.pos, 1);
+                continue;
+            }
+            let t = c._mend && W.objects[c._mend];
+            if (!t || !(t.hits > 0) || !(t.hits < t._hits0) || t._skip > W.time) { t = null; for (const s of damaged) if (!t || s._hits0 - s.hits > t._hits0 - t.hits) t = s; }
+            if (!t) continue;
+            c._mend = t.id;
+            if (c.pos.inRangeTo(t, 3)) {
+                const n = Math.min(parts(c, 'work'), c.store.energy);
+                c.store.energy -= n; t.hits = Math.min(t._hits0, t.hits + n * 100);
+                W.stats.enemyRepair = (W.stats.enemyRepair || 0) + n * 100;
+            } else if (!enemyStep(c, room, mine, t.pos, 3)) { t._skip = W.time + 100; c._mend = null; }
+        }
     }
 }
 /** Strip ownership from a loaded room: controller neutral, owned structures gone (as after a loss). */

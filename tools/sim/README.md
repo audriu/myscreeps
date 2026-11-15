@@ -15,7 +15,20 @@ another room is one such search (not a room-by-room route), so a creep sent
 far away with a bare `moveTo` ends up in a dead-end corner like in the game.
 `Game.map.findRoute` honours `routeCallback` costs.
 
-Known differences that matter when reading the numbers: towers do a flat 300
+`moveTo` keeps its path like the game does: for `reusePath` ticks from the
+search, without looking again in between. A path that has run out short of
+the target answers `ERR_NO_PATH` until that time is up, and a creep pushed
+off its path searches again. Moves are resolved together: one creep per tile,
+creeps may follow each other and change places, and creeps of other players
+stand in the way.
+
+Damage takes a creep's body parts out from the first one on, as in the game
+(healing brings them back from the last), so a soldier that has lost half its
+hits has usually lost its ATTACK parts. A hit on something under another
+player's rampart lands on the rampart. `rangedMassAttack` hits every hostile
+creep and owned hostile structure within 3 tiles (10, 4 and 1 per part).
+
+Known differences that matter when reading the numbers: our towers do a flat 300
 damage, 200 healing and 400 repair whatever the range (the game: 600, 400 and
 800 up to range 5, falling to a quarter at range 20), and containers lose 5000
 hits every 100 ticks even in owned rooms (the game: every 500 there). Towers
@@ -83,6 +96,45 @@ room with a guard), `--cheap[=FLOOR]`, `--unclaim[=N]`, `--nomuster` (no soldier
 down, lose levels and go neutral; same-tick `attackController` hits stack like
 in the engine. Hostile rooms report `structures=` (owned) and `leftovers=`
 (ownerless) so the final sweep can be checked.
+
+### Enemy rooms
+
+A snapshot of a room another player owns is loaded with that player's creeps
+(other players' creeps anywhere else are still left out), and the room
+defends itself. It is no opponent AI, only what a walled base does to
+attackers:
+
+- its towers fire at our creeps with the game's falloff (600 up to range 5,
+  150 at range 20), 10 energy a shot, each at the creep nearest to it until
+  that one is dead, and get 20 energy a tick while the room has a hauler
+  (CARRY and no WORK or weapon) and energy in its storage;
+- armed creeps come up behind their own walls and ramparts and shoot or hit
+  whatever of ours gets in reach (10 per RANGED_ATTACK, 30 per ATTACK);
+- up to two workers (WORK, CARRY and at least as many MOVE; those with
+  "wall" or "repair" in the name first) mend the walls and ramparts we
+  damage, back to the hits of the snapshot, and fetch energy from the storage;
+- none of them steps on a tile our creeps can walk to. Nobody harvests,
+  upgrades, spawns or rebuilds, and creeps that die are not replaced.
+
+The `[end]` line of such a room shows what is left: `structures=`, `creeps=`
+(theirs), `ours=`, `ramparts=` and the towers' energy. The summary counts what
+our creeps hit by kind of target (`hit`), what the room did to them
+(`enemyDamage`, `towerShots`) and what it mended (`enemyRepair`).
+
+To see what soldiers do at a real gate, snapshot the room while they stand in
+front of it and run the script from before a change and the current one:
+
+```
+D=tools/sim/data/gate-W49N17      # rooms/W49N17.json, terrain/W49N17.json, time.json
+node tools/sim/run.js /tmp/old-ai/default W49N17 400 --data=$D --war=W49N17:1 --go --nomuster --quiet
+node tools/sim/run.js default W49N17 400 --data=$D --war=W49N17:1 --go --nomuster --quiet
+```
+
+On the snapshot of 2026-11-15 (44 soldiers before a two-tile gate with ramparts
+of 12k and 24k hits, two defenders in the chamber behind it, two towers kept
+full) the script of that day puts 56k damage on walls, none on a rampart, and
+loses everyone in 80 ticks; the current one breaks the gate rampart in 15
+ticks and kills the defenders, and still loses everyone to the towers.
 
 `fetch.js` only saves your own rooms. For any other room (an enemy target,
 neutral and highway rooms on the way) save two responses of the public API by
