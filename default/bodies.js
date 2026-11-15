@@ -120,7 +120,38 @@ function courier(energy) {
     return assemble({ carry: units, move: units });
 }
 
+/** Miner for a source in another room: walks there once, carries enough to build and mend its container. */
+function remoteMiner(energy) {
+    if (energy >= 900) return assemble({ work: 6, carry: 1, move: 5 });
+    if (energy >= 750) return assemble({ work: 5, carry: 1, move: 4 });
+    if (energy >= 450) return assemble({ work: 3, carry: 1, move: 2 });
+    return assemble({ work: 2, carry: 1, move: 1 });
+}
+
+/** CLAIM/MOVE pairs for reserving (or un-reserving) a controller. */
+function reserver(energy) {
+    const units = util.clamp(Math.floor(energy / 650), 1, 8);
+    return assemble({ claim: units, move: units });
+}
+
+/**
+ * Guard for a remote room: melee with some ranged and one or two HEAL parts,
+ * a MOVE for every part. Enough for small invaders and for invader cores.
+ */
+function guard(energy) {
+    let left = Math.min(energy, 3200);
+    const heal = left >= 1500 ? 2 : (left >= 800 ? 1 : 0);
+    left -= heal * 300;
+    const ranged = util.clamp(Math.floor(left * 0.25 / 200), 0, 4);
+    left -= ranged * 200;
+    const attack = util.clamp(Math.floor(left / 130), 1, 25 - heal - ranged);
+    return assemble({ attack, ranged_attack: ranged, heal, move: attack + ranged + heal });
+}
+
 module.exports = {
+    remoteMiner,
+    reserver,
+    guard,
     worker,
     miner,
     hauler,

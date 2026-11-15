@@ -16,6 +16,7 @@ const planner = require('planner');
 const roles = require('roles');
 const empire = require('empire');
 const war = require('war');
+const remote = require('remote');
 
 function guard(label, fn) {
     try {
@@ -69,6 +70,7 @@ function summary(owned) {
         (Memory.empire && Memory.empire.claim ? ' claim=' + Memory.empire.claim.target +
             (Memory.empire.claim.next && Memory.empire.claim.next.length ? '+' + Memory.empire.claim.next.length : '') : '') +
         (Memory.empire && Memory.empire.wants ? ' empireWants=' + Memory.empire.wants.length : '') +
+        (remote.count() ? ' remotes=' + remote.count() : '') +
         (Memory.war && (Memory.war.muster || Memory.war.target) ? ' war=' + (Memory.war.target || 'muster') + '/' + war.soldiers().length : ''));
     if (Game.time % (config.logEvery * 5) === 0) {
         for (let i = 0; i < owned.length; i++) {
@@ -88,6 +90,7 @@ module.exports.loop = function () {
     guard('cleanup', cleanup);
     roles.prepare();
     guard('war', () => war.run());
+    guard('remote', () => remote.run());
 
     const owned = util.ownedRooms();
     for (let i = 0; i < owned.length; i++) {

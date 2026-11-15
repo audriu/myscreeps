@@ -10,11 +10,8 @@ const ROLE_MAP = {
     pioneer: 'worker',
     harvester: 'worker',
     repairer: 'worker',
-    remoteMiner: 'miner',
-    remoteHauler: 'hauler',
     fighter: 'defender',
     colonist: 'claimer',
-    reserver: 'scout',
 };
 
 function migrateMemory() {
@@ -48,7 +45,8 @@ function normalizeCreep(creep) {
     if (m.v === config.version && m.role && m.home && util.isOwned(m.home)) return;
     let role = m.role || roleFromName(creep.name) || 'worker';
     if (ROLE_MAP[role]) role = ROLE_MAP[role];
-    const known = ['miner', 'hauler', 'upgrader', 'worker', 'courier', 'defender', 'claimer', 'scout', 'soldier', 'unclaimer'];
+    const known = ['miner', 'hauler', 'upgrader', 'worker', 'courier', 'defender', 'claimer', 'scout', 'soldier', 'unclaimer',
+        'remoteMiner', 'remoteHauler', 'reserver', 'guard'];
     if (known.indexOf(role) === -1) role = 'worker';
 
     let home = null;

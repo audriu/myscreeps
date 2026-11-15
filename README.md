@@ -37,6 +37,13 @@ Memory.empire.claim = { target: 'W48N25', from: 'W49N25', t: Game.time }
 Gates, forcing, stopping and progress checks are in
 [default/README.md#colonizing](default/README.md#colonizing).
 
+## Remote mining
+
+Sources in the unowned rooms next to ours are mined automatically (miners,
+haulers, reservers, guards against invaders). What is mined, how to drop a
+room and the settings are in
+[default/README.md#remote-mining](default/README.md#remote-mining).
+
 ## Deploy
 
 Pushing to `main` deploys: the Screeps GitHub integration
@@ -46,6 +53,7 @@ repository into the `default` code branch. Only `*.js` files are uploaded.
 ## Test before uploading
 
 ```
-node tools/sim/fetch.js <username> shard1
+node tools/sim/fetch.js <username> shard1 --neighbours
 node tools/sim/run.js default W49N25 2000
+node tools/sim/run.js default W46N28,W45N28 4000 --quiet    # a home room and the neighbour it mines
 ```

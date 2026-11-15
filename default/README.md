@@ -86,6 +86,12 @@ modules from the branch first; `main.js` only requires the modules listed below.
   `Memory.empire.release = 'W1N1'` gives a room up (unclaimed, never retaken)
   so the slot goes to the lost room. Every new GCL level is logged and
   emailed with the number of free slots. See [Colonizing](#colonizing).
+- **Remote mining** (`remote.js`): sources in the unowned rooms next to
+  ours are mined by the neighbouring home room: a miner per source, haulers
+  sized by the walk, a reserver that doubles the sources' output, guards
+  against invaders and invader cores. One new room per empire pass, only
+  while CPU and the home's spawn time allow. See
+  [Remote mining](#remote-mining).
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped. A creep that cannot step off an exit tile (the engine throws it
@@ -286,6 +292,91 @@ controller neutral.
 | `unrestrictedRooms` | `[]` | rooms where nothing is spared from the start |
 | `maxGather`, `gatherShare` | 600, 0.8 | when a partial squad marches |
 | `unclaimRange`, `unclaimLead`, `unclaimSync`, `unclaimWindow` | 3, 500, 350, 330 | unclaimer reach, spawn lead, team wait, spawn ticks per team |
+
+## Remote mining
+
+Rooms next to ours that nobody owns are mined from the neighbouring home
+room. Nothing has to be typed: `remote.js` picks the rooms, and
+`Memory.empire.remotes` shows what is mined.
+
+### How a remote runs
+
+1. **Candidates**: every exit of an owned room at RCL `minRcl` (4)+ that has
+   a storage, a working spawn, a miner on each of its own sources and a
+   hauler. Highways, keeper rooms, avoided rooms, rooms owned by anyone,
+   rooms with towers, rooms reserved by another player or holding another
+   player's armed creeps are left out (and not looked at again for 3000 to
+   20000 ticks).
+2. **Intel**: a room is judged from `Memory.empire.intel` (sources and
+   controller position included). When that is missing or older than
+   `intelTtl` (10000) the home sends a 1-MOVE scout; a room known to be
+   somebody's base is never scouted. No word after 600 ticks: the room is
+   left alone for 5000.
+3. **Taking it on** (one room per empire pass, 20 ticks): the best candidate
+   (most sources; rooms held by an invader core last) is measured from the
+   home storage with a path search. Sources further than `maxDist` (110)
+   tiles are dropped. The room is only taken while the CPU bucket is at
+   `minBucket` (6000)+, no muster is on, the home has fewer than `perRoom`
+   (2, one more with a second spawn) remotes, its last remote is 600 ticks
+   old, and the creeps it keeps alive plus the new ones take at most
+   `maxSpawnLoad` (75%) of its spawn time. The log says `Remote W45N28 taken
+   on by W46N28: 2 source(s) at 24/38 tiles, spawn load 0.23 + 0.18`.
+4. **Creeps** (spawned by the home, counted against it):
+
+   | Role | Body | Priority | What it does |
+   |---|---|---|---|
+   | `remoteMiner` | 6 WORK, 1 CARRY, 5 MOVE (900) | 540 | one per source; builds a container under its feet (5000 energy out of what it mines), mends it, stands on it |
+   | `remoteHauler` | CARRY/MOVE pairs | 530 | loads at the containers (or off the ground) once half a load is there, unloads at home like a hauler (towers, spawn, controller container, storage); recycles when too old for another round trip |
+   | `reserver` | 2–4 CLAIM/MOVE pairs | 520 | sent while the reservation has under `reserveBelow` (1500) ticks; a reserved source gives 3000 per 300 ticks instead of 1500. Against somebody else's reservation (an invader core's) it uses `attackController` |
+   | `guard` | ATTACK with some RANGED_ATTACK and HEAL, MOVE for each | 560 | see below |
+
+   These priorities sit above upgraders (500) and below a home's own miners
+   and haulers. Upgraders are sized for the extra income (4 WORK per mined
+   source, 8 once it is reserved).
+5. **Danger**: armed creeps of anyone else in the room and every creep of
+   ours walks home (the log says who and how many parts). Invaders with up
+   to `guardMaxParts` (30) ATTACK, RANGED_ATTACK and HEAL parts are met by
+   guards (two for more than two invaders); bigger groups are waited out
+   until they die of age. Another player's creeps: ours stay away for
+   `playerPause` (300) ticks and try again. `maxRaids` (6) raids within
+   `raidWindow` (20000) ticks and the room is given up for 20000.
+6. **Invader cores**: a lesser core reserves the controller, and the engine
+   then refuses our harvest. A guard knocks the core down (it does not fight
+   back), reservers wear the reservation down, miners follow. Rooms held by
+   a core are taken on like any other, after the free ones.
+7. **Given up** (logged with the reason): the home lost its spawn, the room
+   was claimed or reserved by a player, it is on the avoid list, too many
+   raids. Its haulers finish life as haulers at home, the rest recycle.
+
+### Console
+
+```js
+JSON.stringify(Memory.empire.remotes)       // { W45N28: { home, t, src: [{ id, x, y, d, c }], res, resBy, core, unsafe, threat, raids } }
+delete Memory.empire.remotes.W45N28         // give one up now (it may be picked again)
+Memory.empire.remoteSkip.W45N28 = Game.time + 50000   // do not pick it again for 50000 ticks
+delete Memory.empire.remoteSkip.W45N28      // allow a skipped room again
+_.filter(Game.creeps, c => c.memory.remote).map(c => c.name + ' ' + c.pos)
+```
+
+`res` is the tick our reservation runs out, `resBy` who else holds one,
+`unsafe` the tick until which our creeps stay out. The 100-tick summary shows
+`remotes=N`.
+
+### Settings (`config.remote`)
+
+| Key | Default | |
+|---|---|---|
+| `enabled` | true | off: every remote is given up |
+| `minRcl` | 4 | homes below this mine no remotes |
+| `perRoom` | 2 | remote rooms per home (one more with a second spawn) |
+| `maxDist` | 110 | path tiles from the home storage to a source |
+| `maxSpawnLoad` | 0.75 | share of its spawn time a home's creeps may take |
+| `minBucket`, `pauseBucket` | 6000, 2000 | CPU bucket to take on another room; below the second no remote creep is replaced |
+| `intelTtl` | 10000 | ticks before a neighbour is scouted again |
+| `reserve`, `reserveBelow`, `reserveClaims` | true, 1500, 4 | reservers, when one is sent, CLAIM parts at most (rooms that cannot afford 2 send none) |
+| `containers` | true | miners build containers |
+| `guardMaxParts`, `playerPause` | 30, 300 | invader group size guards take on; ticks to stay away from a player's creeps |
+| `maxRaids`, `raidWindow` | 6, 20000 | raids before a room is given up |
 
 ## Colonizing
 
@@ -503,17 +594,20 @@ Email: `Claimed room …`.
 | `defense.js` | Towers and safe mode |
 | `logistics.js` | Links and terminal balancing |
 | `empire.js` | Helpers, couriers, scouting, claiming |
+| `remote.js` | Remote mining: picking rooms, spawn requests, danger |
 | `adopt.js` | Memory migration and legacy creep adoption |
 
 ## Console
 
-Every 100 ticks: `rooms=N/GCL creeps=N cpu~X/limit bucket=N`. Every 500 ticks a
+Every 100 ticks: `rooms=N/GCL creeps=N cpu~X/limit bucket=N` (plus `remotes=N`
+while rooms are mined remotely). Every 500 ticks a
 line per room (RCL, energy, storage, sites, downgrade timer, creeps by role).
 Warnings in orange, errors and safe mode in red.
 
 ### Console commands
 
 War: see [War](#war) above. Claiming rooms: see [Colonizing](#colonizing).
+Remote rooms: see [Remote mining](#remote-mining).
 
 Rooms:
 

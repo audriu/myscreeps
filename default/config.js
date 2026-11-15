@@ -131,6 +131,29 @@ module.exports = {
         perRecipient: 2,
     },
 
+    // Remote mining: sources in the unowned rooms next to ours (remote.js).
+    // One new room per empire pass at most, and only while the CPU bucket is
+    // comfortable; a home pays for the miners, haulers, reserver and guards
+    // out of its own spawn. Memory.empire.remotes holds what is mined.
+    remote: {
+        enabled: true,
+        minRcl: 4,              // homes below this (or without storage) mine no remotes
+        perRoom: 2,             // remote rooms per home (one more with a second spawn)
+        maxDist: 110,           // path tiles from the home storage to a source
+        maxSpawnLoad: 0.75,     // share of a home's spawn time its creeps may take, remotes included
+        minBucket: 6000,        // CPU bucket needed to take on another remote
+        pauseBucket: 2000,      // below this no remote creep is replaced (they die out, the load drops)
+        intelTtl: 10000,        // ticks before a neighbour is scouted again
+        reserve: true,          // CLAIM creeps reserve the controller: sources give 3000 instead of 1500
+        reserveBelow: 1500,     // send a reserver when the reservation has fewer ticks left
+        reserveClaims: 4,       // CLAIM parts per reserver at most (2 at least, else none is sent)
+        containers: true,       // miners build and maintain a container under their feet
+        guardMaxParts: 30,      // invader groups with more ATTACK/RANGED/HEAL parts are waited out, not fought
+        playerPause: 300,       // ticks our creeps stay out after another player's armed creeps were seen
+        maxRaids: 6,            // this many raids within raidWindow and the room is given up for 20000 ticks
+        raidWindow: 20000,
+    },
+
     terminal: {
         interval: 100,
         keep: 40000,            // energy haulers keep in each active terminal

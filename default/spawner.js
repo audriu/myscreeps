@@ -9,6 +9,7 @@ const bodies = require('bodies');
 const roomState = require('roomState');
 const war = require('war');
 const defense = require('defense');
+const remote = require('remote');
 
 const POP = config.population;
 
@@ -51,8 +52,8 @@ function upgraderWorkWanted(st) {
     if (storageEnergy > 50000) w += 5;
     if (storageEnergy > 150000) w += 5;
     if (storageEnergy > 400000) w += 6;
-    // Energy arriving from outside (couriers) or piling up at the controller.
-    w += st.count('courier') * 4;
+    // Energy arriving from outside (couriers, remote mines) or piling up at the controller.
+    w += st.count('courier') * 4 + remote.income(st.name);
     if (st.ctrlContainer && (st.ctrlContainer.store[RESOURCE_ENERGY] || 0) > 1500) w += 3;
     if (st.downgrade) w = Math.max(w, 6);
     return util.clamp(w, 2, 24);
@@ -149,6 +150,8 @@ function wants(room, st) {
         let wantedCarry = 0;
         for (let i = 0; i < st.sources.length; i++) wantedCarry += Math.ceil(haulDistance(st, st.sources[i]) * 0.4) + 2;
         if (st.storage) wantedCarry += 4;
+        // What the remote haulers bring to storage still has to reach the spawn and the controller.
+        wantedCarry += Math.ceil(remote.income(st.name) / 2);
         const maxPer = roadsOk ? Math.min(32, 2 * Math.floor(st.cap / 150)) : Math.min(25, Math.floor(st.cap / 100));
         const minCount = st.sources.length >= 2 && st.rcl >= 3 ? 2 : 1;
         let desired = util.clamp(Math.ceil(wantedCarry / Math.max(1, maxPer)), minCount, POP.maxHaulers);
@@ -245,6 +248,8 @@ function wants(room, st) {
     for (let i = 0; i < empire.length; i++) {
         const w = empire[i];
         if (w.spawnIn !== room.name) continue;
+        // Requests that are dropped first when CPU runs short (remote mining).
+        if (w.minBucket && Game.cpu.bucket < w.minBucket) continue;
         // Stale claim requests: the room may have been claimed since the empire last planned.
         if (w.role === 'claimer' && w.memory && util.isOwned(w.memory.targetRoom)) continue;
         const pool = (index.byHome[w.home] && index.byHome[w.home][w.role]) || [];
@@ -255,7 +260,7 @@ function wants(room, st) {
             if (w.match) {
                 for (const k in w.match) if (c.memory[k] !== w.match[k]) ok = false;
             }
-            if (ok && (c.spawning || c.ticksToLive == null || c.ticksToLive > 100)) have++;
+            if (ok && (c.spawning || c.ticksToLive == null || c.ticksToLive > (w.lead != null ? w.lead : 100))) have++;
         }
         list.push({
             role: w.role,

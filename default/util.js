@@ -119,6 +119,17 @@ function hasParts(creep, types) {
     return false;
 }
 
+/** Our account name (read off any spawn or owned controller, then remembered). */
+function myName() {
+    if (heap.myName) return heap.myName;
+    for (const n in Game.spawns) return (heap.myName = Game.spawns[n].owner.username);
+    for (const n in Game.rooms) {
+        const c = Game.rooms[n].controller;
+        if (c && c.my && c.owner) return (heap.myName = c.owner.username);
+    }
+    return null;
+}
+
 /** Is this room owned by me (controller mine)? Works without vision via Memory. */
 function isOwned(roomName) {
     const room = Game.rooms[roomName];
@@ -584,6 +595,7 @@ module.exports = {
     bodyCost,
     countParts,
     hasParts,
+    myName,
     isOwned,
     ownedRooms,
     roomDistance,
@@ -596,6 +608,7 @@ module.exports = {
     roomCoords,
     isHighway,
     isKeeperRoom,
+    routeMatrix,
     travel,
     park,
     markIdle,

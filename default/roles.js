@@ -8,6 +8,8 @@ const util = require('util');
 const roomState = require('roomState');
 const war = require('war');
 const defense = require('defense');
+const remote = require('remote');
+const empire = require('empire');
 
 const heap = util.heap;
 
@@ -159,7 +161,8 @@ function pickEnergy(creep, st, opts) {
     const consider = (obj, amount, kind, bonus) => {
         if (isBad(obj.id)) return;
         const avail = amount - (heap.reserved[obj.id] || 0);
-        if (avail < Math.min(need, 50)) return;
+        // opts.minAmount: remote haulers wait for a real load instead of sipping every tick.
+        if (avail < Math.min(need, opts.minAmount || 50)) return;
         const d = creep.pos.getRangeTo(obj);
         const score = Math.min(avail, need) + (bonus || 0) - d * 3;
         if (score > bestScore) {
@@ -1018,7 +1021,8 @@ function scout(creep, m) {
         util.travel(creep, util.roomCenter(m.targetRoom), { range: 20, reusePath: 50 });
         return;
     }
-    // Arrived: intel is recorded by empire.observe(); move on.
+    // Arrived: note what is here (sources, controller, owner) and move on.
+    empire.record(creep.room, true);
     delete m.targetRoom;
     if (!queue.length) recycle(creep);
 }
@@ -1527,7 +1531,237 @@ function unclaimer(creep, m) {
     }
 }
 
-const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier, unclaimer };
+/* ------------------------------------------------------------------ */
+/* Remote mining (remote.js picks the rooms and asks for these creeps)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Miner on a source in an unowned room next to its home. Stands on the
+ * container, which it builds and mends itself; without one the energy drops
+ * at its feet for the haulers. Walks home while the room is unsafe.
+ */
+function remoteMiner(creep, m) {
+    const st = homeState(creep);
+    const r = remote.get(m.remote);
+    let s = null;
+    if (r) for (let i = 0; i < r.src.length; i++) if (r.src[i].id === m.sourceId) s = r.src[i];
+    if (!st || !r || r.home !== st.name || !s) {
+        recycle(creep);
+        return;
+    }
+    if (r.unsafe > Game.time) {
+        idle(creep, st);
+        return;
+    }
+    if (creep.room.name !== m.remote) {
+        util.travel(creep, new RoomPosition(s.x, s.y, m.remote), { range: 1, reusePath: 40 });
+        return;
+    }
+    const src = Game.getObjectById(s.id);
+    if (!src) return;
+    const sources = remote.view(creep.room).sources;
+    let box = null;
+    for (let i = 0; i < sources.length; i++) if (sources[i].id === s.id) box = sources[i].container;
+    if (box) {
+        if (!creep.pos.isEqualTo(box.pos)) {
+            // The miner being replaced may still stand on it: any tile next to the source will do.
+            const taken = creep.pos.isNearTo(box.pos) && box.pos.lookFor(LOOK_CREEPS).length > 0;
+            if (!(taken && creep.pos.isNearTo(src))) {
+                util.travel(creep, box.pos, { range: 0 });
+                if (!creep.pos.isNearTo(src)) return;
+            }
+        }
+    } else if (!creep.pos.isNearTo(src)) {
+        util.travel(creep, src, { range: 1 });
+        return;
+    }
+    util.park(creep);
+    const work = creep.getActiveBodyparts(WORK);
+    const carried = creep.store[RESOURCE_ENERGY] || 0;
+    if (box) {
+        // Containers in unowned rooms lose 5000 hits every 100 ticks.
+        if (box.hits < box.hitsMax - 4000 && carried >= work) {
+            creep.repair(box);
+            return;
+        }
+    } else if (config.remote.containers) {
+        const sites = util.find(creep.room, FIND_MY_CONSTRUCTION_SITES, 'box', x => x.structureType === STRUCTURE_CONTAINER);
+        let site = null;
+        for (let i = 0; i < sites.length; i++) if (sites[i].pos.isNearTo(src)) site = sites[i];
+        if (!site) {
+            if (Game.time % 10 === 0 && !r.resBy && Object.keys(Game.constructionSites).length < 90) {
+                creep.room.createConstructionSite(creep.pos.x, creep.pos.y, STRUCTURE_CONTAINER);
+            }
+        } else if (carried >= Math.min(creep.store.getCapacity(), work * BUILD_POWER)) {
+            creep.build(site);
+            return;
+        }
+    }
+    if (src.energy > 0) creep.harvest(src);
+    if (box && carried > 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) < work * 2 && !creep.pos.isEqualTo(box.pos) &&
+        box.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        creep.transfer(box, RESOURCE_ENERGY);
+    }
+}
+
+/**
+ * Hauler between a remote room and its home: loads at the source containers
+ * (or from the ground), unloads like any hauler (towers, spawn, controller
+ * container, storage). Too old for another round trip, it recycles at home.
+ */
+function remoteHauler(creep, m) {
+    const st = homeState(creep);
+    if (!st) {
+        recycle(creep);
+        return;
+    }
+    const r = remote.get(m.remote);
+    if (!r || r.home !== st.name) {
+        // The remote was given up: finish life as a hauler at home.
+        m.role = 'hauler';
+        delete m.remote;
+        delete m.t;
+        delete m.tk;
+        return;
+    }
+    const carried = creep.store[RESOURCE_ENERGY] || 0;
+    const unsafe = r.unsafe > Game.time;
+    if (m.working && carried === 0) {
+        m.working = false;
+        delete m.t;
+        delete m.tk;
+    } else if (!m.working && (creep.store.getFreeCapacity() === 0 || (unsafe && carried > 0))) {
+        m.working = true;
+        delete m.t;
+        delete m.tk;
+    }
+    if (m.working) {
+        if (creep.room.name !== st.name) {
+            util.travel(creep, st.storage || st.anchor, { range: 1, reusePath: 40 });
+            return;
+        }
+        if (!deliver(creep, st, {})) idle(creep, st);
+        return;
+    }
+    if (unsafe) {
+        idle(creep, st);
+        return;
+    }
+    let trip = 0;
+    for (let i = 0; i < r.src.length; i++) trip = Math.max(trip, r.src[i].c + r.src[i].d);
+    if (creep.room.name === st.name && creep.ticksToLive < trip + 40) {
+        recycle(creep);
+        return;
+    }
+    let wait = r.src[util.hashString(creep.name) % r.src.length];
+    if (creep.room.name !== m.remote) {
+        util.travel(creep, new RoomPosition(wait.x, wait.y, m.remote), { range: 2, reusePath: 40 });
+        return;
+    }
+    const view = remote.view(creep.room);
+    const free = creep.store.getFreeCapacity();
+    if (acquire(creep, view, { dropped: true, sourceContainers: true, minAmount: Math.min(free, Math.max(100, creep.store.getCapacity() / 2)) })) return;
+    // Nothing worth a withdraw yet: leave with a decent load, or when age presses.
+    if (carried >= creep.store.getCapacity() * 0.6 || (carried > 0 && creep.ticksToLive < trip + 40)) {
+        m.working = true;
+        return;
+    }
+    // Wait at the fullest container, out of the miner's way.
+    let most = -1;
+    for (let i = 0; i < view.sources.length; i++) {
+        const c = view.sources[i].container;
+        const n = c ? (c.store[RESOURCE_ENERGY] || 0) : -1;
+        if (n > most) {
+            most = n;
+            for (let j = 0; j < r.src.length; j++) if (r.src[j].id === view.sources[i].id) wait = r.src[j];
+        }
+    }
+    util.markIdle(creep);
+    const pos = new RoomPosition(wait.x, wait.y, m.remote);
+    if (!creep.pos.inRangeTo(pos, 3)) util.travel(creep, pos, { range: 2 });
+}
+
+/**
+ * CLAIM creep on a remote controller: reserves it for us, or attacks the
+ * reservation of whoever holds it (an invader core's outlives the core).
+ */
+function reserver(creep, m) {
+    const st = homeState(creep);
+    const r = remote.get(m.remote);
+    if (!st || !r || r.cx == null) {
+        recycle(creep);
+        return;
+    }
+    if (r.unsafe > Game.time) {
+        idle(creep, st);
+        return;
+    }
+    const pos = new RoomPosition(r.cx, r.cy, m.remote);
+    if (creep.room.name !== m.remote || !creep.pos.isNearTo(pos)) {
+        util.travel(creep, pos, { range: 1, reusePath: 40 });
+        return;
+    }
+    const ctrl = creep.room.controller;
+    if (!ctrl || ctrl.owner) return;
+    util.park(creep);
+    if (ctrl.reservation && ctrl.reservation.username !== util.myName()) {
+        creep.attackController(ctrl);
+        return;
+    }
+    creep.reserveController(ctrl);
+    if (!ctrl.sign || ctrl.sign.text !== config.signature) creep.signController(ctrl, config.signature);
+}
+
+/**
+ * Guard for a remote room: kills invaders (armed ones first), then an invader
+ * core, heals itself between blows, and goes home to recycle once the room
+ * has been quiet for a while.
+ */
+function guard(creep, m) {
+    const st = homeState(creep);
+    const r = remote.get(m.remote);
+    if (!st || !r) {
+        recycle(creep);
+        return;
+    }
+    const mend = () => {
+        if (creep.hits < creep.hitsMax && creep.getActiveBodyparts(HEAL)) creep.heal(creep);
+    };
+    if (creep.room.name !== m.remote) {
+        mend();
+        if (m.clear > 20) recycle(creep);
+        else util.travel(creep, util.roomCenter(m.remote), { range: 20, reusePath: 20 });
+        return;
+    }
+    const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
+    let target = null;
+    let best = Infinity;
+    for (let i = 0; i < hostiles.length; i++) {
+        const d = creep.pos.getRangeTo(hostiles[i]) - (armed(hostiles[i]) ? 100 : 0);
+        if (d < best) {
+            best = d;
+            target = hostiles[i];
+        }
+    }
+    if (!target) target = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'core', s => s.structureType === STRUCTURE_INVADER_CORE)[0] || null;
+    if (target) {
+        m.clear = 0;
+        engage(creep, target, true);
+        // Healing replaces a melee hit in the same tick: only while not in reach.
+        if (!creep.pos.isNearTo(target)) mend();
+        return;
+    }
+    mend();
+    m.clear = (m.clear || 0) + 1;
+    if (m.clear > 20) {
+        recycle(creep);
+        return;
+    }
+    util.markIdle(creep);
+    if (util.onEdge(creep.pos) || !creep.pos.inRangeTo(util.roomCenter(m.remote), 12)) util.travel(creep, util.roomCenter(m.remote), { range: 10 });
+}
+
+const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier, unclaimer, remoteMiner, remoteHauler, reserver, guard };
 
 function run(creep) {
     if (creep.spawning) return;

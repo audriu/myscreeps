@@ -5,6 +5,7 @@
 const config = require('config');
 const util = require('util');
 const roomState = require('roomState');
+const remote = require('remote');
 
 function ensure() {
     if (!Memory.empire) Memory.empire = {};
@@ -73,27 +74,48 @@ function watchGcl(e) {
     Game.notify(msg);
 }
 
+/**
+ * Record intel for a visible room that is not ours (at most every 200 ticks
+ * unless forced): owner, reservation, towers, and where the sources and the
+ * controller are, so a remote mine can be planned without vision.
+ */
+function record(room, force) {
+    const e = ensure();
+    const name = room.name;
+    if (room.controller && room.controller.my) return;
+    const prev = e.intel[name];
+    if (!force && prev && Game.time - prev.t < 200) return;
+    const ctrl = room.controller;
+    const hostile = room.find(FIND_HOSTILE_STRUCTURES, { filter: s => s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_INVADER_CORE });
+    const sources = room.find(FIND_SOURCES);
+    const me = util.myName();
+    const intel = e.intel[name] = {
+        t: Game.time,
+        sources: sources.length,
+        src: sources.map(s => ({ id: s.id, x: s.pos.x, y: s.pos.y })),
+        ctrl: !!ctrl,
+        owner: ctrl && ctrl.owner ? ctrl.owner.username : null,
+        reserved: ctrl && ctrl.reservation ? ctrl.reservation.username : null,
+        level: ctrl ? ctrl.level : 0,
+        towers: hostile.length,
+        keeper: room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_KEEPER_LAIR }).length > 0,
+    };
+    if (ctrl) {
+        intel.cx = ctrl.pos.x;
+        intel.cy = ctrl.pos.y;
+        if (ctrl.reservation) intel.resTicks = ctrl.reservation.ticksToEnd;
+    }
+    if (hostile.some(s => s.structureType === STRUCTURE_INVADER_CORE)) intel.core = true;
+    // Another player's armed creeps: not a room to send miners into.
+    const armed = room.find(FIND_HOSTILE_CREEPS, {
+        filter: c => c.owner && c.owner.username !== me && c.owner.username !== 'Invader' && util.hasParts(c, [ATTACK, RANGED_ATTACK]),
+    }).length;
+    if (armed) intel.armed = armed;
+}
+
 /** Record intel for visible rooms that are not ours. */
 function observe() {
-    const e = ensure();
-    for (const name in Game.rooms) {
-        const room = Game.rooms[name];
-        if (room.controller && room.controller.my) continue;
-        const prev = e.intel[name];
-        if (prev && Game.time - prev.t < 200) continue;
-        const ctrl = room.controller;
-        const towers = room.find(FIND_HOSTILE_STRUCTURES, { filter: s => s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_INVADER_CORE }).length;
-        e.intel[name] = {
-            t: Game.time,
-            sources: room.find(FIND_SOURCES).length,
-            ctrl: !!ctrl,
-            owner: ctrl && ctrl.owner ? ctrl.owner.username : null,
-            reserved: ctrl && ctrl.reservation ? ctrl.reservation.username : null,
-            level: ctrl ? ctrl.level : 0,
-            towers,
-            keeper: room.find(FIND_STRUCTURES, { filter: s => s.structureType === STRUCTURE_KEEPER_LAIR }).length > 0,
-        };
-    }
+    for (const name in Game.rooms) record(Game.rooms[name], false);
 }
 
 function spawnRooms() {
@@ -433,6 +455,7 @@ function run() {
     const wants = [];
     planHelpers(wants, states);
     planCouriers(wants, states);
+    remote.plan(wants, states, record);
     planExpansion(wants, states);
     e.wants = wants;
 
@@ -441,4 +464,4 @@ function run() {
     }
 }
 
-module.exports = { run, observe, ensure };
+module.exports = { run, observe, record, ensure };

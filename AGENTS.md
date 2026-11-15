@@ -24,6 +24,7 @@ Instructions for coding agents working in this repository.
   - `defense.js` — tower targeting/healing/repairing, safe mode triggers, worker rampart fortification thresholds.
   - `logistics.js` — source/controller/storage links and cross-room terminal energy balancing.
   - `empire.js` — cross-room helpers, couriers, scouting, automatic and manual claiming (`Memory.empire.claim`), reclaiming lost rooms, room release (`Memory.empire.release`).
+  - `remote.js` — remote mining of unowned neighbour rooms (`Memory.empire.remotes`): room choice, spawn requests for `remoteMiner`, `remoteHauler`, `reserver` and `guard`, retreat from invaders.
   - `adopt.js` — one-time `Memory` migration and legacy creep adoption.
 - `tools/sim/` — offline simulator (`fetch.js`, `run.js`, `engine.js`, `constants.js`) that runs `default/` against real room snapshots in `tools/sim/data/` (gitignored). See [tools/sim/README.md](tools/sim/README.md).
 - `README.md` — top-level overview and quick commands.
@@ -48,7 +49,7 @@ node tools/sim/fetch.js Dzioba shard1
 node tools/sim/run.js default W49N25 2000
 ```
 
-Additional scenario flags (`--quiet`, `--invade`, `--unowned`, `--lost`, `--gcl`, `--release`, `--war`, `--go`, `--hostile`, `--cheap`, `--unclaim`, `--nomuster`, `--trace`, `--map`, `--data`) are documented in [tools/sim/README.md](tools/sim/README.md).
+Additional scenario flags (`--quiet`, `--invade`, `--core`, `--unowned`, `--lost`, `--gcl`, `--release`, `--war`, `--go`, `--hostile`, `--cheap`, `--unclaim`, `--nomuster`, `--give`, `--rcl`, `--hub`, `--boost`, `--trace`, `--map`, `--data`) are documented in [tools/sim/README.md](tools/sim/README.md).
 
 ## Lessons From Live Incidents
 
