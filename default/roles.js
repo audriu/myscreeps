@@ -14,6 +14,12 @@ const industry = require('industry');
 
 const heap = util.heap;
 
+// One load, one place: a creep that has taken at least this share of its capacity at one
+// place only tops up from what lies within LOAD_REACH tiles of it, then goes to unload.
+// It does not walk on to a second source with the load on board.
+const LOAD_COMMIT = 0.25;
+const LOAD_REACH = 3;
+
 const SITE_PRIORITY = {
     [STRUCTURE_SPAWN]: 10,
     [STRUCTURE_EXTENSION]: 8,
@@ -84,12 +90,14 @@ function toggleWorking(creep, m) {
         delete m.tk;
         delete m.task;
         delete m.src;
+        delete m.at;
     } else if (!m.working && creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0 && creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
         // Full, and of energy: a load of minerals alone is not "working" (the creep would
         // set off for a tower with nothing to give, then turn back, forever).
         m.working = true;
         delete m.t;
         delete m.tk;
+        delete m.at;
     }
 }
 
@@ -160,12 +168,14 @@ function sourceStillGood(tgt, kind) {
     return !!(tgt.store && (tgt.store[RESOURCE_ENERGY] || 0) > 0);
 }
 
-function pickEnergy(creep, st, opts) {
+/** near: { x, y } of the place the creep already loaded at; only what lies right there counts then. */
+function pickEnergy(creep, st, opts, near) {
     const need = creep.store.getFreeCapacity(RESOURCE_ENERGY);
     let best = null;
     let bestScore = -Infinity;
     const consider = (obj, amount, kind, bonus) => {
         if (isBad(obj.id)) return;
+        if (near && !obj.pos.inRangeTo(near.x, near.y, LOAD_REACH)) return;
         const avail = amount - (heap.reserved[obj.id] || 0);
         // opts.minAmount: remote haulers wait for a real load instead of sipping every tick.
         if (avail < Math.min(need, opts.minAmount || 50)) return;
@@ -208,6 +218,7 @@ function pickEnergy(creep, st, opts) {
         for (let i = 0; i < st.sources.length; i++) {
             const src = st.sources[i].source;
             if (src.energy === 0 || isBad(src.id)) continue;
+            if (near && !src.pos.inRangeTo(near.x, near.y, LOAD_REACH)) continue;
             const queued = heap.harvesters[src.id] || 0;
             // Over-subscribe by one: the extra creep queues next to the source.
             if (queued > freeSpotsAround(src)) continue;
@@ -225,14 +236,20 @@ function pickEnergy(creep, st, opts) {
     return null;
 }
 
-/** Acquire energy. Returns true when the creep is busy with it. */
+/**
+ * Acquire energy. Returns true when the creep is busy with it; false when
+ * there is nothing (more) for it to take, and the caller sends a creep that
+ * carries a real load off to unload it.
+ */
 function acquire(creep, st, opts) {
     const m = creep.memory;
     let tgt = m.t ? Game.getObjectById(m.t) : null;
     if (tgt && (m.tk === 'transfer' || !sourceStillGood(tgt, m.tk))) tgt = null;
     if (tgt && tgt.pos.roomName !== creep.room.name) tgt = null;
     if (!tgt) {
-        const pick = pickEnergy(creep, st, opts);
+        // Loaded at one place already (m.at): only what lies right there may top the load up.
+        const loaded = m.at && (creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * LOAD_COMMIT;
+        const pick = pickEnergy(creep, st, opts, loaded ? m.at : null);
         if (!pick) {
             delete m.t;
             delete m.tk;
@@ -260,6 +277,7 @@ function acquire(creep, st, opts) {
     else res = creep.withdraw(tgt, RESOURCE_ENERGY);
     // A store we may not touch after all (someone else's rampart, safe mode).
     if (res === ERR_NOT_OWNER || res === ERR_INVALID_TARGET) markBad(tgt.id);
+    if (res === OK) m.at = { x: tgt.pos.x, y: tgt.pos.y };
     if (m.tk !== 'harvest' || res !== OK) {
         delete m.t;
         delete m.tk;
@@ -444,6 +462,14 @@ function repairObjects(st) {
 function doBuild(creep, st, m) {
     let site = m.t && m.tk === 'build' ? Game.getObjectById(m.t) : null;
     if (!site) {
+        if (m.t && m.tk === 'build') {
+            // The site it was working on is gone (built): that job is done. The worker
+            // decides anew what the rest of the load is for (a fresh rampart needs
+            // mending at once, or the next site).
+            delete m.t;
+            delete m.tk;
+            return false;
+        }
         site = pickSite(creep, st);
         if (!site) return false;
         m.t = site.id;
@@ -755,7 +781,7 @@ function hauler(creep, m) {
                 !!(rearm && st.terminal && storageEnergy <= 300),
         };
         if (!acquire(creep, st, opts)) {
-            if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * 0.25) m.working = true;
+            if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * LOAD_COMMIT) m.working = true;
             else if (!startMove(creep, st, m, false)) idle(creep, st);
         } else if (m.mv && !m.mv.got) {
             // Energy work came up: the move is left for someone else.
@@ -839,7 +865,10 @@ function upgrader(creep, m) {
     }
 
     // No feed or a dry one: fetch energy ourselves, then come back.
-    if (carried === 0) m.fetching = true;
+    if (carried === 0) {
+        m.fetching = true;
+        delete m.at;
+    }
     if (m.fetching) {
         const ok = acquire(creep, st, {
             dropped: true,
@@ -885,7 +914,7 @@ function chooseTask(creep, st) {
     if (st.downgrade) return 'upgrade';
     if (st.sites.length) {
         if (freshRamparts(st).length) return 'repair';
-        // In stretches of 100 ticks out of 300: shorter turns are lost on the walk there and back.
+        // Loads picked up in 100 ticks out of every 300 (a job is chosen once per load).
         if (Game.time % 300 < 100 && thinRamparts(st).length) {
             let owed = 0;
             for (let i = 0; i < st.sites.length; i++) owed += st.sites[i].progressTotal - st.sites[i].progress;
@@ -924,30 +953,47 @@ function worker(creep, m) {
             // Harvest only while sources lack miners: miners own the harvest spots.
             harvest: st.count('miner') < st.sources.length,
         });
-        if (!ok) idle(creep, st);
+        if (!ok) {
+            // Nothing (more) to take here: a real load goes to work, a few scraps wait for more.
+            if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * LOAD_COMMIT) {
+                m.working = true;
+                delete m.t;
+                delete m.tk;
+            } else idle(creep, st);
+        }
         return;
     }
-    if (!m.task || Game.time % 10 === 0 || (m.task !== 'fill' && workerRearm(st))) {
-        const task = chooseTask(creep, st);
-        if (task !== m.task) {
-            m.task = task;
-            delete m.t;
-            delete m.tk;
-        }
-    }
-    let busy = false;
-    if (m.task === 'fill') busy = deliver(creep, st, { only: 'refill' });
-    else if (m.task === 'build') busy = doBuild(creep, st, m);
-    else if (m.task === 'repair') busy = doRepair(creep, st, m);
-    else if (m.task === 'fortify') busy = doFortify(creep, st, m);
-    if (!busy) {
-        if (m.task !== 'upgrade') {
-            m.task = 'upgrade';
-            delete m.t;
-            delete m.tk;
-        }
-        upgrade(creep, st);
-    }
+    // A load is spent on the job it was taken for: the job is picked once per load and
+    // kept until the load is gone or the job is done (the site got built, nothing is left
+    // to mend). Only towers that must be rearmed pull a worker off it.
+    if (!m.task || (m.task !== 'fill' && workerRearm(st))) setTask(m, chooseTask(creep, st));
+    if (runTask(creep, st, m)) return;
+    // Done before the load ran out: the next job gets the rest. The same job again means
+    // another target (an unreachable one has been marked).
+    setTask(m, chooseTask(creep, st));
+    if (runTask(creep, st, m)) return;
+    // Nothing of that can be done right now: upgrade this tick and look again on the next.
+    delete m.task;
+    delete m.t;
+    delete m.tk;
+    upgrade(creep, st);
+}
+
+function setTask(m, task) {
+    if (task === m.task) return;
+    m.task = task;
+    delete m.t;
+    delete m.tk;
+}
+
+/** Carry on with the worker's job. False when there is nothing (left) to do for it. */
+function runTask(creep, st, m) {
+    if (m.task === 'fill') return deliver(creep, st, { only: 'refill' });
+    if (m.task === 'build') return doBuild(creep, st, m);
+    if (m.task === 'repair') return doRepair(creep, st, m);
+    if (m.task === 'fortify') return doFortify(creep, st, m);
+    upgrade(creep, st);
+    return true;
 }
 
 function courier(creep, m) {
@@ -1700,9 +1746,14 @@ function remoteMiner(creep, m) {
             if (Game.time % 10 === 0 && !r.resBy && Object.keys(Game.constructionSites).length < 90) {
                 creep.room.createConstructionSite(creep.pos.x, creep.pos.y, STRUCTURE_CONTAINER);
             }
-        } else if (carried >= Math.min(creep.store.getCapacity(), work * BUILD_POWER)) {
-            creep.build(site);
-            return;
+        } else {
+            // Fill up, then build until empty (m.b), like every builder.
+            if (carried === 0) delete m.b;
+            else if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) m.b = 1;
+            if (m.b) {
+                creep.build(site);
+                return;
+            }
         }
     }
     if (src.energy > 0) creep.harvest(src);
@@ -1738,6 +1789,7 @@ function remoteHauler(creep, m) {
         m.working = false;
         delete m.t;
         delete m.tk;
+        delete m.at;
     } else if (!m.working && (creep.store.getFreeCapacity() === 0 || (unsafe && carried > 0))) {
         m.working = true;
         delete m.t;
@@ -1769,9 +1821,12 @@ function remoteHauler(creep, m) {
     const view = remote.view(creep.room);
     const free = creep.store.getFreeCapacity();
     if (acquire(creep, view, { dropped: true, sourceContainers: true, minAmount: Math.min(free, Math.max(100, creep.store.getCapacity() / 2)) })) return;
-    // Nothing worth a withdraw yet: leave with a decent load, or when age presses.
-    if (carried >= creep.store.getCapacity() * 0.6 || (carried > 0 && creep.ticksToLive < trip + 40)) {
+    // Loaded at one source: home it goes, not on to the other source (the next hauler takes
+    // that one). Also when age presses.
+    if (carried >= creep.store.getCapacity() * LOAD_COMMIT || (carried > 0 && creep.ticksToLive < trip + 40)) {
         m.working = true;
+        delete m.t;
+        delete m.tk;
         return;
     }
     // Wait at the fullest container, out of the miner's way.

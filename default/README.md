@@ -22,6 +22,16 @@ modules from the branch first; `main.js` only requires the modules listed below.
   emergencies: nobody left who can carry, no hauler, or no miner at all (the
   first miner is then built from whatever is on hand, 250 energy at least,
   even while a hauler is still alive; a full-size one follows).
+- **Creeps finish what they started**: a creep that has taken a real load
+  (a quarter of its capacity or more) at one place only tops it up from what
+  lies within 3 tiles of that place, then goes to unload; it does not walk
+  on to a second source with the load on board (remote haulers take one
+  source's container per trip). A worker picks its job once per load
+  (build, repair, fortify, fill the spawn, upgrade) and spends the whole load
+  on it; it only picks again when the job is done before the load is (the
+  site got built, nothing is left to mend). The one thing that still pulls
+  a worker off its job is a tower that must be rearmed while there is no
+  hauler or the room is in danger.
 - **Towers are rearmed first**: a tower under 70% energy outranks spawns,
   extensions, the controller container, links, storage and terminal. Haulers
   carrying energy drop what they are doing (topping up, stashing loot, a trip
@@ -72,9 +82,9 @@ modules from the branch first; `main.js` only requires the modules listed below.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
   20k at least. During a long build (sites worth more than 20000 energy) a
-  third of the workers' time goes to ramparts that are down to half of
-  that, so a day of lab building does not wear the line down to the 5k the
-  towers hold. When there is nothing to build or repair and the room holds
+  third of the workers' loads (those picked up in 100 ticks out of every
+  300) go to ramparts that are down to half of that, so a day of lab
+  building does not wear the line down to the 5k the towers hold. When there is nothing to build or repair and the room holds
   spare energy (20k in storage, or 1.5k in the source containers of a room
   without storage; `defense.workerFortify`), the worker thickens ramparts
   toward `planner.rampartTarget` (RCL5 50k, RCL6 100k, RCL7 300k, RCL8 1M)
