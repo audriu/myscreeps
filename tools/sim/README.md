@@ -2,7 +2,9 @@
 
 Offline simulator for the `default` script. It mocks enough of the Screeps API
 (rooms, structures, creeps, spawning, movement with fatigue, exit-tile bouncing, harvesting,
-building, upgrading, links, towers, simple invaders whose hits land in `Room.getEventLog()`) to run the script against
+building, upgrading, links, towers, simple invaders whose hits land in `Room.getEventLog()`,
+controller reservations, structures other players left behind, minerals and extractors, labs,
+terminals, factories, boosts) to run the script against
 snapshots of real rooms and catch runtime errors and logic problems before
 uploading. It is an approximation, not the engine.
 
@@ -20,9 +22,22 @@ hits every 100 ticks even in owned rooms (the game: every 500 there). Towers
 therefore burn several times more energy on container repairs than they do
 live, and a room short of energy looks poorer than it is.
 
+Unowned rooms behave like in the game where remote mining depends on it: a
+source holds 1500 in a neutral room and 3000 in an owned or reserved one,
+`reserveController` adds a tick per CLAIM part (5000 at most) and the timer
+runs down by one each tick, `attackController` takes a reservation down by a
+tick per CLAIM part with no 1000-tick block, and nobody can harvest or build
+in a room somebody else owns or reserves. Structures of other players are
+loaded with their stores (inactive unless their owner holds the controller):
+they can be emptied, not used. A hostile rampart blocks walking and locks
+the store under it.
+
 ```
-node tools/sim/fetch.js <username> [shard]        # snapshots into tools/sim/data (ignored by git), shard1 by default
+node tools/sim/fetch.js <username> [shard] [--neighbours]   # snapshots into tools/sim/data (ignored by git), shard1 by default; --neighbours adds every room next to one of yours
 node tools/sim/run.js default W49N25 2000          # one room, 2000 ticks
+node tools/sim/run.js default W46N28,W45N28 4000 --quiet                       # remote mining: a home room and its free neighbour
+node tools/sim/run.js default W46N28,W45N28 3200 --invade=W45N28:1800          # invader in the remote room: retreat, guard, back to work
+node tools/sim/run.js default W46N28,W45N28 3500 --core=W45N28                 # remote room held by an invader core
 node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
 node tools/sim/run.js default W48N25 800 --invade=W48N25:300:dis   # 3 dismantlers (25 WORK) one-shotting extensions
@@ -38,6 +53,21 @@ node tools/sim/run.js default E11N38,E12N39,E13N37,E11N39,E13N36,E12N37,E12N36,E
 
 The multi-room examples above use rooms from the old shard0 snapshot (abandoned
 2026-11-02); they only run with those files still in `data/`.
+
+`--core=ROOM` puts a lesser invader core (100k hits, no weapons) into a
+room; it keeps the controller reserved and wears down anyone else's
+reservation. `--invade=ROOM:TICK` also works for rooms without a spawn: the
+invader then hunts our creeps, and dies of age after 1500 ticks. Rooms
+without an owner are listed as `transit` with their reservation, source and
+container contents and the energy mined there (`mined=`).
+
+`--give=ROOM:energy=300000,G=5000` puts resources into our storage in that
+room (the terminal when there is no storage), `--rcl=ROOM:7` sets a
+controller level, `--hub=ROOM` sets `Memory.empire.hub`, `--boost` sets
+`Memory.war.boost`. Owned rooms list what they hold besides energy
+(`stock=`, `terminal=`, `labs=[mineral:amount/energy ...]`, `factory=`,
+`leftovers=[...]` for stores of other players, `mineral=` once an extractor
+stands).
 
 War flags: `--war=TARGET:TICK` (muster from tick 1, target at TICK), `--go`
 (march at once), `--hostile=ROOM` (one of your snapshots turned into an enemy

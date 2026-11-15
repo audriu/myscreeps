@@ -41,22 +41,31 @@ function roomNameFromWorld(x, y) {
 }
 
 /* ---------------- Store ---------------- */
-function makeStore(capFn, init) {
+function makeStore(capFn, init, perResource) {
     const store = Object.create(storeProto);
     Object.defineProperty(store, '_cap', { value: capFn, enumerable: false });
+    // Labs: energy and one mineral type, each with its own capacity.
+    Object.defineProperty(store, '_per', { value: !!perResource, enumerable: false });
     if (init) for (const k in init) if (init[k] > 0) store[k] = init[k];
     return store;
 }
-const storeProto = {
-    getCapacity(res) { return this._cap(res); },
-    getUsedCapacity(res) {
+const storeProto = {};
+Object.defineProperties(storeProto, {
+    getCapacity: { value(res) { return this._cap(res); } },
+    getUsedCapacity: { value(res) {
         if (res) return this[res] || 0;
         let n = 0;
         for (const k in this) if (typeof this[k] === 'number') n += this[k];
         return n;
-    },
-    getFreeCapacity(res) { return this.getCapacity(res) - this.getUsedCapacity(); },
-};
+    } },
+    getFreeCapacity: { value(res) {
+        if (this._per) {
+            if (res && res !== 'energy') for (const k in this) if (k !== 'energy' && k !== res && this[k] > 0) return 0;
+            return this.getCapacity(res) - (this[res || 'energy'] || 0);
+        }
+        return this.getCapacity(res) - this.getUsedCapacity();
+    } },
+});
 
 /* ---------------- Terrain ---------------- */
 class Terrain {
@@ -128,13 +137,13 @@ class RoomObject {
     get room() { return W.rooms[this.pos.roomName]; }
 }
 class Source extends RoomObject {
-    constructor(x, y, r, energy) { super(x, y, r); this.energy = energy; this.energyCapacity = 3000; this.ticksToRegeneration = undefined; }
+    constructor(x, y, r, energy, cap) { super(x, y, r); this.energy = energy; this.energyCapacity = cap || 3000; this.ticksToRegeneration = undefined; }
 }
 class Mineral extends RoomObject {
-    constructor(x, y, r) { super(x, y, r); this.mineralType = 'H'; this.mineralAmount = 10000; }
+    constructor(x, y, r, o) { super(x, y, r); o = o || {}; this.mineralType = o.mineralType || 'H'; this.mineralAmount = o.mineralAmount != null ? o.mineralAmount : 10000; this.density = o.density || 2; this.ticksToRegeneration = undefined; }
 }
 class Resource extends RoomObject {
-    constructor(x, y, r, amount) { super(x, y, r); this.resourceType = 'energy'; this.amount = amount; }
+    constructor(x, y, r, amount, type) { super(x, y, r); this.resourceType = type || 'energy'; this.amount = amount; }
 }
 class Tombstone extends RoomObject {
     constructor(x, y, r, store, ttl) { super(x, y, r); this.store = makeStore(() => Infinity, store); this.ticksToDecay = ttl; this.creep = null; }
@@ -150,10 +159,12 @@ class ConstructionSite extends RoomObject {
     remove() { removeSite(this); return C.OK; }
 }
 
-const HITS = { spawn: 5000, extension: 1000, road: 5000, constructedWall: 300000000, rampart: 300000000, link: 1000, storage: 10000, tower: 3000, terminal: 3000, container: 250000, extractor: 500, lab: 500, observer: 500, nuker: 1000, factory: 1000, powerSpawn: 5000 };
+const HITS = { invaderCore: 100000, keeperLair: 1, spawn: 5000, extension: 1000, road: 5000, constructedWall: 300000000, rampart: 300000000, link: 1000, storage: 10000, tower: 3000, terminal: 3000, container: 250000, extractor: 500, lab: 500, observer: 500, nuker: 1000, factory: 1000, powerSpawn: 5000 };
 const CAPACITY = {
     spawn: () => 300, extension: s => C.EXTENSION_ENERGY_CAPACITY[s.room.controller ? s.room.controller.level : 0] || 50,
-    tower: () => 1000, link: () => 800, storage: () => 1000000, terminal: () => 300000, container: () => 2000, lab: () => 2000,
+    tower: () => 1000, link: () => 800, storage: () => 1000000, terminal: () => 300000, container: () => 2000,
+    lab: (s, res) => (res && res !== 'energy' ? C.LAB_MINERAL_CAPACITY : C.LAB_ENERGY_CAPACITY), factory: () => C.FACTORY_CAPACITY,
+    nuker: () => 300000, powerSpawn: () => 5000,
 };
 class Structure extends RoomObject {
     constructor(x, y, r, type, opts) {
@@ -161,16 +172,24 @@ class Structure extends RoomObject {
         this.structureType = type;
         this.hitsMax = opts.hitsMax || HITS[type] || 1000;
         this.hits = opts.hits != null ? opts.hits : this.hitsMax;
-        this.owner = opts.neutral ? undefined : { username: MY_NAME };
-        this.my = !opts.neutral;
-        if (CAPACITY[type]) this.store = makeStore(() => CAPACITY[type](this), opts.store);
+        // opts.owner: another player's structure (a leftover in our room, an invader core, an enemy base).
+        this.owner = opts.neutral ? undefined : { username: opts.owner || MY_NAME };
+        this.my = !opts.neutral && !opts.owner;
+        if (CAPACITY[type]) this.store = makeStore(res => CAPACITY[type](this, res), opts.store, type === 'lab');
         if (type === 'link') this.cooldown = 0;
-        if (type === 'terminal') this.cooldown = 0;
+        if (type === 'terminal' || type === 'lab' || type === 'extractor' || type === 'factory') this.cooldown = 0;
+        if (type === 'invaderCore') this.level = opts.level || 0;
         if (type === 'spawn') { this.name = opts.name; this.spawning = null; }
         if (type === 'rampart') this.isPublic = false;
     }
+    get mineralType() {
+        if (this.structureType !== 'lab') return undefined;
+        for (const k in this.store) if (k !== 'energy' && this.store[k] > 0) return k;
+        return undefined;
+    }
     isActive() {
         const room = this.room; if (!room || !room.controller) return false;
+        if (!this.my) return !!(this.owner && room.controller.owner && room.controller.owner.username === this.owner.username);
         const row = C.CONTROLLER_STRUCTURES[this.structureType];
         if (!row) return true;
         const cap = row[room.controller.level] || 0;
@@ -183,7 +202,10 @@ class Structure extends RoomObject {
         return sorted.indexOf(this) < cap;
     }
     destroy() {
+        // Ours, or anything standing in a room we own.
+        if (!this.my && !(this.room.controller && this.room.controller.my)) return C.ERR_NOT_OWNER;
         if (this.room.find(C.FIND_HOSTILE_CREEPS).length) return C.ERR_BUSY;
+        W.logs.push('destroy() ' + this.structureType + (this.my ? '' : ' of ' + (this.owner ? this.owner.username : 'nobody')) + ' in ' + this.pos.roomName + ' at ' + W.time);
         destroyStructure(this, true); return C.OK;
     }
     notifyWhenAttacked() { return C.OK; }
@@ -240,22 +262,80 @@ class Structure extends RoomObject {
     // terminal
     send(res, amount, dest) {
         if (this.structureType !== 'terminal') return C.ERR_INVALID_TARGET;
+        if (!this.my) return C.ERR_NOT_OWNER;
+        if (!this.isActive()) return C.ERR_RCL_NOT_ENOUGH;
+        if (this.cooldown > 0) return C.ERR_TIRED;
+        if (!C.RESOURCES_ALL.includes(res) || !(amount >= C.TERMINAL_MIN_SEND)) return C.ERR_INVALID_ARGS;
         const fee = Game.market.calcTransactionCost(amount, this.pos.roomName, dest);
-        if ((this.store.energy || 0) < amount + fee) return C.ERR_NOT_ENOUGH_RESOURCES;
-        this.store.energy -= amount + fee;
-        const room = W.rooms[dest]; if (room && room.terminal) room.terminal.store.energy = (room.terminal.store.energy || 0) + amount;
-        this.cooldown = 10; return C.OK;
+        const needEnergy = fee + (res === 'energy' ? amount : 0);
+        if ((this.store[res] || 0) < amount || (this.store.energy || 0) < needEnergy) return C.ERR_NOT_ENOUGH_RESOURCES;
+        this.store[res] -= amount; this.store.energy = (this.store.energy || 0) - fee;
+        if (!this.store[res]) delete this.store[res];
+        const room = W.rooms[dest]; const t = room && room.structures.find(s => s.structureType === 'terminal' && s.owner && room.controller && room.controller.owner && s.owner.username === room.controller.owner.username);
+        if (t) t.store[res] = (t.store[res] || 0) + amount;
+        W.stats.sent = W.stats.sent || {}; W.stats.sent[res] = (W.stats.sent[res] || 0) + amount; W.stats.sendFees = (W.stats.sendFees || 0) + fee;
+        this.cooldown = C.TERMINAL_COOLDOWN; return C.OK;
+    }
+    // lab
+    runReaction(a, b) {
+        if (this.structureType !== 'lab' || !this.my) return C.ERR_INVALID_TARGET;
+        if (!this.isActive()) return C.ERR_RCL_NOT_ENOUGH;
+        if (this.cooldown > 0) return C.ERR_TIRED;
+        if (!a || !b || a.structureType !== 'lab' || b.structureType !== 'lab' || a === this || b === this) return C.ERR_INVALID_TARGET;
+        if (this.pos.getRangeTo(a) > 2 || this.pos.getRangeTo(b) > 2) return C.ERR_NOT_IN_RANGE;
+        const ta = a.mineralType, tb = b.mineralType;
+        if (!ta || !tb || a.store[ta] < C.LAB_REACTION_AMOUNT || b.store[tb] < C.LAB_REACTION_AMOUNT) return C.ERR_NOT_ENOUGH_RESOURCES;
+        const product = C.REACTIONS[ta] && C.REACTIONS[ta][tb];
+        if (!product || (this.mineralType && this.mineralType !== product)) return C.ERR_INVALID_ARGS;
+        if ((this.store[product] || 0) + C.LAB_REACTION_AMOUNT > C.LAB_MINERAL_CAPACITY) return C.ERR_FULL;
+        a.store[ta] -= C.LAB_REACTION_AMOUNT; b.store[tb] -= C.LAB_REACTION_AMOUNT;
+        this.store[product] = (this.store[product] || 0) + C.LAB_REACTION_AMOUNT;
+        this.cooldown = C.REACTION_TIME[product];
+        W.stats.reactions = W.stats.reactions || {}; W.stats.reactions[product] = (W.stats.reactions[product] || 0) + C.LAB_REACTION_AMOUNT;
+        return C.OK;
+    }
+    boostCreep(creep, count) {
+        if (this.structureType !== 'lab' || !this.my) return C.ERR_INVALID_TARGET;
+        if (!this.isActive()) return C.ERR_RCL_NOT_ENOUGH;
+        if (!creep || !creep.body || creep.spawning) return C.ERR_INVALID_TARGET;
+        if (!this.pos.isNearTo(creep)) return C.ERR_NOT_IN_RANGE;
+        const type = this.mineralType;
+        if (!type || this.store[type] < C.LAB_BOOST_MINERAL || (this.store.energy || 0) < C.LAB_BOOST_ENERGY) return C.ERR_NOT_ENOUGH_RESOURCES;
+        let parts = creep.body.filter(p => !p.boost && C.BOOSTS[p.type] && C.BOOSTS[p.type][type]);
+        if (!parts.length) return C.ERR_NOT_FOUND;
+        if (count) parts = parts.slice(0, count);
+        for (const p of parts) {
+            if (this.store[type] < C.LAB_BOOST_MINERAL || (this.store.energy || 0) < C.LAB_BOOST_ENERGY) break;
+            p.boost = type; this.store[type] -= C.LAB_BOOST_MINERAL; this.store.energy -= C.LAB_BOOST_ENERGY;
+            W.stats.boosted = W.stats.boosted || {}; W.stats.boosted[type] = (W.stats.boosted[type] || 0) + 1;
+        }
+        return C.OK;
+    }
+    // factory
+    produce(res) {
+        if (this.structureType !== 'factory' || !this.my) return C.ERR_INVALID_TARGET;
+        if (!this.isActive()) return C.ERR_RCL_NOT_ENOUGH;
+        if (this.cooldown > 0) return C.ERR_TIRED;
+        const recipe = C.COMMODITIES[res]; if (!recipe) return C.ERR_INVALID_ARGS;
+        for (const k in recipe.components) if ((this.store[k] || 0) < recipe.components[k]) return C.ERR_NOT_ENOUGH_RESOURCES;
+        if (this.store.getFreeCapacity() < recipe.amount) return C.ERR_FULL;
+        for (const k in recipe.components) this.store[k] -= recipe.components[k];
+        this.store[res] = (this.store[res] || 0) + recipe.amount; this.cooldown = recipe.cooldown;
+        W.stats.produced = W.stats.produced || {}; W.stats.produced[res] = (W.stats.produced[res] || 0) + recipe.amount;
+        return C.OK;
     }
 }
 class Controller extends RoomObject {
     constructor(x, y, r, o) {
         super(x, y, r); this.structureType = 'controller';
         this.level = o.level || 0; this.progress = o.progress || 0;
-        this.my = o.user === ME; this.owner = o.user ? { username: o.user === ME ? MY_NAME : 'other' } : undefined;
+        this.my = o.user === ME; this.owner = o.user ? { username: o.user === ME ? MY_NAME : (o.username || 'other') } : undefined;
         this.ticksToDowngrade = o.downgradeTime ? Math.max(1, o.downgradeTime - W.time) : C.CONTROLLER_DOWNGRADE[this.level];
         this.safeModeAvailable = o.safeModeAvailable || 0; this.safeMode = undefined; this.safeModeCooldown = undefined;
         this.sign = o.sign ? { text: o.sign.text, username: MY_NAME } : undefined;
-        this.reservation = undefined; this.hits = undefined;
+        this.reservation = o.reservation && o.reservation.endTime > W.time
+            ? { username: o.reservation.user === ME ? MY_NAME : (o.reservation.username || 'other'), ticksToEnd: o.reservation.endTime - W.time } : undefined;
+        this.hits = undefined;
         this.upgradeBlocked = o.upgradeBlocked && o.upgradeBlocked > W.time ? o.upgradeBlocked - W.time : undefined;
         if (o.safeMode && o.safeMode > W.time) this.safeMode = o.safeMode - W.time;
     }
@@ -275,12 +355,26 @@ class Creep extends RoomObject {
     get memory() { Memory.creeps = Memory.creeps || {}; return Memory.creeps[this.name] || (Memory.creeps[this.name] = {}); }
     set memory(v) { Memory.creeps[this.name] = v; }
     getActiveBodyparts(type) { return this.body.filter(p => p.type === type && p.hits > 0).length; }
+    /** Live parts of a type, boosted ones counted by their multiplier for `effect`. */
+    _power(type, effect) {
+        let n = 0;
+        for (const p of this.body) {
+            if (p.type !== type || p.hits <= 0) continue;
+            const b = p.boost && C.BOOSTS[type] && C.BOOSTS[type][p.boost];
+            n += b && b[effect] ? b[effect] : 1;
+        }
+        return n;
+    }
     say() { return C.OK; }
     suicide() { killCreep(this, false); return C.OK; }
     _group(g) { if (this.spawning) return C.ERR_BUSY; if (this._acts[g] === W.time) return C.ERR_BUSY; this._acts[g] = W.time; return C.OK; }
     harvest(src) {
         if (!this.getActiveBodyparts('work')) return C.ERR_NO_BODYPART;
+        if (src instanceof Mineral) return this._harvestMineral(src);
         if (!src || !(src instanceof Source)) return C.ERR_INVALID_TARGET;
+        // A room owned or reserved by someone else cannot be harvested.
+        const rc = this.room.controller;
+        if (rc && ((rc.owner && !rc.my) || (rc.reservation && rc.reservation.username !== MY_NAME))) return C.ERR_NOT_OWNER;
         if (!this.pos.isNearTo(src)) return C.ERR_NOT_IN_RANGE;
         if (src.energy <= 0) return C.ERR_NOT_ENOUGH_RESOURCES;
         const g = this._group('work'); if (g !== C.OK) return g;
@@ -290,8 +384,27 @@ class Creep extends RoomObject {
         const into = Math.min(free, amount);
         if (into > 0) this.store.energy = (this.store.energy || 0) + into;
         const spill = amount - into;
-        if (spill > 0) dropEnergy(this.pos, spill);
+        if (spill > 0) dropResource(this.pos, 'energy', spill);
         W.stats.harvested = (W.stats.harvested || 0) + amount;
+        if (!rc || !rc.my) { W.stats.remote = W.stats.remote || {}; W.stats.remote[this.pos.roomName] = (W.stats.remote[this.pos.roomName] || 0) + amount; }
+        return C.OK;
+    }
+    _harvestMineral(m) {
+        if (!this.pos.isNearTo(m)) return C.ERR_NOT_IN_RANGE;
+        const ex = this.room.structures.find(s => s.structureType === 'extractor' && s.pos.x === m.pos.x && s.pos.y === m.pos.y);
+        if (!ex) return C.ERR_NOT_FOUND;
+        if (!ex.my) return C.ERR_NOT_OWNER;
+        if (!ex.isActive()) return C.ERR_RCL_NOT_ENOUGH;
+        if (ex.cooldown > 0) return C.ERR_TIRED;
+        if (m.mineralAmount <= 0) return C.ERR_NOT_ENOUGH_RESOURCES;
+        const g = this._group('work'); if (g !== C.OK) return g;
+        const amount = Math.min(m.mineralAmount, this.getActiveBodyparts('work') * C.HARVEST_MINERAL_POWER);
+        m.mineralAmount -= amount; if (m.mineralAmount <= 0) m.ticksToRegeneration = C.MINERAL_REGEN_TIME;
+        ex.cooldown = C.EXTRACTOR_COOLDOWN;
+        const into = Math.min(this.store.getFreeCapacity(m.mineralType), amount);
+        if (into > 0) this.store[m.mineralType] = (this.store[m.mineralType] || 0) + into;
+        if (amount - into > 0) dropResource(this.pos, m.mineralType, amount - into);
+        W.stats.mined = W.stats.mined || {}; W.stats.mined[m.mineralType] = (W.stats.mined[m.mineralType] || 0) + amount;
         return C.OK;
     }
     transfer(target, res, amount) {
@@ -307,22 +420,26 @@ class Creep extends RoomObject {
     }
     withdraw(target, res, amount) {
         if (!target || !target.store) return C.ERR_INVALID_TARGET;
+        if (target.structureType === 'nuker' || target.structureType === 'invaderCore') return C.ERR_INVALID_TARGET;
         if (!this.pos.isNearTo(target)) return C.ERR_NOT_IN_RANGE;
+        // Somebody else's rampart on top locks the store.
+        if (target.structureType && this.room.structures.some(s => s.structureType === 'rampart' && s.owner && !s.my && !s.isPublic && s.pos.x === target.pos.x && s.pos.y === target.pos.y)) return C.ERR_NOT_OWNER;
         const have = target.store[res] || 0; if (!have) return C.ERR_NOT_ENOUGH_RESOURCES;
         const free = this.store.getFreeCapacity(res); if (free <= 0) return C.ERR_FULL;
         const g = this._group('carry'); if (g !== C.OK) return g;
         const n = Math.min(have, free, amount || Infinity);
-        target.store[res] -= n; this.store[res] = (this.store[res] || 0) + n; return C.OK;
+        target.store[res] -= n; if (!target.store[res]) delete target.store[res];
+        this.store[res] = (this.store[res] || 0) + n; return C.OK;
     }
     pickup(r) {
         if (!(r instanceof Resource)) return C.ERR_INVALID_TARGET;
         if (!this.pos.isNearTo(r)) return C.ERR_NOT_IN_RANGE;
-        const free = this.store.getFreeCapacity('energy'); if (free <= 0) return C.ERR_FULL;
+        const free = this.store.getFreeCapacity(r.resourceType); if (free <= 0) return C.ERR_FULL;
         const g = this._group('carry'); if (g !== C.OK) return g;
-        const n = Math.min(free, r.amount); r.amount -= n; this.store.energy = (this.store.energy || 0) + n;
+        const n = Math.min(free, r.amount); r.amount -= n; this.store[r.resourceType] = (this.store[r.resourceType] || 0) + n;
         if (r.amount <= 0) removeResource(r); return C.OK;
     }
-    drop(res, amount) { const g = this._group('carry'); if (g !== C.OK) return g; const n = Math.min(this.store[res] || 0, amount || Infinity); this.store[res] -= n; dropEnergy(this.pos, n); return C.OK; }
+    drop(res, amount) { const g = this._group('carry'); if (g !== C.OK) return g; const n = Math.min(this.store[res] || 0, amount || Infinity); this.store[res] -= n; if (!this.store[res]) delete this.store[res]; dropResource(this.pos, res, n); return C.OK; }
     build(site) {
         if (!(site instanceof ConstructionSite) || site._done) return C.ERR_INVALID_TARGET;
         if (!this.pos.inRangeTo(site, 3)) return C.ERR_NOT_IN_RANGE;
@@ -350,7 +467,9 @@ class Creep extends RoomObject {
         const g = this._group('work'); if (g !== C.OK) return g;
         let n = Math.min(work, e);
         if (ctrl.level === 8) { ctrl._up = ctrl._up || {}; const used = ctrl._up[W.time] || 0; n = Math.min(n, 15 - used); if (n <= 0) return C.ERR_FULL; ctrl._up[W.time] = used + n; }
-        this.store.energy -= n; ctrl.progress += n; W.stats.upgraded = (W.stats.upgraded || 0) + n;
+        // Boosted WORK parts add more progress for the same energy.
+        const points = Math.floor(n * this._power('work', 'upgradeController') / work);
+        this.store.energy -= n; ctrl.progress += points; W.stats.upgraded = (W.stats.upgraded || 0) + points; W.stats.upgradeEnergy = (W.stats.upgradeEnergy || 0) + n;
         ctrl.ticksToDowngrade = Math.min(C.CONTROLLER_DOWNGRADE[ctrl.level], ctrl.ticksToDowngrade + 100);
         if (ctrl.level < 8 && ctrl.progress >= ctrl.progressTotal) { ctrl.progress -= ctrl.progressTotal; ctrl.level++; ctrl.ticksToDowngrade = C.CONTROLLER_DOWNGRADE[ctrl.level]; W.logs.push(ctrl.pos.roomName + ' reached RCL' + ctrl.level + ' at tick ' + W.time); }
         return C.OK;
@@ -361,19 +480,29 @@ class Creep extends RoomObject {
         const n = this.getActiveBodyparts('claim'); if (!n) return C.ERR_NO_BODYPART;
         if (ctrl.my || (!ctrl.owner && !ctrl.reservation)) return C.ERR_INVALID_TARGET;
         if (ctrl.upgradeBlocked || ctrl.safeMode) return C.ERR_TIRED;
-        if (ctrl.owner) ctrl.ticksToDowngrade -= C.CONTROLLER_CLAIM_DOWNGRADE * n; else ctrl.reservation.ticksToEnd -= n;
-        ctrl._blockNext = C.CONTROLLER_ATTACK_BLOCKED_UPGRADE; // like the engine: same-tick hits all land, the block starts next tick
+        // An owned controller is blocked for 1000 ticks afterwards (same-tick hits all land, the block
+        // starts next tick); a reservation just loses a tick per CLAIM part, every tick.
+        if (ctrl.owner) { ctrl.ticksToDowngrade -= C.CONTROLLER_CLAIM_DOWNGRADE * n; ctrl._blockNext = C.CONTROLLER_ATTACK_BLOCKED_UPGRADE; }
+        else { ctrl.reservation.ticksToEnd -= n; if (ctrl.reservation.ticksToEnd <= 0) ctrl.reservation = undefined; return C.OK; }
         W.stats.controllerAttacks = (W.stats.controllerAttacks || 0) + 1;
         W.logs.push('CONTROLLER ATTACK ' + ctrl.pos.roomName + ' x' + n + ' at ' + W.time + ' (downgrade ' + ctrl.ticksToDowngrade + ')');
         return C.OK;
     }
     claimController(ctrl) { if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE; if (!this.getActiveBodyparts('claim')) return C.ERR_NO_BODYPART; ctrl.my = true; ctrl.level = 1; ctrl.owner = { username: MY_NAME }; ctrl.ticksToDowngrade = 20000; return C.OK; }
-    reserveController(ctrl) { if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE; return C.OK; }
-    attack(t) { if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; t.hits -= 30 * this.getActiveBodyparts('attack'); return C.OK; }
-    rangedAttack(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits -= 10 * this.getActiveBodyparts('ranged_attack'); return C.OK; }
+    reserveController(ctrl) {
+        if (!ctrl || !(ctrl instanceof Controller)) return C.ERR_INVALID_TARGET;
+        if (!this.pos.isNearTo(ctrl)) return C.ERR_NOT_IN_RANGE;
+        const n = this.getActiveBodyparts('claim'); if (!n) return C.ERR_NO_BODYPART;
+        if (ctrl.owner || (ctrl.reservation && ctrl.reservation.username !== MY_NAME)) return C.ERR_INVALID_TARGET;
+        if (!ctrl.reservation) ctrl.reservation = { username: MY_NAME, ticksToEnd: 1 };
+        ctrl.reservation.ticksToEnd = Math.min(C.CONTROLLER_RESERVE_MAX, ctrl.reservation.ticksToEnd + n * C.CONTROLLER_RESERVE);
+        return C.OK;
+    }
+    attack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; const g = this._group('work'); if (g !== C.OK) return g; t.hits -= 30 * this._power('attack', 'attack'); return C.OK; }
+    rangedAttack(t) { if (!t || t.hits == null) return C.ERR_INVALID_TARGET; if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits -= 10 * this._power('ranged_attack', 'rangedAttack'); return C.OK; }
     rangedMassAttack() { return C.OK; }
-    heal(t) { t.hits = Math.min(t.hitsMax, t.hits + 12 * this.getActiveBodyparts('heal')); return C.OK; }
-    rangedHeal(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits = Math.min(t.hitsMax, t.hits + 4 * this.getActiveBodyparts('heal')); return C.OK; }
+    heal(t) { if (!this.pos.isNearTo(t)) return C.ERR_NOT_IN_RANGE; this._acts.work = W.time; t.hits = Math.min(t.hitsMax, t.hits + 12 * this._power('heal', 'heal')); return C.OK; }
+    rangedHeal(t) { if (!this.pos.inRangeTo(t, 3)) return C.ERR_NOT_IN_RANGE; t.hits = Math.min(t.hitsMax, t.hits + 4 * this._power('heal', 'rangedHeal')); return C.OK; }
     move(dir) {
         if (this.spawning) return C.ERR_BUSY;
         if (this.fatigue > 0) return C.ERR_TIRED;
@@ -453,7 +582,7 @@ class Room {
             case C.FIND_DROPPED_RESOURCES: list = this.resources; break;
             case C.FIND_TOMBSTONES: list = this.tombstones; break;
             case C.FIND_RUINS: list = this.ruins; break;
-            case C.FIND_FLAGS: case C.FIND_NUKES: case C.FIND_POWER_CREEPS: case C.FIND_HOSTILE_SPAWNS: list = []; break;
+            case C.FIND_FLAGS: case C.FIND_NUKES: case C.FIND_POWER_CREEPS: case C.FIND_HOSTILE_SPAWNS: case C.FIND_DEPOSITS: case C.FIND_HOSTILE_CONSTRUCTION_SITES: list = []; break;
             default: throw new Error('find type not supported: ' + type);
         }
         W.stats.finds = (W.stats.finds || 0) + 1;
@@ -473,7 +602,13 @@ class Room {
         }
     }
     createConstructionSite(x, y, type) {
-        if (x < 0 || x > 49 || y < 0 || y > 49) return C.ERR_INVALID_ARGS;
+        // (pos, type) like the game allows.
+        if (x && typeof x === 'object') { const p = toPos(x); type = y; x = p.x; y = p.y; }
+        if (!(x >= 0 && x <= 49 && y >= 0 && y <= 49)) return C.ERR_INVALID_ARGS;
+        if (!C.CONSTRUCTION_COST[type]) return C.ERR_INVALID_ARGS;
+        // Nothing can be built in a room somebody else owns or reserves.
+        const rc0 = this.controller;
+        if (rc0 && ((rc0.owner && !rc0.my) || (rc0.reservation && rc0.reservation.username !== MY_NAME))) return C.ERR_NOT_OWNER;
         if (Object.keys(W.sites).length >= 100) return C.ERR_FULL;
         if (this.terrain.get(x, y) === 1 && type !== 'extractor') return C.ERR_INVALID_TARGET;
         const here = this.lookForAt(C.LOOK_STRUCTURES, x, y);
@@ -501,14 +636,15 @@ class Room {
 }
 
 /* ---------------- helpers ---------------- */
-function dropEnergy(pos, amount) {
+function dropResource(pos, type, amount) {
     const room = W.rooms[pos.roomName];
     const cont = room.structures.find(s => s.structureType === 'container' && s.pos.x === pos.x && s.pos.y === pos.y);
-    if (cont) { const free = cont.store.getFreeCapacity('energy'); const n = Math.min(free, amount); cont.store.energy = (cont.store.energy || 0) + n; amount -= n; }
+    if (cont) { const free = cont.store.getFreeCapacity(type); const n = Math.max(0, Math.min(free, amount)); if (n) cont.store[type] = (cont.store[type] || 0) + n; amount -= n; }
     if (amount <= 0) return;
-    let r = room.resources.find(r => r.pos.x === pos.x && r.pos.y === pos.y);
-    if (r) r.amount += amount; else { r = new Resource(pos.x, pos.y, pos.roomName, amount); room.resources.push(r); W.objects[r.id] = r; }
+    let r = room.resources.find(r => r.pos.x === pos.x && r.pos.y === pos.y && r.resourceType === type);
+    if (r) r.amount += amount; else { r = new Resource(pos.x, pos.y, pos.roomName, amount, type); room.resources.push(r); W.objects[r.id] = r; }
 }
+function storeCopy(store) { const out = {}; if (store) for (const k in store) if (store[k] > 0) out[k] = store[k]; return out; }
 function removeResource(r) { const room = W.rooms[r.pos.roomName]; room.resources = room.resources.filter(x => x !== r); delete W.objects[r.id]; }
 function removeSite(site) { const room = W.rooms[site.pos.roomName]; room.sites = room.sites.filter(s => s !== site); delete W.sites[site.id]; delete W.objects[site.id]; }
 function completeSite(site) {
@@ -530,21 +666,22 @@ function destroyStructure(s, ruin) {
     room.structures = room.structures.filter(x => x !== s); delete W.objects[s.id];
     if (s.structureType === 'spawn') delete W.spawns[s.name];
     W.stats.destroyed++;
-    if (ruin && s.store && s.store.energy) { const r = new Ruin(s.pos.x, s.pos.y, s.pos.roomName, { energy: s.store.energy }); room.ruins.push(r); W.objects[r.id] = r; }
+    const left = storeCopy(s.store);
+    if (ruin && Object.keys(left).length) { const r = new Ruin(s.pos.x, s.pos.y, s.pos.roomName, left); room.ruins.push(r); W.objects[r.id] = r; }
 }
 function killCreep(creep, recycled) {
     const room = W.rooms[creep.pos.roomName];
     room.creeps = room.creeps.filter(c => c !== creep);
     delete W.creeps[creep.name]; delete W.objects[creep.id];
     if (!creep.spawning) {
-        const energy = creep.store.energy || 0;
-        if (energy > 0 || !recycled) { const t = new Tombstone(creep.pos.x, creep.pos.y, creep.pos.roomName, { energy }, creep.body.length * 5); room.tombstones.push(t); W.objects[t.id] = t; }
+        const left = storeCopy(creep.store);
+        if (Object.keys(left).length || !recycled) { const t = new Tombstone(creep.pos.x, creep.pos.y, creep.pos.roomName, left, creep.body.length * 5); room.tombstones.push(t); W.objects[t.id] = t; }
     }
     W.stats.died++;
 }
 function blockingAt(room, x, y, ignoreCreep) {
     if (room.terrain.get(x, y) === 1) return true;
-    for (const s of room.structures) if (s.pos.x === x && s.pos.y === y && C.OBSTACLE_OBJECT_TYPES.includes(s.structureType)) return true;
+    for (const s of room.structures) if (s.pos.x === x && s.pos.y === y && (C.OBSTACLE_OBJECT_TYPES.includes(s.structureType) || s.structureType === 'keeperLair' || (s.structureType === 'rampart' && s.owner && !s.my && !s.isPublic))) return true;
     for (const s of room.sites) if (s.pos.x === x && s.pos.y === y && C.OBSTACLE_OBJECT_TYPES.includes(s.structureType) && s.my) { /* sites do not block in real game */ }
     if (room.controller && room.controller.pos.x === x && room.controller.pos.y === y) return true;
     for (const s of room.sources) if (s.pos.x === x && s.pos.y === y) return true;
@@ -659,13 +796,19 @@ function loadRoom(name, dir) {
     W.rooms[name] = room;
     const data = JSON.parse(fs.readFileSync(path.join(dir, 'rooms', name + '.json')));
     const spawnsByName = {};
+    const users = data.users || {};
+    const uname = id => (users[id] && users[id].username) || 'other';
     for (const o of data.objects) {
         let obj = null;
         switch (o.type) {
-            case 'source': obj = new Source(o.x, o.y, name, o.energy); room.sources.push(obj); break;
-            case 'mineral': obj = new Mineral(o.x, o.y, name); room.minerals.push(obj); break;
-            case 'controller': obj = new Controller(o.x, o.y, name, o); room.controller = obj; break;
-            case 'energy': obj = new Resource(o.x, o.y, name, o.energy); room.resources.push(obj); break;
+            case 'source': obj = new Source(o.x, o.y, name, o.energy, o.energyCapacity); room.sources.push(obj); break;
+            case 'mineral': obj = new Mineral(o.x, o.y, name, o); room.minerals.push(obj); break;
+            case 'controller': {
+                const c = Object.assign({}, o, { username: uname(o.user) });
+                if (o.reservation) c.reservation = Object.assign({}, o.reservation, { username: uname(o.reservation.user) });
+                obj = new Controller(o.x, o.y, name, c); room.controller = obj; break;
+            }
+            case 'energy': { const rt = o.resourceType || 'energy'; obj = new Resource(o.x, o.y, name, o[rt] || o.energy || 0, rt); room.resources.push(obj); break; }
             case 'tombstone': obj = new Tombstone(o.x, o.y, name, o.store || {}, 50); room.tombstones.push(obj); break;
             case 'ruin': obj = new Ruin(o.x, o.y, name, o.store || {}); room.ruins.push(obj); break;
             case 'constructionSite': if (o.user !== ME) break; obj = new ConstructionSite(o.x, o.y, name, o.structureType); obj.progress = o.progress || 0; room.sites.push(obj); W.sites[obj.id] = obj; break;
@@ -679,13 +822,16 @@ function loadRoom(name, dir) {
                 break;
             }
             case 'spawn': case 'extension': case 'tower': case 'storage': case 'terminal': case 'link': case 'lab': case 'extractor': case 'observer': case 'nuker': case 'factory': case 'powerSpawn':
-            case 'container': case 'road': case 'rampart': case 'constructedWall': {
+            case 'container': case 'road': case 'rampart': case 'constructedWall': case 'invaderCore': case 'keeperLair': {
                 const neutral = ['container', 'road', 'constructedWall'].includes(o.type);
-                if (!neutral && o.user !== ME) break;
-                obj = new Structure(o.x, o.y, name, o.type, { neutral, hits: o.hits, hitsMax: o.hitsMax, name: o.name, store: o.store });
+                // Another player's structure: a leftover in a room of ours, an invader core, a keeper lair.
+                const foreign = !neutral && o.user !== ME;
+                obj = new Structure(o.x, o.y, name, o.type, { neutral, owner: foreign ? uname(o.user) : null, hits: o.hits, hitsMax: o.hitsMax, name: o.name, store: o.store, level: o.level });
                 if (o.off != null) { obj._off = !!o.off; obj._offLevel = null; }
+                if (o.type === 'rampart') obj.isPublic = !!o.isPublic;
+                if (o.type === 'keeperLair') { obj.hits = undefined; obj.hitsMax = undefined; }
                 room.structures.push(obj);
-                if (o.type === 'spawn') { W.spawns[o.name] = obj; spawnsByName[o.name] = { obj, data: o }; }
+                if (o.type === 'spawn' && !foreign) { W.spawns[o.name] = obj; spawnsByName[o.name] = { obj, data: o }; }
                 break;
             }
             default: break;
@@ -815,7 +961,13 @@ function endTick() {
             }
             if (s.structureType === 'spawn' && s.my && s.isActive() && !s.spawning && (s.store.energy || 0) < 300 && room.energyAvailable < 300) s.store.energy = (s.store.energy || 0) + 1;
             if (s.structureType === 'link' && s.cooldown > 0) s.cooldown--;
-            if (s.structureType === 'terminal' && s.cooldown > 0) s.cooldown--;
+            if ((s.structureType === 'terminal' || s.structureType === 'lab' || s.structureType === 'extractor' || s.structureType === 'factory') && s.cooldown > 0) s.cooldown--;
+            // A lesser invader core keeps the controller reserved and wears down anyone else's reservation.
+            if (s.structureType === 'invaderCore' && room.controller && !room.controller.owner) {
+                const rc = room.controller;
+                if (rc.reservation && rc.reservation.username !== 'Invader') { rc.reservation.ticksToEnd -= 3; if (rc.reservation.ticksToEnd <= 0) rc.reservation = undefined; }
+                else { if (!rc.reservation) rc.reservation = { username: 'Invader', ticksToEnd: 1 }; rc.reservation.ticksToEnd = Math.min(C.CONTROLLER_RESERVE_MAX, rc.reservation.ticksToEnd + 3); }
+            }
             if (s.structureType === 'rampart' && (s.nextDecay != null ? W.time >= s.nextDecay : W.time % 100 === 0)) { if (s.nextDecay != null) s.nextDecay = W.time + 100; s.hits -= 300; if (s.hits <= 0) { W.logs.push('rampart decayed in ' + rn + ' at ' + s.pos.x + ',' + s.pos.y + ' tick ' + W.time); destroyStructure(s, false); } }
             if (s.structureType === 'container' && W.time % 100 === 0) { s.hits -= 5000; if (s.hits <= 0) destroyStructure(s, false); }
             if (s.structureType === 'road' && W.time % 1000 === 0) { s.hits -= 100; if (s.hits <= 0) destroyStructure(s, false); }
@@ -824,13 +976,23 @@ function endTick() {
             if (src.energy < src.energyCapacity) {
                 if (src.ticksToRegeneration == null) src.ticksToRegeneration = 300;
                 src.ticksToRegeneration--;
-                if (src.ticksToRegeneration <= 0) { src.energy = src.energyCapacity; src.ticksToRegeneration = undefined; }
+                if (src.ticksToRegeneration <= 0) {
+                    // 3000 in an owned or reserved room, 1500 in a neutral one, 4000 next to keeper lairs.
+                    const rc = room.controller;
+                    src.energyCapacity = !rc ? C.SOURCE_ENERGY_KEEPER_CAPACITY : (rc.owner || rc.reservation ? C.SOURCE_ENERGY_CAPACITY : C.SOURCE_ENERGY_NEUTRAL_CAPACITY);
+                    src.energy = src.energyCapacity; src.ticksToRegeneration = undefined;
+                }
             }
+        }
+        for (const m of room.minerals) {
+            if (m.ticksToRegeneration == null) continue;
+            if (--m.ticksToRegeneration <= 0) { m.mineralAmount = { 1: 15000, 2: 35000, 3: 70000, 4: 100000 }[m.density] || 35000; m.ticksToRegeneration = undefined; }
         }
         for (const r of room.resources.slice()) { r.amount -= Math.ceil(r.amount / 1000); if (r.amount <= 0) removeResource(r); }
         for (const t of room.tombstones.slice()) { t.ticksToDecay--; if (t.ticksToDecay <= 0) { room.tombstones = room.tombstones.filter(x => x !== t); delete W.objects[t.id]; } }
         for (const t of room.ruins.slice()) { t.ticksToDecay--; if (t.ticksToDecay <= 0) { room.ruins = room.ruins.filter(x => x !== t); delete W.objects[t.id]; } }
         const ctrl = room.controller;
+        if (ctrl && ctrl.reservation) { ctrl.reservation.ticksToEnd--; if (ctrl.reservation.ticksToEnd <= 0) ctrl.reservation = undefined; }
         if (ctrl && ctrl.upgradeBlocked) { ctrl.upgradeBlocked--; if (ctrl.upgradeBlocked <= 0) ctrl.upgradeBlocked = undefined; }
         if (ctrl && ctrl._blockNext) { ctrl.upgradeBlocked = ctrl._blockNext; ctrl._blockNext = 0; }
         if (ctrl && !ctrl.my && ctrl.owner) {
@@ -874,6 +1036,7 @@ function spawnInvader(roomName, parts) {
 function runInvaders() {
     if (!W.hostiles) return;
     for (const c of W.hostiles.slice()) {
+        if (--c.ticksToLive <= 0) c.hits = 0;
         if (c.hits <= 0) { const room = W.rooms[c.pos.roomName]; room.creeps = room.creeps.filter(o => o !== c); delete W.objects[c.id]; W.hostiles = W.hostiles.filter(o => o !== c); W.logs.push('invader died at tick ' + W.time); continue; }
         const room = W.rooms[c.pos.roomName];
         if (room.controller && room.controller.safeMode) continue;
@@ -887,7 +1050,8 @@ function runInvaders() {
             const dmg = works ? works * 50 : 90;
             (W.events[room.name] = W.events[room.name] || []).push({ event: C.EVENT_ATTACK, objectId: c.id, data: { targetId: target.id, damage: dmg, attackType: works ? C.EVENT_ATTACK_TYPE_DISMANTLE : C.EVENT_ATTACK_TYPE_MELEE } });
             target.hits -= dmg; if (target.hits <= 0) { if (target instanceof Creep) killCreep(target, false); else destroyStructure(target, false); } continue; }
-        const spawn = room.structures.find(o => o.structureType === 'spawn');
+        let spawn = room.structures.find(o => o.structureType === 'spawn' && o.my);
+        if (!spawn) { let bd = Infinity; for (const o of room.creeps) { if (!o.my || o.spawning) continue; const d = c.pos.getRangeTo(o); if (d < bd) { bd = d; spawn = o; } } }
         if (!spawn) continue;
         const res = search(c.pos, { pos: spawn.pos, range: 1 }, { roomCallback: () => roomMatrix(room, null), plainCost: 2, swampCost: 10, maxRooms: 1 });
         if (res.path.length) { const n = res.path[0]; if (!room.creeps.some(o => o.pos.x === n.x && o.pos.y === n.y)) c.pos = new RoomPosition(n.x, n.y, room.name); }
@@ -981,9 +1145,23 @@ function installGlobals() {
     for (const k in C) global[k] = C[k];
     global.RoomPosition = RoomPosition;
     global.PathFinder = PathFinder;
-    global.Creep = Creep; global.Structure = Structure; global.Room = Room; global.Source = Source;
+    global.Creep = Creep; global.Structure = Structure; global.Room = Room; global.Source = Source; global.Mineral = Mineral;
     global.StructureSpawn = Structure; global.ConstructionSite = ConstructionSite; global.Resource = Resource;
     global._ = undefined;
 }
 
-module.exports = { W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned, makeLost, makeHostile };
+/** Put a lesser invader core into a room: it reserves the controller, so nobody else can harvest there. */
+function addCore(roomName) {
+    const room = W.rooms[roomName]; const rc = room.controller;
+    let pos = null;
+    for (let d = 2; d < 8 && !pos; d++) for (let dx = -d; dx <= d && !pos; dx++) for (let dy = -d; dy <= d && !pos; dy++) {
+        const x = rc.pos.x + dx, y = rc.pos.y + dy;
+        if (x > 1 && x < 48 && y > 1 && y < 48 && !blockingAt(room, x, y)) pos = { x, y };
+    }
+    const s = new Structure(pos.x, pos.y, roomName, 'invaderCore', { owner: 'Invader', level: 0 });
+    room.structures.push(s); W.objects[s.id] = s;
+    rc.reservation = { username: 'Invader', ticksToEnd: 2500 };
+    return s;
+}
+
+module.exports = { addCore, W, C, loadRoom, endTick, makeGame, installGlobals, RoomPosition, Room, Structure, Creep, Resource, PathFinder, blockingAt, spawnInvader, runInvaders, makeUnowned, makeLost, makeHostile };
