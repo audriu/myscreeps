@@ -46,7 +46,7 @@ function normalizeCreep(creep) {
     let role = m.role || roleFromName(creep.name) || 'worker';
     if (ROLE_MAP[role]) role = ROLE_MAP[role];
     const known = ['miner', 'hauler', 'upgrader', 'worker', 'courier', 'defender', 'claimer', 'scout', 'soldier', 'unclaimer',
-        'remoteMiner', 'remoteHauler', 'reserver', 'guard'];
+        'remoteMiner', 'remoteHauler', 'reserver', 'guard', 'mineralMiner', 'chemist'];
     if (known.indexOf(role) === -1) role = 'worker';
 
     let home = null;

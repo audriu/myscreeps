@@ -10,6 +10,7 @@ const war = require('war');
 const defense = require('defense');
 const remote = require('remote');
 const empire = require('empire');
+const industry = require('industry');
 
 const heap = util.heap;
 
@@ -34,9 +35,12 @@ function prepare() {
     heap.reserved = {};
     heap.fill = {};
     heap.harvesters = {};
+    heap.moveClaim = {};
     for (const name in Game.creeps) {
         const c = Game.creeps[name];
         const m = c.memory;
+        // A move somebody is already walking to (industry.moves).
+        if (m.mv && !m.mv.got) heap.moveClaim[m.mv.f + m.mv.r] = true;
         if (!m.t || !m.tk) continue;
         if (m.tk === 'pickup' || m.tk === 'withdraw') {
             heap.reserved[m.t] = (heap.reserved[m.t] || 0) + c.store.getFreeCapacity(RESOURCE_ENERGY);
@@ -80,7 +84,9 @@ function toggleWorking(creep, m) {
         delete m.tk;
         delete m.task;
         delete m.src;
-    } else if (!m.working && creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) {
+    } else if (!m.working && creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0 && creep.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+        // Full, and of energy: a load of minerals alone is not "working" (the creep would
+        // set off for a tower with nothing to give, then turn back, forever).
         m.working = true;
         delete m.t;
         delete m.tk;
@@ -300,9 +306,17 @@ function pickDelivery(creep, st, opts, exclude) {
     // Rearming towers comes first, ahead of spawns and extensions.
     let t = closestWithRoom(creep, st.towersNeedy, exclude);
     if (t) return t;
+    // A terminal with something to ship needs energy for the fee: before upgrading and
+    // storage, and before the extensions once the spawn can pay for its next creep (a room
+    // that never fills them would otherwise never ship).
+    const fee = opts.only === 'refill' ? 0 : industry.terminalFee(st);
+    const feeDue = fee && st.terminal !== exclude && (st.terminal.store[RESOURCE_ENERGY] || 0) + (heap.fill[st.terminal.id] || 0) < fee &&
+        st.terminal.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+    if (feeDue && st.energy >= Math.max(300, util.roomHeap(st.name).needEnergy || 0)) return st.terminal;
     t = closestWithRoom(creep, st.refill, exclude);
     if (t) return t;
     if (opts.only === 'refill') return null;
+    if (feeDue) return st.terminal;
 
     const carrying = (creep.store[RESOURCE_ENERGY] || 0);
     if (st.ctrlContainer && st.ctrlContainer !== exclude && (st.count('upgrader') > 0 || opts.ctrl)) {
@@ -451,6 +465,16 @@ function freshRamparts(st) {
     return repairObjects(st).filter(s => s.structureType === STRUCTURE_RAMPART && s.hits < FRESH_RAMPART);
 }
 
+/**
+ * Ramparts worn down to half the repair floor. They are mended even while
+ * construction sites wait: a long build (labs, a terminal) must not let the
+ * whole line sink to the 5k the towers hold.
+ */
+function thinRamparts(st) {
+    const half = Math.min(config.planner.rampartTarget[st.rcl] || 0, 20000) / 2;
+    return repairObjects(st).filter(s => s.structureType === STRUCTURE_RAMPART && s.hits < half);
+}
+
 function doRepair(creep, st, m) {
     let s = m.t && m.tk === 'repair' ? Game.getObjectById(m.t) : null;
     if (s && s.hits >= s.hitsMax * 0.95) s = null;
@@ -462,7 +486,8 @@ function doRepair(creep, st, m) {
     }
     if (!s) {
         const fresh = freshRamparts(st);
-        const list = fresh.length ? fresh : repairObjects(st);
+        const thin = fresh.length ? fresh : thinRamparts(st);
+        const list = thin.length ? thin : repairObjects(st);
         s = list.length ? creep.pos.findClosestByRange(list) : null;
         if (!s) return false;
         m.t = s.id;
@@ -581,59 +606,109 @@ function otherResource(store) {
     return null;
 }
 
-/** Where looted non-energy resources go: our active storage, else our terminal. */
-function lootDestination(st, type) {
-    const list = [st.storageActive ? st.storage : null, st.terminal];
-    for (let i = 0; i < list.length; i++) if (list[i] && list[i].store.getFreeCapacity(type) > 0) return list[i];
-    return null;
-}
-
-/** Carried non-energy resources (loot) go into storage or terminal first. Returns true while busy with that. */
-function stashLoot(creep, st) {
-    const type = otherResource(creep.store);
-    if (!type) return false;
-    const dest = lootDestination(st, type);
-    if (!dest) {
-        // Nowhere to keep it: do not let it block the energy work.
-        creep.drop(type);
+/**
+ * Second half of a move (industry.moves): bring what was fetched to where the
+ * move said, else to where the room keeps that resource. Loads nobody takes
+ * are dropped so they do not block the energy work. Returns true while busy.
+ */
+function finishMove(creep, st, m) {
+    const mv = m.mv;
+    const type = mv && mv.got && creep.store[mv.r] > 0 ? mv.r : otherResource(creep.store);
+    if (!type) {
+        if (mv && mv.got) delete m.mv;
         return false;
     }
-    if (creep.pos.isNearTo(dest)) creep.transfer(dest, type);
-    else util.travel(creep, dest);
+    let dest = mv && mv.got && mv.r === type ? Game.getObjectById(mv.t) : null;
+    if (dest && dest.store.getFreeCapacity(type) <= 0) dest = null;
+    if (!dest) dest = type === RESOURCE_ENERGY ? (st.storage || st.terminal) : industry.destination(st, type, null);
+    if (!dest) {
+        creep.drop(type);
+        delete m.mv;
+        return false;
+    }
+    if (!creep.pos.isNearTo(dest)) {
+        util.travel(creep, dest);
+        return true;
+    }
+    const res = creep.transfer(dest, type);
+    if (res !== OK && res !== ERR_FULL && !dest.my) {
+        // Another player's store that takes nothing: stop gathering leftovers in it.
+        st.mem.noDeposit = Game.time;
+        util.warn(st.name + ': the ' + dest.structureType + ' left by ' + (dest.owner ? dest.owner.username : 'someone') +
+            ' refuses deposits (' + res + '); leftovers stay where they are');
+    }
+    delete m.mv;
     return true;
 }
 
 /**
- * An idle hauler empties minerals, compounds and the like out of structures
- * other players left in our room (st.lootOther) when we have somewhere to put
- * them. Energy from those structures already comes through pickEnergy.
+ * First half of a move: pick one nobody is on and fetch its load. Haulers
+ * take the plain ones (mineral container, leftovers of other players,
+ * tombstones, storage <-> terminal); with `all` (chemists) also lab and
+ * factory work and energy. Returns true while busy.
  */
-function fetchLoot(creep, st, m) {
-    if (!creep.store.getFreeCapacity()) return false;
-    let tgt = m.loot ? Game.getObjectById(m.loot) : null;
-    if (!tgt || isBad(tgt.id) || !otherResource(tgt.store)) {
-        delete m.loot;
-        tgt = null;
-        let bestD = Infinity;
-        for (let i = 0; i < st.lootOther.length; i++) {
-            const s = st.lootOther[i];
-            if (isBad(s.id) || !lootDestination(st, otherResource(s.store))) continue;
-            const d = creep.pos.getRangeTo(s);
-            if (d < bestD) {
-                bestD = d;
-                tgt = s;
-            }
+function startMove(creep, st, m, all) {
+    let mv = m.mv;
+    if (!mv || mv.got) {
+        mv = null;
+        const list = industry.moves(st);
+        for (let i = 0; i < list.length && !mv; i++) {
+            const c = list[i];
+            if (!all && (c.k || c.r === RESOURCE_ENERGY)) continue;
+            if (isBad(c.f) || isBad(c.t) || heap.moveClaim[c.f + c.r]) continue;
+            mv = { f: c.f, t: c.t, r: c.r, n: c.n };
         }
-        if (!tgt) return false;
-        m.loot = tgt.id;
+        if (!mv) {
+            delete m.mv;
+            return false;
+        }
+        m.mv = mv;
+        heap.moveClaim[mv.f + mv.r] = true;
     }
-    if (!creep.pos.isNearTo(tgt)) {
-        if (go(creep, m, tgt) === ERR_NO_PATH) delete m.loot;
+    const from = Game.getObjectById(mv.f);
+    if (!from || !from.store || !(from.store[mv.r] > 0) || creep.store.getFreeCapacity(mv.r) <= 0) {
+        delete m.mv;
+        return false;
+    }
+    if (!creep.pos.isNearTo(from)) {
+        if (go(creep, m, from) === ERR_NO_PATH) delete m.mv;
         return true;
     }
-    const res = creep.withdraw(tgt, otherResource(tgt.store));
-    if (res !== OK) markBad(tgt.id);
-    delete m.loot;
+    const res = creep.withdraw(from, mv.r, Math.min(mv.n, from.store[mv.r], creep.store.getFreeCapacity(mv.r)));
+    if (res === OK) mv.got = true;
+    else {
+        // A store we may not touch after all (someone else's rampart on top).
+        markBad(from.id);
+        delete m.mv;
+    }
+    return true;
+}
+
+/**
+ * Take the boosts the labs of this room hold for the creep's unboosted parts.
+ * patient: wait (150 ticks at most) while a lab is still being loaded.
+ * Returns true while busy; sets m.boosted once there is nothing more to get.
+ */
+function takeBoost(creep, m, st, patient) {
+    const lab = industry.boostLab(creep, st);
+    if (!lab || (lab === 'wait' && !patient)) {
+        m.boosted = Game.time;
+        return false;
+    }
+    if (lab === 'wait') {
+        if (creep.room.name === st.name && (m.bw = (m.bw || 0) + 1) > 150) {
+            m.boosted = Game.time;
+            return false;
+        }
+        util.markIdle(creep);
+        if (creep.room.name !== st.name || !creep.pos.inRangeTo(st.idle, 3)) util.travel(creep, st.idle, { range: 3, reusePath: 40 });
+        return true;
+    }
+    if (!creep.pos.isNearTo(lab)) {
+        util.travel(creep, lab, { range: 1, reusePath: 40 });
+        return true;
+    }
+    if (lab.boostCreep(creep) !== OK) m.boosted = Game.time;
     return true;
 }
 
@@ -656,8 +731,11 @@ function hauler(creep, m) {
         delete m.t;
         delete m.tk;
     }
-    if (!(rearm && m.working) && stashLoot(creep, st)) return;
+    if (!(rearm && m.working) && otherResource(creep.store) && finishMove(creep, st, m)) return;
     if (!m.working) {
+        // A mineral container about to overflow comes before the next energy round.
+        if (!rearm && st.mineralContainer && st.mineralContainer.store.getUsedCapacity() >= 1500 &&
+            creep.store.getUsedCapacity() === 0 && startMove(creep, st, m, false)) return;
         const keep = war.terminalKeep();
         const storageEnergy = st.storage ? (st.storage.store[RESOURCE_ENERGY] || 0) : 0;
         const demand = st.refill.length > 0 || st.towersNeedy.length > 0 ||
@@ -676,7 +754,10 @@ function hauler(creep, m) {
         };
         if (!acquire(creep, st, opts)) {
             if ((creep.store[RESOURCE_ENERGY] || 0) >= creep.store.getCapacity() * 0.25) m.working = true;
-            else if (!fetchLoot(creep, st, m)) idle(creep, st);
+            else if (!startMove(creep, st, m, false)) idle(creep, st);
+        } else if (m.mv && !m.mv.got) {
+            // Energy work came up: the move is left for someone else.
+            delete m.mv;
         }
         return;
     }
@@ -727,6 +808,11 @@ function upgrader(creep, m) {
     if (creep.room.name !== st.name) {
         util.travel(creep, ctrl, { range: 3 });
         return;
+    }
+    // Fresh from the spawn: take the upgrade boost when the labs here hold one.
+    if (!m.boosted && st.labs.length) {
+        if (creep.ticksToLive < 1200 || (Memory.war && Memory.war.boost)) m.boosted = Game.time;
+        else if (takeBoost(creep, m, st, false)) return;
     }
     const feed = (st.ctrlLink && (st.ctrlLink.store[RESOURCE_ENERGY] || 0) > 0) ? st.ctrlLink
         : (st.ctrlContainer ? st.ctrlContainer : (st.ctrlLink || null));
@@ -795,7 +881,7 @@ function chooseTask(creep, st) {
     // or nothing lying around for them to haul).
     if (st.refill.length && st.energy < Math.max(300, needEnergy) && (haulers === 0 || haulable(st) < 200)) return 'fill';
     if (st.downgrade) return 'upgrade';
-    if (st.sites.length) return freshRamparts(st).length ? 'repair' : 'build';
+    if (st.sites.length) return freshRamparts(st).length || thinRamparts(st).length ? 'repair' : 'build';
     if (repairObjects(st).length) return 'repair';
     if (defense.spareEnergy(st) && defense.fortifyTargets(st).length) return 'fortify';
     return 'upgrade';
@@ -1387,6 +1473,17 @@ function soldier(creep, m) {
         return;
     }
 
+    // Memory.war.boost: a fresh soldier walks by the hub's labs first.
+    if (w.boost && !m.boosted) {
+        const hub = industry.hubState();
+        if (!hub || !hub.labs.length || creep.ticksToLive < 900 ||
+            util.roomDistance(m.home, hub.name) > config.industry.boostRange) m.boosted = Game.time;
+        else if (takeBoost(creep, m, hub, true)) {
+            creep.say('⚗️', true);
+            return;
+        }
+    }
+
     // Target set: gather at the rally room, then march in and clear it.
     if (w.target) {
         const inTarget = creep.room.name === w.target;
@@ -1761,7 +1858,63 @@ function guard(creep, m) {
     if (util.onEdge(creep.pos) || !creep.pos.inRangeTo(util.roomCenter(m.remote), 12)) util.travel(creep, util.roomCenter(m.remote), { range: 10 });
 }
 
-const ROLES = { miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier, unclaimer, remoteMiner, remoteHauler, reserver, guard };
+/* ------------------------------------------------------------------ */
+/* Minerals and chemistry (industry.js decides, these carry it out)     */
+/* ------------------------------------------------------------------ */
+
+/** Stands on the mineral's container and harvests every time the extractor has cooled down. */
+function mineralMiner(creep, m) {
+    const st = homeState(creep);
+    if (!st || !st.mineral || !st.extractor) {
+        recycle(creep);
+        return;
+    }
+    const box = st.mineralContainer;
+    if (creep.room.name !== st.name || (box ? !creep.pos.isEqualTo(box.pos) : !creep.pos.isNearTo(st.mineral))) {
+        util.travel(creep, box || st.mineral, { range: box ? 0 : 1 });
+        return;
+    }
+    util.park(creep);
+    if (st.mineral.mineralAmount === 0) {
+        // Exhausted for the next 50000 ticks.
+        recycle(creep);
+        return;
+    }
+    // A full container would spill onto the ground, where minerals decay.
+    if (!st.extractor.cooldown && (!box || box.store.getFreeCapacity() >= creep.getActiveBodyparts(WORK))) creep.harvest(st.mineral);
+}
+
+/**
+ * Carries for the labs, the factory and the terminal: whatever industry.moves
+ * lists for the room, one load at a time.
+ */
+function chemist(creep, m) {
+    const st = homeState(creep);
+    if (!st) {
+        recycle(creep);
+        return;
+    }
+    if (creep.room.name !== st.name) {
+        util.travel(creep, st.anchor, { range: 4 });
+        return;
+    }
+    if (finishMove(creep, st, m)) return;
+    // Energy left from a move that fell through: put it away before the next load.
+    if ((creep.store[RESOURCE_ENERGY] || 0) > 0) {
+        const to = st.storage || st.terminal;
+        if (to && to.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if (creep.pos.isNearTo(to)) creep.transfer(to, RESOURCE_ENERGY);
+            else util.travel(creep, to);
+            return;
+        }
+    }
+    if (!startMove(creep, st, m, true)) idle(creep, st);
+}
+
+const ROLES = {
+    miner, hauler, upgrader, worker, courier, defender, claimer, scout, soldier, unclaimer,
+    remoteMiner, remoteHauler, reserver, guard, mineralMiner, chemist,
+};
 
 function run(creep) {
     if (creep.spawning) return;

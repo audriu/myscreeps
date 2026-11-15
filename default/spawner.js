@@ -10,6 +10,7 @@ const roomState = require('roomState');
 const war = require('war');
 const defense = require('defense');
 const remote = require('remote');
+const industry = require('industry');
 
 const POP = config.population;
 
@@ -47,6 +48,13 @@ function upgraderWorkWanted(st) {
         if (storageEnergy > 300000) return 15;
         if (storageEnergy > 100000) return 8;
         return 3;
+    }
+    // The hub's labs and factory, and the first storage or terminal of a room that has no
+    // storage: the income goes into those sites before it goes into the controller.
+    if ((industry.isHub(st.name) || !st.storage) && !st.downgrade) {
+        let owed = 0;
+        for (let i = 0; i < st.sites.length; i++) owed += st.sites[i].progressTotal - st.sites[i].progress;
+        if (owed > 20000) return util.clamp(6 + Math.floor(storageEnergy / 20000), 2, 24);
     }
     let w = st.sources.length * 10 - 4 - (st.sites.length ? 4 : 0);
     if (storageEnergy > 50000) w += 5;
@@ -199,6 +207,9 @@ function wants(room, st) {
     // Spare energy and thin ramparts: one more worker thickens them (config.defense.workerFortify).
     const fortify = !st.sites.length && defense.spareEnergy(st) && defense.fortifyTargets(st).length > 0;
     if (fortify) workerWant++;
+    // Costly sites (labs, terminal, factory) and a storage that can pay for them: more hands.
+    const bigJob = st.sites.length > 0 && !!st.storage && (st.storage.store[RESOURCE_ENERGY] || 0) > 50000;
+    if (bigJob) workerWant++;
     workerWant = Math.min(workerWant, POP.maxWorkers);
     if (alive(workers, 30) < workerWant) {
         list.push({
@@ -207,7 +218,33 @@ function wants(room, st) {
             have: alive(workers, 30),
             priority: st.sites.length && !workers.length ? 600 : 400,
             shrink: false,
-            body: e => bodies.worker(Math.min(e, st.sites.length > 6 || fortify ? 1500 : 1000)),
+            body: e => bodies.worker(Math.min(e, st.sites.length > 6 || fortify || bigJob ? 1500 : 1000)),
+        });
+    }
+
+    // Mineral miner: once the extractor and its container stand, the mineral is not exhausted
+    // and the empire can still use it.
+    if (st.extractor && st.mineralContainer && st.mineral.mineralAmount > 0 && industry.wantsMineral(st)) {
+        list.push({
+            role: 'mineralMiner',
+            count: 1,
+            have: alive(st.creeps.mineralMiner || [], 50),
+            priority: 380,
+            shrink: false,
+            body: e => bodies.mineralMiner(Math.min(e, config.industry.minerEnergy)),
+        });
+    }
+
+    // Chemist: lab and factory work, or a pile of minerals and compounds to move.
+    const chem = st.bootstrap ? 0 : industry.chemistWanted(st);
+    if (chem) {
+        list.push({
+            role: 'chemist',
+            count: 1,
+            have: alive(st.creeps.chemist || [], 30),
+            priority: 420,
+            shrink: false,
+            body: e => bodies.chemist(Math.min(e, chem > 1 ? 1200 : 600)),
         });
     }
 

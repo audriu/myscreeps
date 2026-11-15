@@ -123,7 +123,26 @@ function build(room) {
         srcInfo.push({ id: sources[i].id, source: sources[i], pos: sources[i].pos, container: null, link: null });
     }
 
+    // The mineral never moves: its id is kept in the heap.
+    if (rh.mineralId === undefined) {
+        const found = room.find(FIND_MINERALS)[0];
+        rh.mineralId = found ? found.id : null;
+    }
+    const mineral = rh.mineralId ? Game.getObjectById(rh.mineralId) : null;
+    let extractor = null;
+    if (rcl >= 6 && mineral) {
+        const list = byType[STRUCTURE_EXTRACTOR] || [];
+        for (let i = 0; i < list.length; i++) if (list[i].my) extractor = list[i];
+    }
+    const labs = (byType[STRUCTURE_LAB] || []).filter(s => s.my && active[s.id]);
+    let factory = null;
+    if (rcl >= 7) {
+        const list = byType[STRUCTURE_FACTORY] || [];
+        for (let i = 0; i < list.length; i++) if (list[i].my) factory = list[i];
+    }
+
     let ctrlContainer = null;
+    let mineralContainer = null;
     for (let i = 0; i < containers.length; i++) {
         const c = containers[i];
         let matched = false;
@@ -134,12 +153,15 @@ function build(room) {
                 break;
             }
         }
-        if (!matched && ctrl && c.pos.inRangeTo(ctrl.pos, 3)) ctrlContainer = c;
+        if (matched) continue;
+        if (mineral && c.pos.inRangeTo(mineral.pos, 1)) mineralContainer = c;
+        else if (ctrl && c.pos.inRangeTo(ctrl.pos, 3)) ctrlContainer = c;
     }
 
     const usedContainers = {};
     for (let j = 0; j < srcInfo.length; j++) if (srcInfo[j].container) usedContainers[srcInfo[j].container.id] = true;
     if (ctrlContainer) usedContainers[ctrlContainer.id] = true;
+    if (mineralContainer) usedContainers[mineralContainer.id] = true;
     const loot = findLoot(room, containers, usedContainers);
 
     let ctrlLink = null;
@@ -220,6 +242,11 @@ function build(room) {
         roads,
         sources: srcInfo,
         ctrlContainer,
+        mineral,
+        extractor,
+        mineralContainer,
+        labs,
+        factory,
         hostiles,
         danger,
         dropped: util.find(room, FIND_DROPPED_RESOURCES, 'e', r => r.resourceType === RESOURCE_ENERGY && r.amount >= 30),

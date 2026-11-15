@@ -19,12 +19,13 @@ Instructions for coding agents working in this repository.
   - `planner.js` — checkerboard layout around the first spawn, spawn un-boxing, road/rampart placement (key structures and the min-cut perimeter), cleanup of off-grid inactive structures.
   - `mincut.js` — max-flow minimum cut between room exits and the base: the perimeter rampart tiles.
   - `spawner.js` — population targets and priority-ordered spawning.
-  - `roles.js` — creep behaviours (`miner`, `hauler`, `upgrader`, `worker`, `defender`, `claimer`, `courier`, `scout`, plus war roles).
+  - `roles.js` — creep behaviours (`miner`, `hauler`, `upgrader`, `worker`, `defender`, `claimer`, `courier`, `scout`, the remote roles, `mineralMiner`, `chemist`, plus war roles).
   - `war.js` — console-driven offence via `Memory.war` (`soldier` and `unclaimer` roles, muster, rally, march, closest-first clearing, final sweep, controller strikes).
   - `defense.js` — tower targeting/healing/repairing, safe mode triggers, worker rampart fortification thresholds.
   - `logistics.js` — source/controller/storage links and cross-room terminal energy balancing.
   - `empire.js` — cross-room helpers, couriers, scouting, automatic and manual claiming (`Memory.empire.claim`), reclaiming lost rooms, room release (`Memory.empire.release`).
   - `remote.js` — remote mining of unowned neighbour rooms (`Memory.empire.remotes`): room choice, spawn requests for `remoteMiner`, `remoteHauler`, `reserver` and `guard`, retreat from invaders.
+  - `industry.js` — the hub (`Memory.empire.hub`), mineral mining, the terminal network, labs (reactions, upgrade and war boosts), the factory, and the carry jobs for `chemist` and idle haulers (`moves`).
   - `adopt.js` — one-time `Memory` migration and legacy creep adoption.
 - `tools/sim/` — offline simulator (`fetch.js`, `run.js`, `engine.js`, `constants.js`) that runs `default/` against real room snapshots in `tools/sim/data/` (gitignored). See [tools/sim/README.md](tools/sim/README.md).
 - `README.md` — top-level overview and quick commands.
@@ -34,7 +35,7 @@ Instructions for coding agents working in this repository.
 - **No hard-coded room names** in `default/` (discover everything from live game state; only optional overrides in `config.avoidRooms` / `Memory` are room-specific).
 - **Error isolation**: keep per-room and per-subsystem work wrapped so an exception in one room or creep never halts the tick for the rest of the empire.
 - **Tower priority**: towers below 70% energy outrank spawns, extensions, upgrading, links, storage, and terminal. Preserve this invariant when touching `roles.js`, `roomState.js`, or `spawner.js`.
-- **Leftover structures**: structures belonging to previous owners in our rooms cannot be taken over, only looted (when uncovered by hostile ramparts) or dismantled; soldiers leave loot-holding leftovers standing while they still contain resources.
+- **Leftover structures**: structures belonging to previous owners in our rooms cannot be taken over, only looted (when uncovered by hostile ramparts) or dismantled; soldiers leave loot-holding leftovers standing while they still contain resources. The planner removes an empty leftover storage, terminal, extractor, lab or factory when it blocks one of ours; never one that still holds something.
 - **Documentation**: when changing behaviour, `Memory` console commands, or `config.js` keys, update [default/README.md](default/README.md) (and [README.md](README.md) / [tools/sim/README.md](tools/sim/README.md) if relevant) in the same commit.
 
 ## Testing Before Deploying

@@ -148,7 +148,21 @@ function guard(energy) {
     return assemble({ attack, ranged_attack: ranged, heal, move: attack + ranged + heal });
 }
 
+/** Mineral miner: stands on a container, so no CARRY; 2 WORK per MOVE. */
+function mineralMiner(energy) {
+    const units = util.clamp(Math.floor(Math.max(250, energy) / 250), 1, 16);
+    return assemble({ work: units * 2, move: units });
+}
+
+/** Chemist: carries between storage, terminal, labs and factory, a few tiles at a time. */
+function chemist(energy) {
+    const units = util.clamp(Math.floor(Math.max(150, energy) / 150), 1, 8);
+    return assemble({ carry: units * 2, move: units });
+}
+
 module.exports = {
+    mineralMiner,
+    chemist,
     remoteMiner,
     reserver,
     guard,

@@ -12,6 +12,7 @@ const config = require('config');
 const util = require('util');
 const defense = require('defense');
 const mincut = require('mincut');
+const industry = require('industry');
 
 const PLAN = config.planner;
 
@@ -113,7 +114,11 @@ function buildContext(room, st) {
     }
 
     const anchor = st.anchor;
-    const mineral = util.find(room, FIND_MINERALS)[0] || null;
+    const mineral = st.mineral;
+    // Tiles set aside for the lab cluster: nothing else is placed there.
+    const keep = new Uint8Array(2500);
+    const labTiles = st.mem.plan && st.mem.plan.labs;
+    if (labTiles) for (let i = 0; i < labTiles.length; i++) keep[labTiles[i]] = 1;
 
     const ctx = {
         room,
@@ -128,6 +133,7 @@ function buildContext(room, st) {
         spawnPos,
         anchor,
         mineral,
+        keep,
         parity: (anchor.x + anchor.y) % 2,
         reach: null,
         sitesFull: false,
@@ -235,6 +241,7 @@ function canPlaceBlocking(ctx, x, y, opts) {
     if (!inBounds(x, y, 3)) return false;
     const k = idx(x, y);
     if (ctx.blocked[k] || ctx.occupied[k] || ctx.rampart[k]) return false;
+    if (ctx.keep[k] && !opts.keepOk) return false;
     if (!opts.anyParity && (x + y) % 2 !== ctx.parity) return false;
     if (nearSpawn(ctx, x, y, 1)) return false;
     if (nearImportant(ctx, x, y, opts.ctrlMin != null ? opts.ctrlMin : 3, opts.accessOk)) return false;
@@ -843,19 +850,28 @@ function placeAll(room, st, ctx) {
     }
     if (used()) return;
 
+    // Towers: close to the anchor, and before the extensions take the tiles there. In a
+    // cramped base a tower further out still beats none.
+    const towerNeed = allowed(STRUCTURE_TOWER, rcl) - have(ctx, STRUCTURE_TOWER);
+    if (towerNeed > 0) {
+        const n = placeOnBoard(ctx, STRUCTURE_TOWER, Math.min(towerNeed, budget), 7);
+        spend(n);
+        if (n < Math.min(towerNeed, budget) && !used()) spend(placeOnBoard(ctx, STRUCTURE_TOWER, Math.min(towerNeed - n, budget), 12));
+    }
+    if (used()) return;
+
     // Extensions.
     const extNeed = allowed(STRUCTURE_EXTENSION, rcl) - have(ctx, STRUCTURE_EXTENSION);
     if (extNeed > 0) spend(placeOnBoard(ctx, STRUCTURE_EXTENSION, Math.min(extNeed, budget), 12));
     if (used()) return;
 
-    // Towers.
-    const towerNeed = allowed(STRUCTURE_TOWER, rcl) - have(ctx, STRUCTURE_TOWER);
-    if (towerNeed > 0) spend(placeOnBoard(ctx, STRUCTURE_TOWER, Math.min(towerNeed, budget), 7));
-    if (used()) return;
-
     // Ramparts on critical structures come before everything else that is
     // optional: a bare tower or spawn is the first thing a raid takes down.
     if (rcl >= PLAN.rampartsFromRcl) spend(placeRamparts(ctx, budget, defense.KEY_STRUCTURES));
+    if (used()) return;
+    // ... and over what other players left full of minerals and compounds: under our
+    // rampart only we can empty it.
+    if (rcl >= PLAN.rampartsFromRcl) spend(placeLootRamparts(ctx, budget));
     if (used()) return;
 
     // Perimeter ramparts sealing the base off from every exit.
@@ -915,16 +931,42 @@ function placeAll(room, st, ctx) {
     }
     if (used()) return;
 
-    // Terminal.
-    if (allowed(STRUCTURE_TERMINAL, rcl) > have(ctx, STRUCTURE_TERMINAL) && st.storage) {
-        if (placeNear(ctx, STRUCTURE_TERMINAL, st.storage.pos, 1, 3)) spend(1);
+    // Terminal: next to our storage, or to the one another player left (its contents go
+    // through the terminal), or near the anchor.
+    if (allowed(STRUCTURE_TERMINAL, rcl) > have(ctx, STRUCTURE_TERMINAL)) {
+        const near = st.storage || room.storage;
+        if (near ? placeNear(ctx, STRUCTURE_TERMINAL, near.pos, 1, 4) : placeNear(ctx, STRUCTURE_TERMINAL, ctx.anchor, 2, 6)) spend(1);
     }
     if (used()) return;
+
+    // Extractor and a container for its miner, while the mineral is worth mining.
+    if (rcl >= 6 && ctx.mineral && allowed(STRUCTURE_EXTRACTOR, rcl) > 0 && industry.wantsMineral(st)) {
+        const m = ctx.mineral.pos;
+        if (!have(ctx, STRUCTURE_EXTRACTOR)) {
+            if (place(ctx, STRUCTURE_EXTRACTOR, m.x, m.y)) spend(1);
+        } else if (st.extractor && !st.mineralContainer && !hasSiteOrStructNear(ctx, STRUCTURE_CONTAINER, m.x, m.y, 1)) {
+            if (placeContainerNear(ctx, m, 1, false)) spend(1);
+        }
+    }
+    if (used()) return;
+
+    // Hub: labs in one cluster, a factory once there are batteries to open.
+    if (industry.isHub(room.name) && st.storage) {
+        const labNeed = allowed(STRUCTURE_LAB, rcl) - have(ctx, STRUCTURE_LAB);
+        if (labNeed > 0) spend(placeLabs(ctx, Math.min(labNeed, budget)));
+        if (used()) return;
+        if (allowed(STRUCTURE_FACTORY, rcl) > have(ctx, STRUCTURE_FACTORY) && industry.wantsFactory()) {
+            if (placeNear(ctx, STRUCTURE_FACTORY, st.storage.pos, 1, 5)) spend(1);
+        }
+        if (used()) return;
+    }
 
     // Extra spawns at RCL7+.
     const spawnNeed = allowed(STRUCTURE_SPAWN, rcl) - have(ctx, STRUCTURE_SPAWN);
     for (let n = 0; n < spawnNeed && !used(); n++) {
-        if (placeNear(ctx, STRUCTURE_SPAWN, ctx.anchor, 2, 6, { minLanes: 4 })) spend(1);
+        // Open ground near the anchor first; in a cramped base further out with fewer free sides.
+        if (placeNear(ctx, STRUCTURE_SPAWN, ctx.anchor, 2, 6, { minLanes: 4 }) ||
+            placeNear(ctx, STRUCTURE_SPAWN, ctx.anchor, 2, 10, { minLanes: 3 })) spend(1);
         else break;
     }
     if (used()) return;
@@ -1029,15 +1071,135 @@ function placeRamparts(ctx, budget, types) {
     return placed;
 }
 
+/** Rampart sites over stores of other players that hold at least 1000 of something besides energy. */
+function placeLootRamparts(ctx, budget) {
+    let placed = 0;
+    const list = ctx.st.lootOther;
+    for (let i = 0; i < list.length && placed < budget; i++) {
+        const s = list[i];
+        if (!s.structureType || industry.nonEnergy(s.store) < 1000) continue;
+        const k = idx(s.pos.x, s.pos.y);
+        if (ctx.rampart[k]) continue;
+        if (place(ctx, STRUCTURE_RAMPART, s.pos.x, s.pos.y)) placed++;
+        if (ctx.sitesFull) return placed;
+    }
+    return placed;
+}
+
+/**
+ * Tiles for the lab cluster (y * 50 + x), kept in plan.labs: two reagent labs
+ * diagonal to each other first, then every checkerboard tile within range 2
+ * of both, so each of those can react from the two. Up to 8 labs; the lanes
+ * between them stay free for the chemist.
+ */
+function planLabs(ctx) {
+    const st = ctx.st;
+    const plan = st.mem.plan;
+    if (plan.labs) return plan.labs;
+    if (plan.labsAt && Game.time - plan.labsAt < 5000) return null;
+    plan.labsAt = Game.time;
+    const origin = st.storage.pos;
+    const ok = (x, y) => canPlaceBlocking(ctx, x, y);
+    let best = null;
+    for (let d = 2; d <= 12; d++) {
+        const r = ring(origin.x, origin.y, d);
+        for (let i = 0; i < r.length; i++) {
+            const a = r[i];
+            if (!ok(a.x, a.y)) continue;
+            for (let q = 0; q < 4; q++) {
+                const b = { x: a.x + (q & 1 ? 1 : -1), y: a.y + (q & 2 ? 1 : -1) };
+                if (!ok(b.x, b.y)) continue;
+                const tiles = [idx(a.x, a.y), idx(b.x, b.y)];
+                for (let x = Math.max(a.x, b.x) - 2; x <= Math.min(a.x, b.x) + 2; x++) {
+                    for (let y = Math.max(a.y, b.y) - 2; y <= Math.min(a.y, b.y) + 2; y++) {
+                        if ((x === a.x && y === a.y) || (x === b.x && y === b.y)) continue;
+                        if (ok(x, y)) tiles.push(idx(x, y));
+                    }
+                }
+                // Six tiles cover RCL7; beyond that, closer to the storage beats bigger.
+                const n = Math.min(tiles.length, 8);
+                const score = (n >= 6 ? 100 : 0) + n * 5 - d * 4;
+                if (n >= 3 && (!best || score > best.score)) best = { score, tiles: tiles.slice(0, 8) };
+            }
+        }
+    }
+    if (!best) {
+        util.warn(st.name + ': no room for a lab cluster near the storage');
+        return null;
+    }
+    plan.labs = best.tiles;
+    for (let i = 0; i < best.tiles.length; i++) ctx.keep[best.tiles[i]] = 1;
+    util.log(st.name + ': lab cluster planned on ' + best.tiles.length + ' tiles around ' + (best.tiles[0] % 50) + ',' + ((best.tiles[0] / 50) | 0));
+    return plan.labs;
+}
+
+function placeLabs(ctx, need) {
+    const tiles = planLabs(ctx);
+    if (!tiles) return 0;
+    let placed = 0;
+    for (let i = 0; i < tiles.length && placed < need; i++) {
+        const k = tiles[i];
+        // Free, or only a road on it (roads do not stop a building).
+        if (ctx.blocked[k] || ctx.rampart[k] || (ctx.occupied[k] && !ctx.road[k])) continue;
+        if (place(ctx, STRUCTURE_LAB, k % 50, (k / 50) | 0)) placed++;
+        if (ctx.sitesFull) break;
+    }
+    return placed;
+}
+
+/**
+ * Structures of other players count against our RCL allowance. One that is
+ * empty is of no use to us: remove it so ours can be built (storage,
+ * terminal, extractor, lab, factory). Full ones stay until they are emptied.
+ */
+const LEFTOVER_TYPES = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_EXTRACTOR, STRUCTURE_LAB, STRUCTURE_FACTORY];
+
+function clearLeftovers(ctx) {
+    const st = ctx.st;
+    for (let t = 0; t < LEFTOVER_TYPES.length; t++) {
+        const type = LEFTOVER_TYPES[t];
+        const list = st.byType[type] || [];
+        const cap = allowed(type, st.rcl);
+        if (!cap) continue;
+        let mine = 0;
+        for (let i = 0; i < list.length; i++) if (list[i].my) mine++;
+        if (mine >= cap) continue;
+        for (let i = 0; i < list.length; i++) {
+            const s = list[i];
+            if (s.my || !s.owner) continue;
+            let full = false;
+            if (s.store) for (const r in s.store) if (s.store[r] > 0) full = true;
+            if (full) continue;
+            const res = s.destroy();
+            if (res === OK) {
+                util.warn(st.name + ': removed the empty ' + type + ' ' + s.owner.username + ' left at ' + s.pos.x + ',' + s.pos.y + ' (it used up our allowance)');
+                const k = idx(s.pos.x, s.pos.y);
+                ctx.blocked[k] = 0;
+                ctx.occupied[k] = 0;
+                ctx.count[type]--;
+                st.mem.plan.dirty = true;
+            } else if (!st.mem.leftoverWarned || Game.time - st.mem.leftoverWarned > 5000) {
+                st.mem.leftoverWarned = Game.time;
+                util.warn(st.name + ': the empty ' + type + ' of ' + s.owner.username + ' cannot be removed (' + res + ')');
+            }
+        }
+    }
+}
+
 /** Our structures the perimeter keeps inside (roads, ramparts and walls do not count). */
 const WALL_SKIP = { [STRUCTURE_ROAD]: true, [STRUCTURE_RAMPART]: true, [STRUCTURE_WALL]: true };
+
+/** The extractor and its container sit at the mineral, often far out: not worth a longer perimeter. */
+function outsideWall(st, s) {
+    return s.structureType === STRUCTURE_EXTRACTOR || s === st.mineralContainer;
+}
 
 function wallStructureCount(st) {
     let n = 0;
     for (const type in st.byType) {
         if (WALL_SKIP[type]) continue;
         const list = st.byType[type];
-        for (let i = 0; i < list.length; i++) if (list[i].my || type === STRUCTURE_CONTAINER) n++;
+        for (let i = 0; i < list.length; i++) if ((list[i].my || type === STRUCTURE_CONTAINER) && !outsideWall(st, list[i])) n++;
     }
     return n;
 }
@@ -1070,7 +1232,7 @@ function wallPlan(ctx) {
         if (WALL_SKIP[type]) continue;
         const list = st.byType[type];
         for (let i = 0; i < list.length; i++) {
-            if (list[i].my || type === STRUCTURE_CONTAINER) mark(list[i].pos.x, list[i].pos.y, PLAN.wallMargin);
+            if ((list[i].my || type === STRUCTURE_CONTAINER) && !outsideWall(st, list[i])) mark(list[i].pos.x, list[i].pos.y, PLAN.wallMargin);
         }
     }
     for (let i = 0; i < st.sources.length; i++) mark(st.sources[i].pos.x, st.sources[i].pos.y, 1);
@@ -1135,6 +1297,7 @@ function run(room, st) {
     }
 
     const ctx = buildContext(room, st);
+    clearLeftovers(ctx);
     pruneInactive(ctx);
     ensureConnected(ctx);
     unboxSpawns(room, st, ctx);

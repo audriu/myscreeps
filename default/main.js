@@ -17,6 +17,7 @@ const roles = require('roles');
 const empire = require('empire');
 const war = require('war');
 const remote = require('remote');
+const industry = require('industry');
 
 function guard(label, fn) {
     try {
@@ -44,6 +45,7 @@ function runRoom(room) {
     const st = roomState.get(room);
     guard(room.name + ' defense', () => defense.run(room, st));
     guard(room.name + ' links', () => logistics.runLinks(st));
+    guard(room.name + ' industry', () => industry.run(st));
     guard(room.name + ' spawner', () => spawner.run(room, st));
     guard(room.name + ' planner', () => planner.run(room, st));
     if (config.visuals) {
@@ -71,6 +73,7 @@ function summary(owned) {
             (Memory.empire.claim.next && Memory.empire.claim.next.length ? '+' + Memory.empire.claim.next.length : '') : '') +
         (Memory.empire && Memory.empire.wants ? ' empireWants=' + Memory.empire.wants.length : '') +
         (remote.count() ? ' remotes=' + remote.count() : '') +
+        (industry.hubName() ? ' hub=' + industry.hubName() : '') +
         (Memory.war && (Memory.war.muster || Memory.war.target) ? ' war=' + (Memory.war.target || 'muster') + '/' + war.soldiers().length : ''));
     if (Game.time % (config.logEvery * 5) === 0) {
         for (let i = 0; i < owned.length; i++) {

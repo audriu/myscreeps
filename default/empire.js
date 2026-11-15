@@ -6,6 +6,7 @@ const config = require('config');
 const util = require('util');
 const roomState = require('roomState');
 const remote = require('remote');
+const industry = require('industry');
 
 function ensure() {
     if (!Memory.empire) Memory.empire = {};
@@ -458,6 +459,7 @@ function run() {
     remote.plan(wants, states, record);
     planExpansion(wants, states);
     e.wants = wants;
+    industry.plan(states);
 
     if (Game.time % config.terminal.interval === 0) {
         require('logistics').balanceTerminals(states);

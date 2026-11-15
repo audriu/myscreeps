@@ -154,6 +154,37 @@ module.exports = {
         raidWindow: 20000,
     },
 
+    // Minerals, labs, factory and the terminal network (industry.js). One room
+    // is the hub (Memory.empire.hub, picked automatically; set it from the
+    // console to move it): terminals send everything that is not energy there.
+    industry: {
+        enabled: true,
+        // Mining: an extractor and a miner only while the empire holds less than
+        // mineralCap of that mineral and the room less than roomStock.
+        mineralCap: 60000,
+        roomStock: 30000,
+        minEnergy: 5000,        // storage energy a room needs before it spawns a mineral miner
+        minerEnergy: 1500,      // energy for the miner's body (2 WORK : 1 MOVE)
+        // Terminal network.
+        hubCap: 60000,          // the hub takes each resource up to this much (storage + terminal)
+        batteryCap: 300000,     // ... and this many batteries
+        terminalMax: 100000,    // non-energy a terminal away from the hub holds at most
+        batch: 5000,            // largest single shipment
+        feeEnergy: 3000,        // energy kept in a terminal that has something to ship
+        chemistAt: 3000,        // units waiting to be carried inside a room before it gets a chemist
+        // Labs (hub only).
+        labBatch: 1000,         // units of product per reaction run
+        labMin: 200,            // a reaction needs this much of each reagent in the room
+        // What the labs make, in this order, until the room holds `keep` of it. Reagents that
+        // are missing are made first. Console override: Memory.empire.labGoals = [{ res, keep }].
+        goals: [{ res: 'GH', keep: 3000 }],
+        // Memory.war.boost = true: one lab per body part in this order, loaded with the
+        // strongest boost in stock; soldiers from within boostRange rooms come by before they march.
+        warBoosts: [ATTACK, HEAL, TOUGH, RANGED_ATTACK, MOVE],
+        boostRange: 4,
+        factoryMin: 5000,       // batteries in the empire before the hub builds a factory (RCL7)
+    },
+
     terminal: {
         interval: 100,
         keep: 40000,            // energy haulers keep in each active terminal

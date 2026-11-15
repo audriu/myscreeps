@@ -14,7 +14,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
 
 - **Economy per room**: static miners parked on source containers, haulers
   sized by haul distance, upgraders fed from a controller container or link,
-  workers for building and repairs. Bodies scale with the room's energy
+  workers for building and repairs. In the hub, and in a room without a
+  storage of its own, upgrading drops to 6 WORK while sites worth more than
+  20000 energy wait (labs, factory, the first storage or terminal), so the
+  income goes into them; a storage above 50000 pays for one more worker. Bodies scale with the room's energy
   capacity; the spawn waits for energy instead of producing stubs, except in
   emergencies: nobody left who can carry, no hauler, or no miner at all (the
   first miner is then built from whatever is on hand, 250 energy at least,
@@ -38,8 +41,9 @@ modules from the branch first; `main.js` only requires the modules listed below.
   unreachable extensions, prunes RCL-inactive structures that sit off the
   checkerboard grid, reconnects sources to the controller area.
 - **Planner**: checkerboard layout around the first spawn, nothing non-walkable
-  next to a spawn, containers at sources and controller, towers, storage,
-  links, terminal, extra spawns, roads (RCL3+), ramparts on key structures
+  next to a spawn, containers at sources and controller, towers (before the
+  extensions; further out when the base is cramped), storage,
+  links, terminal, extractor, the hub's labs and factory, extra spawns, roads (RCL3+), ramparts on key structures
   (spawns, towers, storage, terminal) from RCL4, then a perimeter of ramparts
   (`planner.wallFromRcl`): the minimum cut between every exit and the base
   (our structures plus `planner.wallMargin` = 3 tiles where the terrain
@@ -67,7 +71,8 @@ modules from the branch first; `main.js` only requires the modules listed below.
   safe mode) is logged.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
-  20k at least. When there is nothing to build or repair and the room holds
+  20k at least; while construction sites wait, repairs start once a rampart
+  is down to half of that, so a long build does not wear the line down. When there is nothing to build or repair and the room holds
   spare energy (20k in storage, or 1.5k in the source containers of a room
   without storage; `defense.workerFortify`), the worker thickens ramparts
   toward `planner.rampartTarget` (RCL5 50k, RCL6 100k, RCL7 300k, RCL8 1M)
@@ -92,6 +97,13 @@ modules from the branch first; `main.js` only requires the modules listed below.
   against invaders and invader cores. One new room per empire pass, only
   while CPU and the home's spawn time allow. See
   [Remote mining](#remote-mining).
+- **Minerals, labs, factory** (`industry.js`): one room is the hub. Rooms
+  mine their mineral while the empire is short of it, terminals send
+  everything that is not energy to the hub, its labs run reactions (the
+  upgrade boost by default) and boost upgraders and, on request, soldiers;
+  at RCL7 its factory turns batteries into energy. Stores another player
+  left in a room of ours are emptied through that network and removed once
+  empty. See [Minerals, labs and the factory](#minerals-labs-and-the-factory).
 - **Traffic**: parked miners are routed around, jammed creeps push idle
   neighbours aside, spawns push creeps off their exits, unreachable targets are
   dropped. A creep that cannot step off an exit tile (the engine throws it
@@ -263,6 +275,7 @@ controller neutral.
 | Field | Set by | Meaning |
 |---|---|---|
 | `muster` | you | rooms build and replace soldiers |
+| `boost` | you | the hub's labs hold war boosts; fresh soldiers within reach take them first |
 | `target` | you | room to attack |
 | `go` | you / script | march now (tick it started) |
 | `rally`, `wave` | you (optional) / script | staging room; soldiers needed before marching |
@@ -378,6 +391,115 @@ _.filter(Game.creeps, c => c.memory.remote).map(c => c.name + ' ' + c.pos)
 | `guardMaxParts`, `playerPause` | 30, 300 | invader group size guards take on; ticks to stay away from a player's creeps |
 | `maxRaids`, `raidWindow` | 6, 20000 | raids before a room is given up |
 
+## Minerals, labs and the factory
+
+`industry.js` decides, creeps carry. Nothing needs typing except the war
+boost switch; `Memory.empire.hub` names the hub.
+
+### The hub
+
+The hub is an owned room with a terminal and a storage of ours: the highest
+RCL, then the most central one that lies close to where the stock is. It is
+picked once (`Hub: W46N29 collects minerals and compounds ...`) and kept in
+`Memory.empire.hub`; set that from the console to move it. Only the hub
+gets labs and a factory. The 100-tick summary shows `hub=ROOM`.
+
+### Minerals
+
+- **Mining**: an RCL6+ room builds an extractor and a container next to its
+  mineral, and spawns a `mineralMiner` (2 WORK per MOVE, `minerEnergy` 1500,
+  priority 380) while the empire holds less than `mineralCap` (60000) of
+  that mineral, the room less than `roomStock` (30000), and its storage has
+  `minEnergy` (5000) energy (a poorer room builds no extractor either). The
+  extractor and its container stay outside the rampart perimeter. The miner stands on the container and stops
+  when it is full; haulers empty it (at 1500 before their next energy
+  round). An exhausted mineral (50000 ticks) gets no miner.
+- **Where things go inside a room**: away from the hub into the terminal
+  while the hub still takes that resource, else into storage; in the hub
+  into storage. Idle haulers carry.
+- **Terminal network** (every 20 ticks, one shipment per terminal, `batch`
+  5000 at most): a terminal sends what is not energy to the hub until the
+  hub holds `hubCap` (60000) of that resource (`batteryCap` 300000
+  batteries), the most valuable compounds first. A terminal with something
+  to ship is kept at `feeEnergy` (3000): before upgrading and storage, and
+  before the extensions once the spawn can pay for its next creep. Away
+  from the hub a terminal holds `terminalMax` (100000) at most. Shipments
+  are logged every 100 ticks (`Shipped: W46N27>W46N29 UH2O 5795, ...`).
+
+### Stores other players left behind
+
+A storage or terminal of a previous owner cannot be used, only emptied, and
+it uses up our RCL allowance: while theirs stands, ours cannot be built.
+
+1. Their stores get a rampart of ours once they hold 1000 of anything but
+   energy: under it only we can withdraw.
+2. With no storage or terminal of our own in the room, everything is
+   gathered in their biggest storage (cheapest minerals first: if the game
+   refuses the deposit, the log says so and nothing more is moved).
+3. An empty leftover storage, terminal, extractor, lab or factory that
+   blocks one of ours is removed by the planner (`removed the empty
+   terminal MadDokMike left at 16,33`).
+4. Our terminal is then built next to their storage. Its contents go
+   through the terminal to the hub; what the hub does not take goes to the
+   terminal room with the most free storage. Once their storage is empty it
+   is removed and ours is built.
+
+### Labs
+
+Built in the hub only, in one cluster near the storage (`plan.labs`: two
+reagent labs and up to six more within range 2 of both; 3 at RCL6, 6 at
+RCL7, 8 at RCL8). One lab is already enough for boosting.
+
+- **Reactions**: `goals` lists what to make and how much to keep
+  (`[{ res: 'GH', keep: 3000 }]`: the upgrade boost, +50% per WORK part).
+  A reagent that is missing is made first (GH needs G, G needs ZK and UL,
+  and so on), `labBatch` (1000) units at a time, as long as the room holds
+  `labMin` (200) of both inputs. Console: `Memory.empire.labGoals =
+  [{ res: 'XGH2O', keep: 3000 }, { res: 'XLHO2', keep: 2000 }]`.
+- **Upgraders** fresh from the spawn take the upgrade boost from a lab that
+  holds one (the product lab itself, or a spare lab kept loaded from stock).
+- **Soldiers**: `Memory.war.boost = true` stops the reactions and loads one
+  boost per lab in the order of `warBoosts` (ATTACK, HEAL, TOUGH,
+  RANGED_ATTACK, MOVE), each time the strongest tier in stock. Soldiers from
+  rooms within `boostRange` (4) of the hub walk by the labs before they
+  rally (⚗️) and wait up to 150 ticks for a lab that is being loaded.
+  `delete Memory.war.boost` puts the labs back to work.
+- **Chemist**: a room gets one `chemist` (CARRY/MOVE, priority 420) while
+  labs or a factory need loading, or more than `chemistAt` (3000) units
+  wait to be carried; a bigger one for tens of thousands.
+
+### Factory
+
+At RCL7 the hub builds a factory once the empire holds `factoryMin` (5000)
+batteries. It opens 50 batteries into 500 energy every 10 ticks; the chemist
+feeds it and carries the energy to storage.
+
+### Console
+
+```js
+Memory.empire.hub                                   // the hub room; assign another owned room to move it
+Memory.rooms.W46N29.labs                            // { a, b, job: { p, a, b, left }, mode }
+Memory.empire.labGoals = [{ res: 'GH2O', keep: 3000 }]   // what the labs make (replaces config.industry.goals)
+delete Memory.empire.labGoals
+Memory.war.boost = true                             // labs hold war boosts, soldiers come by before they march
+delete Memory.rooms.W46N27.noDeposit                // try again to gather leftovers in the storage a player left
+```
+
+### Settings (`config.industry`)
+
+| Key | Default | |
+|---|---|---|
+| `enabled` | true | off: no mining, shipping, reactions or factory work |
+| `mineralCap`, `roomStock` | 60000, 30000 | a mineral is mined while the empire and the room hold less |
+| `minEnergy`, `minerEnergy` | 5000, 1500 | storage energy before a mineral miner is spawned; energy for its body |
+| `hubCap`, `batteryCap` | 60000, 300000 | what the hub takes of each resource, and of batteries |
+| `terminalMax`, `batch`, `feeEnergy` | 100000, 5000, 3000 | non-energy in a terminal away from the hub; largest shipment; energy kept for fees |
+| `chemistAt` | 3000 | units waiting inside a room before it gets a chemist |
+| `labBatch`, `labMin` | 1000, 200 | product per reaction run; reagent stock a reaction needs |
+| `goals` | `[{ res: 'GH', keep: 3000 }]` | what the labs make |
+| `warBoosts`, `boostRange` | ATTACK, HEAL, TOUGH, RANGED_ATTACK, MOVE; 4 | boost per lab in war; how far soldiers come from |
+| `factoryMin` | 5000 | batteries in the empire before a factory is built |
+
 ## Colonizing
 
 New rooms are claimed by `empire.js` through `Memory.empire.claim`. With the
@@ -458,9 +580,12 @@ else covers it (those stay locked, see `roomState.findLoot`).
 - **Energy** counts like a ruin: workers and haulers take it for spawning,
   building and upgrading.
 - **Everything else** (minerals, compounds, power...) is carried by idle
-  haulers into our storage (RCL4+), else the terminal (RCL6+). Tombstones
-  and ruins in our rooms are emptied the same way. Without either, it stays
-  where it is.
+  haulers, or by a chemist when there is a lot, to where the room keeps such
+  things: the terminal while the hub still takes that resource, else our
+  storage. Tombstones and ruins in our rooms are emptied the same way. With
+  neither a storage nor a terminal of ours, it is gathered in the biggest
+  storage a player left, the emptied leftovers are removed and ours get
+  built: see [Stores other players left behind](#stores-other-players-left-behind).
 - **Soldiers leave them standing** while they still hold something: they
   are inactive, so harmless, and razing them would only drop the loot into
   a ruin that decays. Ranged soldiers and defenders aim single shots
@@ -470,9 +595,10 @@ else covers it (those stay locked, see `roomState.findLoot`).
   draws soldiers away from real intruders.
 
 The engine counts every owner's structures against the RCL allowance, so
-leftovers also use up our limits: a room holding three spawns of another
-player can never get a spawn of ours (under their ramparts they cannot be
-removed either). The planner then places nothing there and warns `no spawn
+leftovers also use up our limits. An empty storage, terminal, extractor, lab
+or factory that blocks one of ours is removed by the planner; other types
+are not: a room holding three spawns of another player can never get a
+spawn of ours (under their ramparts they cannot be removed either). The planner then places nothing there and warns `no spawn
 can be placed`; helpers keep coming from the nearest RCL4 room and only
 upgrade with what they loot and harvest. Release such a room unless that is
 worth it.
@@ -595,6 +721,7 @@ Email: `Claimed room …`.
 | `logistics.js` | Links and terminal balancing |
 | `empire.js` | Helpers, couriers, scouting, claiming |
 | `remote.js` | Remote mining: picking rooms, spawn requests, danger |
+| `industry.js` | Hub, mineral mining, terminal network, labs, boosts, factory |
 | `adopt.js` | Memory migration and legacy creep adoption |
 
 ## Console
@@ -607,7 +734,8 @@ Warnings in orange, errors and safe mode in red.
 ### Console commands
 
 War: see [War](#war) above. Claiming rooms: see [Colonizing](#colonizing).
-Remote rooms: see [Remote mining](#remote-mining).
+Remote rooms: see [Remote mining](#remote-mining). Hub, labs and boosts: see
+[Minerals, labs and the factory](#minerals-labs-and-the-factory).
 
 Rooms:
 

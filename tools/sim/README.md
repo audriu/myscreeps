@@ -38,6 +38,10 @@ node tools/sim/run.js default W49N25 2000          # one room, 2000 ticks
 node tools/sim/run.js default W46N28,W45N28 4000 --quiet                       # remote mining: a home room and its free neighbour
 node tools/sim/run.js default W46N28,W45N28 3200 --invade=W45N28:1800          # invader in the remote room: retreat, guard, back to work
 node tools/sim/run.js default W46N28,W45N28 3500 --core=W45N28                 # remote room held by an invader core
+node tools/sim/run.js default W46N29 14000 --hub=W46N29 --give=W46N29:energy=300000,G=3000,H=3000   # hub: labs get built, make GH, upgraders take it
+node tools/sim/run.js default W46N29 6500 --hub=W46N29 --give=W46N29:energy=500000,XUH2O=3000,LHO2=3000 --war=W46N28:99999 --boost   # war boosts
+node tools/sim/run.js default W46N29 12000 --hub=W46N29 --rcl=W46N29:7 --give=W46N29:energy=600000,battery=8000   # RCL7: second spawn, third tower, factory opens batteries
+node tools/sim/run.js default W46N27 8000                                      # leftovers of another player gathered, their empty terminal removed
 node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
 node tools/sim/run.js default W48N25 800 --invade=W48N25:300:dis   # 3 dismantlers (25 WORK) one-shotting extensions
@@ -60,6 +64,10 @@ reservation. `--invade=ROOM:TICK` also works for rooms without a spawn: the
 invader then hunts our creeps, and dies of age after 1500 ticks. Rooms
 without an owner are listed as `transit` with their reservation, source and
 container contents and the energy mined there (`mined=`).
+
+A run with a single room that has a terminal makes that room the hub, so it
+starts on its labs (three sites of 50000) and upgrades less meanwhile; load
+the real hub as well when that matters.
 
 `--give=ROOM:energy=300000,G=5000` puts resources into our storage in that
 room (the terminal when there is no storage), `--rcl=ROOM:7` sets a

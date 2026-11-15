@@ -44,6 +44,14 @@ haulers, reservers, guards against invaders). What is mined, how to drop a
 room and the settings are in
 [default/README.md#remote-mining](default/README.md#remote-mining).
 
+## Minerals, labs, factory
+
+One room is the hub (`Memory.empire.hub`): terminals send minerals and
+compounds there, its labs make the upgrade boost and, with
+`Memory.war.boost = true`, hold war boosts for soldiers; at RCL7 its factory
+opens batteries. Details in
+[default/README.md#minerals-labs-and-the-factory](default/README.md#minerals-labs-and-the-factory).
+
 ## Deploy
 
 Pushing to `main` deploys: the Screeps GitHub integration
