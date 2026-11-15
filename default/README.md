@@ -196,7 +196,8 @@ target changed or whose `unclaim` switch is off does the same.
    point and back home.
 4. **Destroy**, closest first (`closestFirst`):
    1. hostile creeps and hostile structures that are **not** under a
-      rampart (hits on a covered target only dent the rampart);
+      rampart (hits on a covered target only dent the rampart). "Closest"
+      is counted along the way there, see *The way in* below;
    2. **final sweep** (`finalSweep`): once none is left, everything with hit
       points that is not ours: ramparts, walls, containers, whatever
       the ramparts covered, ownerless leftovers. Never roads (pointless,
@@ -212,6 +213,40 @@ target changed or whose `unclaim` switch is off does the same.
 5. **Cleared**: when nothing destroyable is left the room is marked cleared
    (emailed) and the squad holds its centre. If something new appears the
    fight resumes.
+
+**The way in** (`breach`). Once a tick the squad works out, for every tile
+of the target room, how many ticks it takes to stand next to the nearest
+target, and which tile to step on next. Plains and roads cost one tick,
+swamp five. A wall or a hostile rampart can be gone through as well: it
+costs its hits divided by what the two strongest soldiers in the room deal
+per tick. So:
+
+- a soldier goes for the target that is nearest by that count, not the one
+  nearest in a straight line behind a wall. An enemy creep standing in a
+  sealed chamber no longer pulls the whole squad to the nearest dead end;
+- the way leads around a wall when walking is quicker (a maze, an open back
+  door) and through its weakest spot when it is not. All soldiers get the
+  same answer, so they hit the same rampart: the thin one, not the thick
+  wall beside it;
+- whoever stands at that wall stays there and hits every tick. The rest
+  queue behind without path searches or random steps, step around each other
+  onto any free tile that is nearer, and hit a wall they happen to stand next
+  to while they wait (it widens the gap). A stronger soldier changes places
+  with a weaker one in front of it, so the strongest end up at the wall and
+  damaged ones drift back;
+- something of theirs within weapon reach is hit before stone: an armed creep
+  first, then any creep, then a structure. Ranged soldiers shoot over the
+  wall;
+- when the wall falls the same count leads everybody through the hole to the
+  next target, and to the next wall if there is one.
+
+A strong squad therefore breaks the gate and a weak one walks around it. What
+this does not change: towers keep shooting, and soldiers that arrive one by
+one are shot one by one. Send a wave (rally first) against a room whose
+towers are kept full.
+
+With `breach: false` the old rule applies: nearest in a straight line, and a
+wall is only hit by a soldier whose path search came back empty.
 
 Safe mode in the target: the squad waits at the rally room (⏳) and marches
 again when it ends. Rooms in `unrestrictedRooms` (or `Memory.war.everything =
@@ -265,7 +300,6 @@ creeps as large as the room can afford (14 CLAIM at 9300 energy capacity).
 
 | Bubble | Meaning |
 |---|---|
-| 💀 | soldier marching on or fighting in the target |
 | ⚔️ | soldier fighting an armed enemy it met on the way |
 | ⏳ | soldier waiting at the rally room for safe mode to end |
 | 🏴 | unclaimer on its way, or done striking |
@@ -310,6 +344,7 @@ controller neutral.
 | `priority` | 480 | spawn priority (unclaimers +10) |
 | `healers`, `ranged` | 0.3, 0.3 | squad mix |
 | `closestFirst` | true | nearest target first |
+| `breach` | true | "nearest" is counted along the way (walking, or through the weakest wall or rampart when that is quicker); the squad breaks what stands in the way, strongest in front. `false`: straight-line distance |
 | `engageRange` | 5 | on the way: fight armed enemy creeps within this many tiles (0: walk past) |
 | `finalSweep` | true | destroy everything destroyable at the end (roads excepted) |
 | `razeAll` | true | old ending only: ownerless containers |
@@ -728,7 +763,7 @@ Email: `Claimed room …`.
 | `mincut.js` | Minimum cut between exits and the base (perimeter tiles) |
 | `spawner.js` | Population targets and spawning |
 | `roles.js` | Creep behaviours |
-| `war.js` | Offensive squads: muster, rally, march, clear, controller attack (Memory.war) |
+| `war.js` | Offensive squads: muster, rally, march, the way into the target, clear, controller attack (Memory.war) |
 | `defense.js` | Towers and safe mode |
 | `logistics.js` | Links and terminal balancing |
 | `empire.js` | Helpers, couriers, scouting, claiming |

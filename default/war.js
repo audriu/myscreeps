@@ -402,6 +402,359 @@ function run() {
     }
 }
 
+/* ------------------------------------------------------------------ */
+/* The way in (config.war.breach)                                      */
+/* ------------------------------------------------------------------ */
+
+const FAR = 1e7;
+const DX = [0, 1, 1, 1, 0, -1, -1, -1];   // TOP .. TOP_LEFT
+const DY = [-1, -1, 0, 1, 1, 1, 0, -1];
+const WALL_TICKS_MAX = 20000;             // no wall counts for more ticks than this
+const MIN_DPS = 60;                       // what a squad is taken to deal at the least (two ATTACK parts)
+
+/** What a creep takes off a wall per tick: live ATTACK and RANGED_ATTACK parts, boosts included. */
+function power(creep) {
+    let n = 0;
+    const body = creep.body;
+    for (let i = 0; i < body.length; i++) {
+        const p = body[i];
+        if (p.hits <= 0) continue;
+        if (p.type === ATTACK) n += ATTACK_POWER * ((p.boost && BOOSTS[ATTACK][p.boost] && BOOSTS[ATTACK][p.boost].attack) || 1);
+        else if (p.type === RANGED_ATTACK) n += RANGED_ATTACK_POWER * ((p.boost && BOOSTS[RANGED_ATTACK][p.boost] && BOOSTS[RANGED_ATTACK][p.boost].rangedAttack) || 1);
+    }
+    return n;
+}
+
+/**
+ * Damage per tick the squad puts on one wall: its two strongest soldiers in the room (a gap is
+ * rarely wider, and the strongest work their way to the front). The figure only follows the
+ * squad when it is off by a quarter, so one death or arrival does not turn everybody around.
+ */
+function squadDps(room) {
+    const list = util.find(room, FIND_MY_CREEPS, 'soldiers', c => c.memory.role === 'soldier');
+    let a = 0;
+    let b = 0;
+    for (let i = 0; i < list.length; i++) {
+        const p = power(list[i]);
+        if (p > a) {
+            b = a;
+            a = p;
+        } else if (p > b) b = p;
+    }
+    const dps = Math.max(MIN_DPS, a + b);
+    const h = util.roomHeap(room.name);
+    if (h.siegeDps && Math.abs(dps - h.siegeDps) < h.siegeDps * 0.25) return h.siegeDps;
+    h.siegeDps = dps;
+    return dps;
+}
+
+function heapPush(h, v) {
+    let i = h.length;
+    h.push(v);
+    while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (h[p] <= v) break;
+        h[i] = h[p];
+        i = p;
+    }
+    h[i] = v;
+}
+
+function heapPop(h) {
+    const top = h[0];
+    const last = h.pop();
+    const n = h.length;
+    if (n) {
+        let i = 0;
+        for (;;) {
+            let c = 2 * i + 1;
+            if (c >= n) break;
+            if (c + 1 < n && h[c + 1] < h[c]) c++;
+            if (h[c] >= last) break;
+            h[i] = h[c];
+            i = c;
+        }
+        h[i] = last;
+    }
+    return top;
+}
+
+/**
+ * One search for the whole squad (cached for the tick): for every tile of the room the ticks it
+ * takes to get next to the nearest target, and the tile to step on next. Plains and roads cost a
+ * tick, swamp five. A wall or a hostile rampart can be gone through too: it costs its hits
+ * divided by what the squad deals per tick. So the way leads around a wall when that is quicker
+ * and through its weakest spot when it is not, and a soldier's target is the one nearest by that
+ * cost, not the one nearest in a straight line behind a wall.
+ *
+ * goals: what the soldiers are after this tick (creeps and structures). Returns null when the
+ * search failed; the caller then falls back to the straight-line choice.
+ */
+function plan(room, goals) {
+    return util.cache(room.name + '|warPlan', () => {
+        try {
+            return buildPlan(room, goals);
+        } catch (e) {
+            util.error('war plan for ' + room.name + ': ' + (e && e.stack ? e.stack : e));
+            return null;
+        }
+    });
+}
+
+function buildPlan(room, goals) {
+    const terrain = util.terrain(room.name);
+    const dps = squadDps(room);
+    const enter = new Float64Array(2500);   // ticks to step onto a tile; 0: nobody ever stands there
+    const goalAt = {};                      // tile -> target
+    const bar = {};                         // tile -> the wall or rampart that has to go first
+    const debt = {};                        // tile -> hits to take down before it opens
+    const hard = {};                        // tile -> blocked by something we do not break
+    // Exit tiles are left out: a creep standing on one is carried off to the next room.
+    for (let y = 1; y < 49; y++) {
+        for (let x = 1; x < 49; x++) {
+            const t = terrain.get(x, y);
+            enter[y * 50 + x] = (t & TERRAIN_MASK_WALL) ? 0 : ((t & TERRAIN_MASK_SWAMP) ? 5 : 1);
+        }
+    }
+    for (let i = 0; i < goals.length; i++) {
+        const k = goals[i].pos.y * 50 + goals[i].pos.x;
+        if (!goalAt[k]) goalAt[k] = goals[i];
+    }
+    const structs = util.find(room, FIND_STRUCTURES);
+    for (let i = 0; i < structs.length; i++) {
+        const s = structs[i];
+        const k = s.pos.y * 50 + s.pos.x;
+        const type = s.structureType;
+        if (type === STRUCTURE_ROAD) {
+            if (enter[k]) enter[k] = 1;
+        } else if (type === STRUCTURE_RAMPART) {
+            // The rampart takes every hit aimed at its tile, so it is the thing to hit there.
+            if (s.my || s.isPublic) continue;
+            debt[k] = (debt[k] || 0) + s.hits;
+            bar[k] = s;
+        } else if (type === STRUCTURE_PORTAL) {
+            hard[k] = true;
+        } else if (util.isBlockingStructure(s) && goalAt[k] !== s) {
+            // Walls, and what stands under a rampart, are broken; the controller, what we
+            // spare for its contents and anything of ours stay where they are.
+            if (s.hits > 0 && !s.my && (type === STRUCTURE_WALL || (s.owner && !sparesEnergy(s)))) {
+                debt[k] = (debt[k] || 0) + s.hits;
+                if (!bar[k]) bar[k] = s;
+            } else hard[k] = true;
+        }
+    }
+    const fixed = util.find(room, FIND_SOURCES).concat(util.find(room, FIND_MINERALS));
+    for (let i = 0; i < fixed.length; i++) hard[fixed[i].pos.y * 50 + fixed[i].pos.x] = true;
+    for (const k in debt) if (enter[k]) enter[k] = 1 + Math.min(WALL_TICKS_MAX, Math.ceil(debt[k] / dps));
+    for (const k in hard) {
+        enter[k] = 0;
+        delete bar[k];
+    }
+
+    // Dijkstra outward from the targets. dist: ticks from a tile until a soldier stands next to
+    // a target (the tile's own cost not counted); next: the tile to step on from there.
+    const dist = new Float64Array(2500).fill(FAR);
+    const next = new Int16Array(2500).fill(-1);
+    const heap = [];
+    for (const k in goalAt) {
+        dist[k] = 0;
+        heapPush(heap, +k);
+    }
+    while (heap.length) {
+        const key = heapPop(heap);
+        const u = key % 4096;
+        const d = (key - u) / 4096;
+        if (d > dist[u]) continue;
+        const step = d + (goalAt[u] ? 0 : enter[u]);
+        const ux = u % 50;
+        const uy = (u - ux) / 50;
+        for (let i = 0; i < 8; i++) {
+            const x = ux + DX[i];
+            const y = uy + DY[i];
+            if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+            const w = y * 50 + x;
+            if (!enter[w] || step >= dist[w]) continue;
+            dist[w] = step;
+            next[w] = u;
+            heapPush(heap, step * 4096 + w);
+        }
+    }
+    return { room, dps, enter, goalAt, bar, dist, next, ways: {}, region: null };
+}
+
+/** The best tile next to this one to go on from: for a creep on an exit tile or in a corner the search left out. */
+function nearby(p, k) {
+    const kx = k % 50;
+    const ky = (k - kx) / 50;
+    let best = -1;
+    let bestCost = FAR;
+    for (let i = 0; i < 8; i++) {
+        const x = kx + DX[i];
+        const y = ky + DY[i];
+        if (x < 0 || x > 49 || y < 0 || y > 49) continue;
+        const w = y * 50 + x;
+        if (p.goalAt[w]) return w;
+        if (!p.enter[w] || p.dist[w] >= FAR) continue;
+        const c = p.dist[w] + p.enter[w];
+        if (c < bestCost) {
+            bestCost = c;
+            best = w;
+        }
+    }
+    return best;
+}
+
+/**
+ * What lies ahead of a creep standing at pos: { goal } when the nearest target can be walked
+ * to, { barrier, tile } when a wall or rampart has to go first (the first one on the way), or
+ * null when there is no way at all. cost: ticks to get there.
+ */
+function way(p, pos) {
+    const start = pos.y * 50 + pos.x;
+    if (start in p.ways) return p.ways[start];
+    let res = null;
+    if (p.goalAt[start]) res = { goal: p.goalAt[start], barrier: null, tile: start, cost: 0 };
+    else {
+        let k = p.dist[start] < FAR ? start : nearby(p, start);
+        const cost = k >= 0 ? p.dist[k] : FAR;
+        for (let n = 0; k >= 0 && n < 2500; n++) {
+            if (k !== start) {
+                if (p.goalAt[k]) {
+                    res = { goal: p.goalAt[k], barrier: null, tile: k, cost };
+                    break;
+                }
+                if (p.bar[k]) {
+                    res = { goal: null, barrier: p.bar[k], tile: k, cost };
+                    break;
+                }
+            }
+            k = p.next[k];
+        }
+    }
+    return (p.ways[start] = res);
+}
+
+/** The next tile on the way from pos: { x, y, k }, or null. */
+function step(p, pos) {
+    const start = pos.y * 50 + pos.x;
+    const k = p.dist[start] < FAR ? p.next[start] : nearby(p, start);
+    if (k < 0) return null;
+    return { x: k % 50, y: (k - k % 50) / 50, k };
+}
+
+/**
+ * A free tile next to pos that is nearer the target than pos itself, the nearest such: the way
+ * around somebody standing on the direct line. { x, y, k } or null.
+ */
+function around(p, pos) {
+    const start = pos.y * 50 + pos.x;
+    const at = occupants(p.room);
+    let best = -1;
+    let bestCost = p.dist[start];
+    for (let i = 0; i < 8; i++) {
+        const x = pos.x + DX[i];
+        const y = pos.y + DY[i];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        const w = y * 50 + x;
+        if (!p.enter[w] || p.bar[w] || p.goalAt[w] || at[w] || p.dist[w] >= bestCost) continue;
+        bestCost = p.dist[w];
+        best = w;
+    }
+    if (best < 0) return null;
+    return { x: best % 50, y: (best - best % 50) / 50, k: best };
+}
+
+/** The wall or rampart next to pos that it is cheapest to go on through, or null. */
+function beside(p, pos) {
+    let best = null;
+    let bestCost = FAR;
+    for (let i = 0; i < 8; i++) {
+        const x = pos.x + DX[i];
+        const y = pos.y + DY[i];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        const w = y * 50 + x;
+        if (!p.bar[w] || p.goalAt[w]) continue;
+        const c = p.enter[w] + p.dist[w];
+        if (c < bestCost) {
+            bestCost = c;
+            best = p.bar[w];
+        }
+    }
+    return best;
+}
+
+/** Tiles that can be walked between without breaking anything carry the same number (0: not walkable). */
+function regions(p) {
+    if (p.region) return p.region;
+    const region = p.region = new Int16Array(2500);
+    const open = k => p.enter[k] > 0 && !p.bar[k] && !(p.goalAt[k] && p.goalAt[k].structureType && util.isBlockingStructure(p.goalAt[k]));
+    let n = 0;
+    const queue = [];
+    for (let s = 0; s < 2500; s++) {
+        if (region[s] || !open(s)) continue;
+        region[s] = ++n;
+        queue.length = 0;
+        queue.push(s);
+        for (let q = 0; q < queue.length; q++) {
+            const kx = queue[q] % 50;
+            const ky = (queue[q] - kx) / 50;
+            for (let i = 0; i < 8; i++) {
+                const x = kx + DX[i];
+                const y = ky + DY[i];
+                if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+                const w = y * 50 + x;
+                if (region[w] || !open(w)) continue;
+                region[w] = n;
+                queue.push(w);
+            }
+        }
+    }
+    return region;
+}
+
+/** Every creep in the room by tile (per-tick cache). */
+function occupants(room) {
+    return util.cache(room.name + '|occupants', () => {
+        const out = {};
+        const list = util.find(room, FIND_CREEPS);
+        for (let i = 0; i < list.length; i++) out[list[i].pos.y * 50 + list[i].pos.x] = list[i];
+        return out;
+    });
+}
+
+/**
+ * A free tile next to the wall at `tile` that a creep at pos can walk to (its side of the
+ * wall, nobody standing on it), the nearest one; null when every place is taken.
+ */
+function freeSpot(p, pos, tile) {
+    const region = regions(p);
+    const start = pos.y * 50 + pos.x;
+    let mine = region[start];
+    if (!mine) {
+        const k = nearby(p, start);
+        mine = k >= 0 ? region[k] : 0;
+    }
+    if (!mine) return null;
+    const at = occupants(p.room);
+    const tx = tile % 50;
+    const ty = (tile - tx) / 50;
+    let best = null;
+    let bestRange = Infinity;
+    for (let i = 0; i < 8; i++) {
+        const x = tx + DX[i];
+        const y = ty + DY[i];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        const w = y * 50 + x;
+        if (region[w] !== mine || at[w]) continue;
+        const range = Math.max(Math.abs(x - pos.x), Math.abs(y - pos.y));
+        if (range < bestRange) {
+            bestRange = range;
+            best = new RoomPosition(x, y, p.room.name);
+        }
+    }
+    return best;
+}
+
 /** Nothing spared in this room: walls and rampart-covered structures are ordinary targets. */
 function unrestricted(roomName) {
     const w = state();
@@ -415,4 +768,4 @@ function safeModeActive(w) {
     return !!(w && w.safeUntil && Game.time < w.safeUntil);
 }
 
-module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, sparesEnergy, sweepTargets, rallyPos, safeModeActive, unrestricted, run };
+module.exports = { KINDS, state, soldiers, composition, roomEligible, cheapFloor, terminalKeep, unclaimWant, unclaimGo, enemyController, sparesEnergy, sweepTargets, rallyPos, safeModeActive, unrestricted, power, plan, way, step, around, beside, freeSpot, occupants, run };

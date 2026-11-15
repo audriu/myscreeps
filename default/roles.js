@@ -38,6 +38,8 @@ const SITE_PRIORITY = {
 /* ------------------------------------------------------------------ */
 
 function prepare() {
+    heap.stood = heap.stood || {};
+    heap.swapped = heap.swapped || {};
     heap.reserved = {};
     heap.fill = {};
     heap.harvesters = {};
@@ -1330,45 +1332,65 @@ function pickHostileStructure(creep) {
 }
 
 /**
- * Closest-first targeting: the nearest hostile creep or structure that is not
- * under a rampart; once none is left, the final sweep takes everything with
- * hit points except roads (ramparts, walls, leftovers; config.war.finalSweep),
- * so a wall next to a soldier never outranks an enemy. Soldiers are short-lived,
- * so time spent walking to a "better" target is wasted. In our own rooms
- * (war target set to fight an intruder) only enemies count, and leftovers
- * that still hold loot are left standing.
+ * What the soldiers in this room are after right now, the same list for every one of them
+ * (per-tick cache): hostile creeps and structures that are not under a rampart; once none is
+ * left, the final sweep takes everything with hit points except roads (ramparts, walls,
+ * leftovers; config.war.finalSweep). In our own rooms (war target set to fight an intruder)
+ * only enemies count, and leftovers that still hold loot are left standing.
+ */
+function targetPool(room, hostiles) {
+    return util.cache(room.name + '|warPool', () => {
+        const own = !!(room.controller && room.controller.my);
+        const all = !own && war.unrestricted(room.name);
+        const ok = o => all || !covered(o);
+        const candidates = [];
+        for (let i = 0; i < hostiles.length; i++) if (ok(hostiles[i])) candidates.push(hostiles[i]);
+        const structs = util.find(room, FIND_HOSTILE_STRUCTURES, 'killable',
+            s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
+        for (let i = 0; i < structs.length; i++) if (ok(structs[i]) && !spared(structs[i])) candidates.push(structs[i]);
+        if (all) {
+            // Nothing is spared here: ramparts and walls are ordinary targets.
+            const extra = util.find(room, FIND_STRUCTURES, 'rampartsWalls',
+                s => (s.structureType === STRUCTURE_RAMPART && !s.my) || s.structureType === STRUCTURE_WALL);
+            for (let i = 0; i < extra.length; i++) candidates.push(extra[i]);
+        }
+        if (candidates.length || own) return candidates;
+        // Last stage: nothing uncovered is left, so everything with hit points goes.
+        const sweep = war.sweepTargets(room);
+        if (sweep.length) return sweep;
+        if (!config.war.razeAll) return candidates;
+        const neutral = util.find(room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my && !war.sparesEnergy(s));
+        for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
+        return candidates;
+    });
+}
+
+/**
+ * Closest-first targeting in a straight line: the nearest thing of the pool. Used in our own
+ * rooms and when the way in cannot be planned (siege); a wall next to a soldier never
+ * outranks an enemy. Soldiers are short-lived, so time spent walking to a "better" target is
+ * wasted.
  */
 function pickClosestTarget(creep, hostiles) {
-    const own = !!(creep.room.controller && creep.room.controller.my);
-    const all = !own && war.unrestricted(creep.room.name);
-    const ok = o => all || !covered(o);
-    const candidates = [];
-    for (let i = 0; i < hostiles.length; i++) if (ok(hostiles[i])) candidates.push(hostiles[i]);
-    const structs = util.find(creep.room, FIND_HOSTILE_STRUCTURES, 'killable',
-        s => s.structureType !== STRUCTURE_CONTROLLER && s.hits != null && s.structureType !== STRUCTURE_RAMPART);
-    for (let i = 0; i < structs.length; i++) if (ok(structs[i]) && !spared(structs[i])) candidates.push(structs[i]);
-    if (all) {
-        // Nothing is spared here: ramparts and walls are ordinary targets.
-        const extra = util.find(creep.room, FIND_STRUCTURES, 'rampartsWalls',
-            s => (s.structureType === STRUCTURE_RAMPART && !s.my) || s.structureType === STRUCTURE_WALL);
-        for (let i = 0; i < extra.length; i++) candidates.push(extra[i]);
-    }
-    if (candidates.length) return creep.pos.findClosestByRange(candidates);
-    if (own) return null;
-    // Last stage: nothing uncovered is left, so everything with hit points goes.
-    const sweep = war.sweepTargets(creep.room);
-    if (sweep.length) return creep.pos.findClosestByRange(sweep);
-    if (!config.war.razeAll) return null;
-    const neutral = util.find(creep.room, FIND_STRUCTURES, 'neutral', s => NEUTRAL_RAZE[s.structureType] && !s.my && !war.sparesEnergy(s));
-    for (let i = 0; i < neutral.length; i++) if (ok(neutral[i])) candidates.push(neutral[i]);
-    return candidates.length ? creep.pos.findClosestByRange(candidates) : null;
+    const pool = targetPool(creep.room, hostiles);
+    return pool.length ? creep.pos.findClosestByRange(pool) : null;
 }
 
 /** Nothing reachable: chew through the nearest wall or rampart instead of standing still. */
 function breachTarget(creep) {
     const walls = util.find(creep.room, FIND_STRUCTURES, 'walls',
-        s => s.structureType === STRUCTURE_WALL || (s.structureType === STRUCTURE_RAMPART && !s.my));
-    return walls.length ? creep.pos.findClosestByRange(walls) : null;
+        s => s.hits > 0 && (s.structureType === STRUCTURE_WALL || (s.structureType === STRUCTURE_RAMPART && !s.my)));
+    // Of the nearest ones the weakest: a thin rampart beside a thick wall goes first.
+    let best = null;
+    let bestRange = Infinity;
+    for (let i = 0; i < walls.length; i++) {
+        const d = creep.pos.getRangeTo(walls[i]);
+        if (d < bestRange || (d === bestRange && walls[i].hits < best.hits)) {
+            best = walls[i];
+            bestRange = d;
+        }
+    }
+    return best;
 }
 
 /** Can this creep hurt ours (live ATTACK or RANGED_ATTACK parts)? Peaceful creeps are let go on the way. */
@@ -1469,10 +1491,128 @@ function engage(creep, target, noBreach) {
             if (creep.pos.isNearTo(wall)) {
                 if (melee) creep.attack(wall);
                 if (ranged) creep.rangedAttack(wall);
+                // Standing still on purpose: not a traffic jam to step out of.
+                util.settle(creep);
             } else util.travel(creep, wall, { range: 1, reusePath: 5 });
         }
     }
     return true;
+}
+
+/** Something of theirs already within weapon reach: an armed creep first, then any creep, then a structure. */
+function prey(creep, pool, reach) {
+    let best = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < pool.length; i++) {
+        const o = pool[i];
+        const d = creep.pos.getRangeTo(o);
+        if (d > reach) continue;
+        const score = (o.structureType ? 0 : (armed(o) ? 200 : 100)) - d * 10 - o.hits / 100000;
+        if (score > bestScore) {
+            bestScore = score;
+            best = o;
+        }
+    }
+    return best;
+}
+
+/** Counts the turns a soldier has stood on the same tile; called once at each of its turns in the target. */
+function standing(creep) {
+    const key = creep.pos.x + ':' + creep.pos.y + ':' + creep.pos.roomName;
+    const prev = heap.stood[creep.name];
+    if (prev && prev.k === key) return ++prev.n;
+    heap.stood[creep.name] = { k: key, n: 0 };
+    return 0;
+}
+
+/** Turns a creep of ours had stood still when it last had its turn (-1: not a soldier in the target). */
+function stoodStill(creep) {
+    const a = heap.stood[creep.name];
+    return a ? a.n : -1;
+}
+
+/**
+ * In the target room: go for the target that is nearest by the way there (war.plan), not in a
+ * straight line, and break the wall or rampart that lies on that way. The squad moves along the
+ * plan itself, one step a tick, without path searches: whoever stands at the target or the wall
+ * stays there and hits every tick, the others queue behind it instead of milling about, the
+ * stronger ones changing places with weaker ones in front of them. An enemy within weapon reach
+ * is always worth more than stone. False when no way was found (the caller then picks in a
+ * straight line as before).
+ */
+function siege(creep, pool) {
+    const room = creep.room;
+    if (!config.war.breach || !pool.length || (room.controller && room.controller.my)) return false;
+    const plan = war.plan(room, pool);
+    const w = plan && war.way(plan, creep.pos);
+    if (!w) return false;
+    const melee = creep.getActiveBodyparts(ATTACK) > 0;
+    const ranged = creep.getActiveBodyparts(RANGED_ATTACK) > 0;
+    const reach = melee ? 1 : 3;
+    const aim = w.barrier || w.goal;
+    const range = creep.pos.getRangeTo(aim);
+    // A wall beside a soldier is hit on the way to the one being broken, and by one stuck in a
+    // queue: it costs nothing and widens the gap.
+    const idle = w.barrier ? range > 1 : stoodStill(creep) >= 1;
+    if (melee) {
+        const t = prey(creep, pool, 1) || (w.barrier && range <= 1 ? aim : null) || (idle ? war.beside(plan, creep.pos) : null);
+        if (t) creep.attack(t);
+    }
+    if (ranged) {
+        const t = prey(creep, pool, 3) || (w.barrier && range <= 3 ? aim : null);
+        if (t) creep.rangedAttack(t);
+    }
+    if (range > reach) advance(creep, plan, w, reach);
+    else if (!melee && ranged && range < 3 && !aim.structureType && aim.getActiveBodyparts(ATTACK)) {
+        // Keep melee creeps at arm's length.
+        const dir = util.stepAwayFrom(creep, aim.pos);
+        if (dir) creep.move(dir);
+    }
+    return true;
+}
+
+/** One step along the squad's plan toward the target or the wall on the way (w.tile). */
+function advance(creep, plan, w, reach) {
+    const aim = w.barrier || w.goal;
+    const n = war.step(plan, creep.pos);
+    if (!n) {
+        util.travel(creep, aim, { range: reach, reusePath: 5 });
+        return;
+    }
+    const ahead = war.occupants(creep.room)[n.k];
+    if (!ahead) {
+        creep.move(creep.pos.getDirectionTo(n.x, n.y));
+        return;
+    }
+    // Somebody stands on the way: step around, onto any free tile that is nearer than this one.
+    const side = war.around(plan, creep.pos);
+    if (side) {
+        creep.move(creep.pos.getDirectionTo(side.x, side.y));
+        return;
+    }
+    // Is another place beside the target free?
+    if (reach === 1) {
+        const spot = war.freeSpot(plan, creep.pos, w.tile);
+        if (spot) {
+            if (creep.pos.isNearTo(spot)) creep.move(creep.pos.getDirectionTo(spot));
+            else util.travel(creep, spot, { range: 0, reusePath: 3 });
+            return;
+        }
+    }
+    if (ahead.my && stoodStill(ahead) >= 1) {
+        // A queue. The stronger one belongs in front: the two change places.
+        if (!ahead.fatigue && heap.swapped[ahead.name] !== Game.time && heap.swapped[creep.name] !== Game.time &&
+            war.power(creep) > war.power(ahead) * 1.3 + 20) {
+            creep.move(creep.pos.getDirectionTo(ahead));
+            ahead.move(ahead.pos.getDirectionTo(creep));
+            heap.swapped[ahead.name] = heap.swapped[creep.name] = Game.time;
+        } else util.markIdle(creep);
+        return;
+    }
+    // Somebody on the move: follow. A creep that is not of the squad and does not move: go around it.
+    if (stoodStill(creep) >= 3 && !(ahead.my && ahead.memory.role === 'soldier')) {
+        util.travel(creep, aim, { range: reach, reusePath: 5 });
+    } else creep.move(creep.pos.getDirectionTo(n.x, n.y));
 }
 
 function healAround(creep) {
@@ -1561,13 +1701,15 @@ function soldier(creep, m) {
                 util.travel(creep, util.roomCenter(w.target), { range: 6 });
                 return;
             }
-        } else if (w.go || inTarget) creep.say('💀', true);
+        }
         if (inTarget && !war.safeModeActive(w)) {
             const hostiles = util.find(creep.room, FIND_HOSTILE_CREEPS);
+            standing(creep);
             if (healer) {
                 healerFollow(creep, war.rallyPos(w));
                 return;
             }
+            if (config.war.closestFirst && siege(creep, targetPool(creep.room, hostiles))) return;
             const target = config.war.closestFirst
                 ? (pickClosestTarget(creep, hostiles) || pickHostileStructure(creep))
                 : (pickHostileCreep(creep, hostiles) || pickHostileStructure(creep));

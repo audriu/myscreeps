@@ -105,6 +105,13 @@ module.exports = {
         // settle the room.
         spareEnergy: true,
         closestFirst: true,     // hit whatever uncovered creep or structure is nearest (false: towers/armed creeps first)
+        // "Nearest" is counted along the way there, not in a straight line: one search per tick gives
+        // every tile its cost in ticks to the nearest target, walking around walls where that is
+        // quicker and going through a wall or hostile rampart where it is not (its hits divided by
+        // what the two strongest soldiers in the room deal per tick). A wall on the way is broken by
+        // whoever stands at it, strongest in front, the rest queue. false: straight-line distance, and
+        // walls are only hit by a soldier whose path search came back empty.
+        breach: true,
         // On the way (march, rally, walk home) soldiers turn on armed enemy creeps (ATTACK or
         // RANGED_ATTACK) that come within this many tiles; unarmed creeps are let go. 0: walk past.
         engageRange: 5,

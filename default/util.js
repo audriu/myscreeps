@@ -507,6 +507,14 @@ function travel(creep, target, opts) {
     return res;
 }
 
+/**
+ * The creep stays where it is on purpose (hitting something from there): the turns it has not
+ * moved are not a traffic jam, so travel() does not try other paths or a random step for it.
+ */
+function settle(creep) {
+    heap.stuck[creep.name] = 0;
+}
+
 function onEdge(pos) {
     return pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49;
 }
@@ -566,6 +574,8 @@ function forgetCreep(name) {
     delete heap.noPath[name];
     delete heap.idleAt[name];
     delete heap.way[name];
+    if (heap.stood) delete heap.stood[name];
+    if (heap.swapped) delete heap.swapped[name];
 }
 
 /** Centre-ish position used when travelling to a room without a specific target. */
@@ -610,6 +620,7 @@ module.exports = {
     isKeeperRoom,
     routeMatrix,
     travel,
+    settle,
     park,
     markIdle,
     onEdge,
