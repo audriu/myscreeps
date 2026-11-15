@@ -466,9 +466,11 @@ function freshRamparts(st) {
 }
 
 /**
- * Ramparts worn down to half the repair floor. They are mended even while
- * construction sites wait: a long build (labs, a terminal) must not let the
- * whole line sink to the 5k the towers hold.
+ * Ramparts worn down to half the repair floor. During a long build (labs, a
+ * terminal: more than 20000 energy of sites) a third of the workers' time
+ * goes to them, so the line does not sink to the 5k the towers hold while
+ * the sites take a day. Never more than a third: in a room where every
+ * rampart is thin the sites would otherwise never be built.
  */
 function thinRamparts(st) {
     const half = Math.min(config.planner.rampartTarget[st.rcl] || 0, 20000) / 2;
@@ -881,7 +883,16 @@ function chooseTask(creep, st) {
     // or nothing lying around for them to haul).
     if (st.refill.length && st.energy < Math.max(300, needEnergy) && (haulers === 0 || haulable(st) < 200)) return 'fill';
     if (st.downgrade) return 'upgrade';
-    if (st.sites.length) return freshRamparts(st).length || thinRamparts(st).length ? 'repair' : 'build';
+    if (st.sites.length) {
+        if (freshRamparts(st).length) return 'repair';
+        // In stretches of 100 ticks out of 300: shorter turns are lost on the walk there and back.
+        if (Game.time % 300 < 100 && thinRamparts(st).length) {
+            let owed = 0;
+            for (let i = 0; i < st.sites.length; i++) owed += st.sites[i].progressTotal - st.sites[i].progress;
+            if (owed > 20000) return 'repair';
+        }
+        return 'build';
+    }
     if (repairObjects(st).length) return 'repair';
     if (defense.spareEnergy(st) && defense.fortifyTargets(st).length) return 'fortify';
     return 'upgrade';

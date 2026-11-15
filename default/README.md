@@ -71,8 +71,10 @@ modules from the branch first; `main.js` only requires the modules listed below.
   safe mode) is logged.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
-  20k at least; while construction sites wait, repairs start once a rampart
-  is down to half of that, so a long build does not wear the line down. When there is nothing to build or repair and the room holds
+  20k at least. During a long build (sites worth more than 20000 energy) a
+  third of the workers' time goes to ramparts that are down to half of
+  that, so a day of lab building does not wear the line down to the 5k the
+  towers hold. When there is nothing to build or repair and the room holds
   spare energy (20k in storage, or 1.5k in the source containers of a room
   without storage; `defense.workerFortify`), the worker thickens ramparts
   toward `planner.rampartTarget` (RCL5 50k, RCL6 100k, RCL7 300k, RCL8 1M)
