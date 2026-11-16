@@ -71,6 +71,9 @@ module.exports = {
         // A fortifying worker raises the weakest rampart by this many hits, then
         // moves on to whichever is weakest now, so the whole line rises evenly.
         fortifyStep: 10000,
+        // While the towers out-damage every hostile, a hit on a rampart or wall
+        // starts safe mode only when it leaves fewer hits than this (or breaks it).
+        safeModeWallHits: 5000,
     },
 
     links: { minSend: 400 },

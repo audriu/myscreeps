@@ -77,8 +77,11 @@ modules from the branch first; `main.js` only requires the modules listed below.
   destroyed its target outright (a dismantler one-shots an extension or a
   link) counts too: while hostiles are in the room the ids of our structures
   and creeps are remembered for a tick. Hostiles that merely walk in, however
-  many, do not trigger it. A failed activation (e.g. another room already in
-  safe mode) is logged.
+  many, do not trigger it. While the towers out-damage every hostile in the
+  room, two kinds of hits are let go: those of NPC invaders, and those on a
+  rampart or wall that still has `defense.safeModeWallHits` (5000) hits left;
+  the towers kill the attackers and the charge is kept for a real siege. A
+  failed activation (e.g. another room already in safe mode) is logged.
 - **Ramparts with spare energy**: new ramparts are repaired to 3k before more
   are built (they start at 1 hit and decay), and every rampart is kept at
   20k at least. During a long build (sites worth more than 20000 energy) a

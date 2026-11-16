@@ -201,9 +201,14 @@ function repairList(st) {
 /**
  * What a hostile actually damaged in this room last tick (from the event
  * log), or null. Counts hits on our creeps, our structures and our
- * controller; nukes are left out (safe mode does not stop them).
+ * controller; nukes are left out (safe mode does not stop them). While the
+ * towers out-damage every hostile, NPC invaders and hits on ramparts or walls
+ * that still stand thick are left out too: the towers win those fights, and
+ * safe mode would only burn a charge and the cooldown.
  */
-function hostileDamage(st, mine) {
+function hostileDamage(st, mine, towersWin) {
+    let invadersOnly = true;
+    for (let i = 0; i < st.hostiles.length; i++) if (st.hostiles[i].owner.username !== 'Invader') invadersOnly = false;
     const log = st.room.getEventLog();
     for (let i = 0; i < log.length; i++) {
         const ev = log[i];
@@ -217,8 +222,14 @@ function hostileDamage(st, mine) {
         // leaves nothing to look up: last tick's list of our things knows it.
         const what = target ? (target.my ? label(target) : null) : (mine && mine[ev.data.targetId]);
         if (!what) continue;
-        const who = attacker && attacker.owner ? attacker.owner.username : 'hostile';
-        return who + ' hit ' + what + ' for ' + ev.data.damage + (target ? '' : ' (destroyed)');
+        const who = attacker && attacker.owner ? attacker.owner.username : null;
+        if (towersWin) {
+            // An attacker that died since was an invader if only invaders are left.
+            if (who === 'Invader' || (!who && invadersOnly)) continue;
+            if (target && (target.structureType === STRUCTURE_RAMPART || target.structureType === STRUCTURE_WALL) &&
+                target.hits >= config.defense.safeModeWallHits) continue;
+        }
+        return (who || 'hostile') + ' hit ' + what + ' for ' + ev.data.damage + (target ? '' : ' (destroyed)');
     }
     return null;
 }
@@ -240,10 +251,10 @@ function rememberMine(st) {
 }
 
 /** Safe mode only once a hostile has actually damaged our creeps, structures or controller here. */
-function maybeSafeMode(st, mine) {
+function maybeSafeMode(st, mine, towersWin) {
     const ctrl = st.ctrl;
     if (!st.danger || !ctrl.safeModeAvailable || ctrl.safeMode || ctrl.safeModeCooldown || ctrl.upgradeBlocked) return;
-    const reason = hostileDamage(st, mine);
+    const reason = hostileDamage(st, mine, towersWin);
     if (!reason) return;
 
     const res = ctrl.activateSafeMode();
@@ -299,7 +310,7 @@ function run(room, st) {
     const mine = rh.mine;
     rh.mine = st.hostiles.length ? rememberMine(st) : null;
     if (st.danger) {
-        maybeSafeMode(st, mine);
+        maybeSafeMode(st, mine, st.hostiles.length > 0 && targets.length === st.hostiles.length);
         if (!rh.alertAt || Game.time - rh.alertAt > 500) {
             rh.alertAt = Game.time;
             const owners = {};
