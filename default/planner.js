@@ -1148,41 +1148,82 @@ function placeLabs(ctx, need) {
 }
 
 /**
- * Structures of other players count against our RCL allowance. One that is
- * empty is of no use to us: remove it so ours can be built (storage,
- * terminal, extractor, lab, factory). Full ones stay until they are emptied.
+ * Structures of other players in a room of ours are dead weight: inactive, in
+ * the way and counted against our RCL allowance. Every one that holds nothing
+ * is removed, their ramparts first (they stop our creeps and lock what they
+ * cover), and so are their construction sites. One that still holds something
+ * stays until it is emptied. At most planner.leftoversPerPass a pass; the
+ * rest follows on the next ticks for as long as their number goes down.
  */
-const LEFTOVER_TYPES = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_EXTRACTOR, STRUCTURE_LAB, STRUCTURE_FACTORY];
-
 function clearLeftovers(ctx) {
+    const max = PLAN.leftoversPerPass;
+    if (!max) return;
     const st = ctx.st;
-    for (let t = 0; t < LEFTOVER_TYPES.length; t++) {
-        const type = LEFTOVER_TYPES[t];
-        const list = st.byType[type] || [];
-        const cap = allowed(type, st.rcl);
-        if (!cap) continue;
-        let mine = 0;
-        for (let i = 0; i < list.length; i++) if (list[i].my) mine++;
-        if (mine >= cap) continue;
+    let n = 0;
+    let found = 0;
+    let gone = 0;
+    const sites = ctx.room.find(FIND_HOSTILE_CONSTRUCTION_SITES);
+    for (let i = 0; i < sites.length; i++) {
+        found++;
+        if (n >= max) continue;
+        if (sites[i].remove() === OK) {
+            n++;
+            gone++;
+        }
+    }
+    const removed = {};
+    const owners = {};
+    let failed = null;
+    const sweep = ramparts => {
+        const list = util.find(ctx.room, FIND_HOSTILE_STRUCTURES);
         for (let i = 0; i < list.length; i++) {
             const s = list[i];
-            if (s.my || !s.owner) continue;
+            const type = s.structureType;
+            if ((type === STRUCTURE_RAMPART) !== ramparts || !CONSTRUCTION_COST[type]) continue;
             let full = false;
             if (s.store) for (const r in s.store) if (s.store[r] > 0) full = true;
             if (full) continue;
+            found++;
+            if (n >= max) continue;
             const res = s.destroy();
-            if (res === OK) {
-                util.warn(st.name + ': removed the empty ' + type + ' ' + s.owner.username + ' left at ' + s.pos.x + ',' + s.pos.y + ' (it used up our allowance)');
-                const k = idx(s.pos.x, s.pos.y);
+            if (res !== OK) {
+                failed = type + ' of ' + s.owner.username + ' (' + res + ')';
+                continue;
+            }
+            n++;
+            removed[type] = (removed[type] || 0) + 1;
+            owners[s.owner.username] = true;
+            const k = idx(s.pos.x, s.pos.y);
+            if (ramparts) {
+                // Another rampart cannot share the tile; what stands under it stays.
+                ctx.rampart[k] = 0;
+                if (!ctx.occupied[k]) ctx.blocked[k] = ctx.terrain.get(s.pos.x, s.pos.y) === TERRAIN_MASK_WALL ? 1 : 0;
+            } else {
                 ctx.blocked[k] = 0;
                 ctx.occupied[k] = 0;
-                ctx.count[type]--;
-                st.mem.plan.dirty = true;
-            } else if (!st.mem.leftoverWarned || Game.time - st.mem.leftoverWarned > 5000) {
-                st.mem.leftoverWarned = Game.time;
-                util.warn(st.name + ': the empty ' + type + ' of ' + s.owner.username + ' cannot be removed (' + res + ')');
             }
+            ctx.count[type]--;
         }
+    };
+    sweep(true);
+    sweep(false);
+    const types = Object.keys(removed);
+    if (types.length) {
+        util.warn(st.name + ': removed the empty leftovers of ' + Object.keys(owners).join(', ') + ': ' +
+            types.map(t => removed[t] + ' ' + t).join(', '));
+    }
+    if (gone) util.warn(st.name + ': removed ' + gone + ' construction sites of other players');
+    if (n) {
+        // Again next tick (the rest, then what we build in their place), unless
+        // the last round changed nothing: then the usual interval will do.
+        if (!(found >= st.mem.leftovers)) st.mem.plan.dirty = true;
+        ctx.reach = computeReach(ctx);
+    }
+    if (found) st.mem.leftovers = found;
+    else delete st.mem.leftovers;
+    if (failed && (!st.mem.leftoverWarned || Game.time - st.mem.leftoverWarned > 5000)) {
+        st.mem.leftoverWarned = Game.time;
+        util.warn(st.name + ': an empty leftover cannot be removed: ' + failed);
     }
 }
 

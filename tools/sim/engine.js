@@ -156,7 +156,13 @@ class ConstructionSite extends RoomObject {
         super(x, y, r); this.structureType = type; this.progress = 0; this.progressTotal = C.CONSTRUCTION_COST[type] || 1000;
         this.my = true; this.owner = { username: MY_NAME };
     }
-    remove() { removeSite(this); return C.OK; }
+    remove() {
+        // Ours, or anybody's in a room we own.
+        const rc = W.rooms[this.pos.roomName].controller;
+        if (!this.my && !(rc && rc.my)) return C.ERR_NOT_OWNER;
+        if (!this.my) W.logs.push('remove() ' + this.structureType + ' site of ' + this.owner.username + ' in ' + this.pos.roomName + ' at ' + W.time);
+        removeSite(this); return C.OK;
+    }
 }
 
 const HITS = { invaderCore: 100000, keeperLair: 1, spawn: 5000, extension: 1000, road: 5000, constructedWall: 300000000, rampart: 300000000, link: 1000, storage: 10000, tower: 3000, terminal: 3000, container: 250000, extractor: 500, lab: 500, observer: 500, nuker: 1000, factory: 1000, powerSpawn: 5000 };
@@ -606,11 +612,13 @@ class Room {
             case C.FIND_CREEPS: list = this.creeps; break;
             case C.FIND_MY_CREEPS: list = this.creeps.filter(c => c.my); break;
             case C.FIND_HOSTILE_CREEPS: list = this.creeps.filter(c => !c.my); break;
-            case C.FIND_CONSTRUCTION_SITES: case C.FIND_MY_CONSTRUCTION_SITES: list = this.sites; break;
+            case C.FIND_CONSTRUCTION_SITES: list = this.sites; break;
+            case C.FIND_MY_CONSTRUCTION_SITES: list = this.sites.filter(s => s.my); break;
+            case C.FIND_HOSTILE_CONSTRUCTION_SITES: list = this.sites.filter(s => !s.my); break;
             case C.FIND_DROPPED_RESOURCES: list = this.resources; break;
             case C.FIND_TOMBSTONES: list = this.tombstones; break;
             case C.FIND_RUINS: list = this.ruins; break;
-            case C.FIND_FLAGS: case C.FIND_NUKES: case C.FIND_POWER_CREEPS: case C.FIND_HOSTILE_SPAWNS: case C.FIND_DEPOSITS: case C.FIND_HOSTILE_CONSTRUCTION_SITES: list = []; break;
+            case C.FIND_FLAGS: case C.FIND_NUKES: case C.FIND_POWER_CREEPS: case C.FIND_HOSTILE_SPAWNS: case C.FIND_DEPOSITS: list = []; break;
             default: throw new Error('find type not supported: ' + type);
         }
         W.stats.finds = (W.stats.finds || 0) + 1;
@@ -856,7 +864,11 @@ function loadRoom(name, dir) {
             case 'energy': { const rt = o.resourceType || 'energy'; obj = new Resource(o.x, o.y, name, o[rt] || o.energy || 0, rt); room.resources.push(obj); break; }
             case 'tombstone': obj = new Tombstone(o.x, o.y, name, o.store || {}, 50); room.tombstones.push(obj); break;
             case 'ruin': obj = new Ruin(o.x, o.y, name, o.store || {}); room.ruins.push(obj); break;
-            case 'constructionSite': if (o.user !== ME) break; obj = new ConstructionSite(o.x, o.y, name, o.structureType); obj.progress = o.progress || 0; room.sites.push(obj); W.sites[obj.id] = obj; break;
+            case 'constructionSite':
+                obj = new ConstructionSite(o.x, o.y, name, o.structureType); obj.progress = o.progress || 0; room.sites.push(obj);
+                // Another player's site: in the room (it takes the tile and counts against the RCL allowance), not in Game.constructionSites.
+                if (o.user !== ME) { obj.my = false; obj.owner = { username: uname(o.user) }; } else W.sites[obj.id] = obj;
+                break;
             case 'creep': {
                 // Somebody else's creep: kept aside, it only joins the room when its owner holds the controller (see below).
                 if (o.user !== ME) { if (o.ageTime && o.body && !o.spawning) foreign.push(o); break; }

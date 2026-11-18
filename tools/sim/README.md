@@ -54,7 +54,7 @@ node tools/sim/run.js default W46N28,W45N28 3500 --core=W45N28                 #
 node tools/sim/run.js default W46N29 14000 --hub=W46N29 --give=W46N29:energy=300000,G=3000,H=3000   # hub: labs get built, make GH, upgraders take it
 node tools/sim/run.js default W46N29 6500 --hub=W46N29 --give=W46N29:energy=500000,XUH2O=3000,LHO2=3000 --war=W46N28:99999 --boost   # war boosts
 node tools/sim/run.js default W46N29 12000 --hub=W46N29 --rcl=W46N29:7 --give=W46N29:energy=600000,battery=8000   # RCL7: second spawn, third tower, factory opens batteries
-node tools/sim/run.js default W46N27 8000                                      # leftovers of another player gathered, their empty terminal removed
+node tools/sim/run.js default W46N27 8000                                      # leftovers of another player gathered, the empty ones removed
 node tools/sim/run.js default E15N38,E14N38 3000 --quiet
 node tools/sim/run.js default E15N38 800 --invade=E15N38:300:big
 node tools/sim/run.js default W48N25 800 --invade=W48N25:300:dis   # 3 dismantlers (25 WORK) one-shotting extensions
@@ -88,7 +88,9 @@ controller level, `--hub=ROOM` sets `Memory.empire.hub`, `--boost` sets
 `Memory.war.boost`. Owned rooms list what they hold besides energy
 (`stock=`, `terminal=`, `labs=[mineral:amount/energy ...]`, `factory=`,
 `leftovers=[...]` for stores of other players, `mineral=` once an extractor
-stands).
+stands). Construction sites of other players in a snapshot are loaded
+too: they take their tile, count against the RCL allowance and can be
+removed in a room we own (`remove() extension site of ...` in the events).
 
 War flags: `--war=TARGET:TICK` (muster from tick 1, target at TICK), `--go`
 (march at once), `--hostile=ROOM` (one of your snapshots turned into an enemy

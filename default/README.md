@@ -486,9 +486,8 @@ it uses up our RCL allowance: while theirs stands, ours cannot be built.
 2. With no storage or terminal of our own in the room, everything is
    gathered in their biggest storage (cheapest minerals first: if the game
    refuses the deposit, the log says so and nothing more is moved).
-3. An empty leftover storage, terminal, extractor, lab or factory that
-   blocks one of ours is removed by the planner (`removed the empty
-   terminal MadDokMike left at 16,33`).
+3. An empty leftover is removed by the planner (`removed the empty
+   leftovers of MadDokMike: 1 terminal`).
 4. Our terminal is then built next to their storage. Its contents go
    through the terminal to the hub; what the hub does not take goes to the
    terminal room with the most free storage. Once their storage is empty it
@@ -645,13 +644,20 @@ else covers it (those stay locked, see `roomState.findLoot`).
   draws soldiers away from real intruders.
 
 The engine counts every owner's structures against the RCL allowance, so
-leftovers also use up our limits. An empty storage, terminal, extractor, lab
-or factory that blocks one of ours is removed by the planner; other types
-are not: a room holding three spawns of another player can never get a
-spawn of ours (under their ramparts they cannot be removed either). The planner then places nothing there and warns `no spawn
-can be placed`; helpers keep coming from the nearest RCL4 room and only
-upgrade with what they loot and harvest. Release such a room unless that is
-worth it.
+leftovers also use up our limits, and their ramparts stop our creeps and
+lock what they cover. On its pass (every `planner.interval` = 100 ticks per
+room, never with hostile creeps in the room) the planner therefore removes
+every structure of another player that holds nothing, ramparts first, and
+cancels their construction sites (`removed the empty leftovers of
+MadDokMike: 20 rampart, 3 spawn, 41 extension`, `removed 2 construction
+sites of other players`). At most `planner.leftoversPerPass` (50) go per
+pass; the rest follows on the next ticks. Set it to 0 to keep them.
+
+- One that still holds something stays until it is emptied, then goes on
+  the next pass. A nuker cannot be emptied, so a loaded one stays.
+- Ownerless structures (walls, roads, containers) are not touched.
+- Their ramparts are gone with the rest, however thick: a line that kept
+  third players out goes too, and our own perimeter is all that is left.
 
 ### Gates
 

@@ -32,6 +32,7 @@ module.exports = {
         maxSitesPerRoom: 10,    // soft cap, further limited by the 100-site account limit
         spawnFreeTiles: 3,      // destroy cheap blockers until every active spawn has this many exits
         pruneInactive: true,    // remove RCL-inactive extensions/towers that sit off the checkerboard
+        leftoversPerPass: 50,   // empty structures and sites of other players removed per pass (0: keep them)
         roadsFromRcl: 3,
         rampartsFromRcl: 4,     // ramparts over spawns, towers, storage and terminal
         // Once nothing else is left to build and the room has spare energy
